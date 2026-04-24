@@ -1,1 +1,7 @@
 project_id = "uojmvqkuyqkskbsxypji"
+
+[functions.book-ai]
+verify_jwt = false
+
+[functions.word-import]
+verify_jwt = true
