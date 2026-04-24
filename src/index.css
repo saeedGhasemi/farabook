@@ -86,10 +86,10 @@
       inset 0 -1px 0 hsla(222, 30%, 14%, 0.04),
       0 8px 32px -8px hsl(222 30% 14% / 0.12);
 
-    /* Sandblasted glass — increased translucency for true glass feel */
-    --glass-bg: hsla(220, 25%, 98%, 0.38);
-    --glass-bg-strong: hsla(220, 25%, 98%, 0.55);
-    --glass-border: hsla(220, 30%, 100%, 0.55);
+    /* Sandblasted glass — strong translucency, true frosted feel */
+    --glass-bg: hsla(220, 25%, 98%, 0.22);
+    --glass-bg-strong: hsla(220, 25%, 98%, 0.32);
+    --glass-border: hsla(220, 30%, 100%, 0.45);
     --glass-border-dark: hsla(222, 30%, 14%, 0.06);
 
     /* Motion */
