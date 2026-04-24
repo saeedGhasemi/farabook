@@ -324,12 +324,12 @@ const Reader = () => {
             <Button variant="ghost" size="sm" onClick={() => nav("/library")} className="gap-1.5">
               <Prev className="w-4 h-4" /> {t("back")}
             </Button>
-            {/* Mobile chapters trigger */}
+            {/* Chapters trigger — collapsible drawer on all viewports */}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setChaptersOpen(true)}
-              className="md:hidden gap-1.5"
+              className="gap-1.5"
             >
               <Menu className="w-4 h-4" />
               {lang === "fa" ? "فصل‌ها" : "Chapters"}
@@ -354,16 +354,8 @@ const Reader = () => {
           />
         </div>
 
-        {/* Two-column layout: sidebar + content */}
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6">
-          {/* Desktop sidebar */}
-          <div className="hidden md:block sticky top-24 self-start max-h-[calc(100vh-8rem)]">
-            <ChapterSidebar
-              chapters={chapters}
-              current={pageIdx}
-              onSelect={(i) => goTo(i)}
-            />
-          </div>
+        {/* Single-column layout — chapter sidebar is now always opened via drawer */}
+        <div className="max-w-4xl mx-auto">
 
           {/* Page */}
           <div className="relative" style={{ perspective: 2200 }}>
@@ -377,7 +369,7 @@ const Reader = () => {
                 exit={{ rotateY: flipDir * -60, opacity: 0, x: flipDir * -30 }}
                 transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
                 style={{ transformStyle: "preserve-3d", transformOrigin: dir === "rtl" ? "right center" : "left center" }}
-                className="paper-card rounded-3xl p-6 md:p-12 min-h-[60vh] book-shadow relative overflow-hidden"
+                className="paper-card rounded-3xl p-6 md:p-12 min-h-[60vh] book-shadow relative overflow-hidden no-native-callout"
               >
                 <div className="absolute top-0 inset-x-0 h-1 bg-gradient-gold opacity-50" />
                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
