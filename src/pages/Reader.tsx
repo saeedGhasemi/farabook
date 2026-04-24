@@ -324,12 +324,12 @@ const Reader = () => {
             <Button variant="ghost" size="sm" onClick={() => nav("/library")} className="gap-1.5">
               <Prev className="w-4 h-4" /> {t("back")}
             </Button>
-            {/* Mobile chapters trigger */}
+            {/* Chapters trigger — collapsible drawer on all viewports */}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setChaptersOpen(true)}
-              className="md:hidden gap-1.5"
+              className="gap-1.5"
             >
               <Menu className="w-4 h-4" />
               {lang === "fa" ? "فصل‌ها" : "Chapters"}
