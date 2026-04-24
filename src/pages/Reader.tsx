@@ -126,16 +126,50 @@ const Reader = () => {
   }, [pageIdx, book]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current = null;
+    }
     if (ambient === "off") return;
     const src = ambientSrc[ambient];
     if (!src) return;
     const a = new Audio(src);
-    a.loop = true; a.volume = 0.25;
-    a.play().catch(() => {});
+    a.crossOrigin = "anonymous";
+    a.loop = true;
+    a.volume = 0;
+    a.preload = "auto";
     audioRef.current = a;
-    return () => { a.pause(); };
-  }, [ambient]);
+
+    const playPromise = a.play();
+    if (playPromise) {
+      playPromise.then(() => {
+        // fade-in over 1.2s
+        const target = 0.28;
+        const steps = 20;
+        let n = 0;
+        const fade = window.setInterval(() => {
+          n++;
+          if (audioRef.current === a) a.volume = Math.min(target, (target * n) / steps);
+          if (n >= steps) window.clearInterval(fade);
+        }, 60);
+      }).catch(() => {
+        // Autoplay blocked — wait for first user interaction
+        const resume = () => {
+          a.play().then(() => { a.volume = 0.28; }).catch(() => {});
+          window.removeEventListener("pointerdown", resume);
+          window.removeEventListener("keydown", resume);
+        };
+        window.addEventListener("pointerdown", resume, { once: true });
+        window.addEventListener("keydown", resume, { once: true });
+        toast.info(lang === "fa" ? "برای پخش صدای محیطی روی صفحه کلیک کنید" : "Tap the page to start ambient sound");
+      });
+    }
+    return () => {
+      a.pause();
+      a.src = "";
+    };
+  }, [ambient, lang]);
 
   useEffect(() => () => { speechSynthesis.cancel(); }, []);
   useEffect(() => {
