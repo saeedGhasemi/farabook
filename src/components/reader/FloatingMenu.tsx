@@ -1,19 +1,11 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Sparkles, BrainCircuit, ListChecks, Lightbulb, Volume2, VolumeX,
-  Settings2, Highlighter, Plus, X, Sun, Moon,
-  CloudRain, Trees, Coffee, Stars, VolumeOff,
+  Search, Sparkles, BrainCircuit, ListChecks, Lightbulb,
+  Volume2, VolumeX, Highlighter, Settings2, Sun, Moon,
+  CloudRain, Trees, Coffee, Stars, VolumeOff, Menu, BookmarkCheck,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
-
-interface Action {
-  id: string;
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  onClick: () => void;
-  color?: string;
-}
 
 interface Props {
   onAi: (mode: "summary" | "quiz" | "mindmap" | "explain") => void;
@@ -21,7 +13,11 @@ interface Props {
   onStopSpeak: () => void;
   isSpeaking: boolean;
   onToggleHighlight: () => void;
-  onToggleSettings: () => void;
+  highlightMode: boolean;
+  onOpenSettings: () => void;
+  onOpenChapters: () => void;
+  onOpenHighlights: () => void;
+  highlightCount: number;
   dark: boolean;
   onToggleDark: () => void;
   ambient: string;
@@ -37,131 +33,174 @@ const ambientOpts = [
 ];
 
 export const FloatingMenu = ({
-  onAi, onSpeak, onStopSpeak, isSpeaking, onToggleHighlight,
-  onToggleSettings, dark, onToggleDark, ambient, onAmbient,
+  onAi, onSpeak, onStopSpeak, isSpeaking, onToggleHighlight, highlightMode,
+  onOpenSettings, onOpenChapters, onOpenHighlights, highlightCount,
+  dark, onToggleDark, ambient, onAmbient,
 }: Props) => {
-  const { t, dir } = useI18n();
-  const [open, setOpen] = useState(false);
-  const [showAmbient, setShowAmbient] = useState(false);
+  const { t, lang } = useI18n();
+  const [aiOpen, setAiOpen] = useState(false);
+  const [ambOpen, setAmbOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
-  const aiActions: Action[] = [
-    { id: "summary", icon: Sparkles, label: t("ai_summary"), onClick: () => { onAi("summary"); setOpen(false); } },
-    { id: "quiz", icon: ListChecks, label: t("ai_quiz"), onClick: () => { onAi("quiz"); setOpen(false); } },
-    { id: "mindmap", icon: BrainCircuit, label: t("ai_mindmap"), onClick: () => { onAi("mindmap"); setOpen(false); } },
-    { id: "explain", icon: Lightbulb, label: t("ai_explain"), onClick: () => { onAi("explain"); setOpen(false); } },
+  const aiActions = [
+    { id: "summary", icon: Sparkles, label: t("ai_summary"), mode: "summary" as const },
+    { id: "quiz", icon: ListChecks, label: t("ai_quiz"), mode: "quiz" as const },
+    { id: "mindmap", icon: BrainCircuit, label: t("ai_mindmap"), mode: "mindmap" as const },
+    { id: "explain", icon: Lightbulb, label: t("ai_explain"), mode: "explain" as const },
   ];
 
-  const sideActions: Action[] = [
-    {
-      id: "voice",
-      icon: isSpeaking ? VolumeX : Volume2,
-      label: isSpeaking ? t("stop") : t("listen"),
-      onClick: () => (isSpeaking ? onStopSpeak() : onSpeak()),
-    },
-    { id: "highlight", icon: Highlighter, label: t("highlight"), onClick: onToggleHighlight },
-    { id: "ambient", icon: ambient === "off" ? VolumeOff : CloudRain, label: t("ambient"), onClick: () => setShowAmbient((v) => !v) },
-    { id: "theme", icon: dark ? Sun : Moon, label: dark ? t("light") : t("dark"), onClick: onToggleDark },
-    { id: "settings", icon: Settings2, label: t("settings"), onClick: onToggleSettings },
-  ];
-
-  const side = dir === "rtl" ? "left-6" : "right-6";
+  const Item = ({
+    icon: Icon, label, onClick, active, badge,
+  }: {
+    icon: React.ComponentType<{ className?: string }>;
+    label: string;
+    onClick: () => void;
+    active?: boolean;
+    badge?: number;
+  }) => (
+    <button
+      onClick={onClick}
+      title={label}
+      className={`relative shrink-0 flex flex-col items-center justify-center gap-1 w-14 h-14 rounded-2xl transition-all hover:scale-105 ${
+        active
+          ? "bg-gradient-warm text-primary-foreground shadow-glow"
+          : "text-foreground/75 hover:text-foreground hover:bg-foreground/5"
+      }`}
+    >
+      <Icon className="w-[18px] h-[18px]" />
+      <span className="text-[10px] font-medium leading-none whitespace-nowrap max-w-[52px] truncate">
+        {label}
+      </span>
+      {badge !== undefined && badge > 0 && (
+        <span className="absolute top-1 end-1 min-w-[16px] h-4 px-1 rounded-full bg-accent text-accent-foreground text-[9px] font-bold flex items-center justify-center">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
+    </button>
+  );
 
   return (
     <>
-      {/* Side mini-toolbar (always visible on desktop) */}
-      <div className={`fixed top-1/2 -translate-y-1/2 ${side} z-40 hidden md:flex flex-col gap-2 glass-strong rounded-2xl p-2 shadow-book`}>
-        {sideActions.map(({ id, icon: Icon, label, onClick }) => (
-          <button
-            key={id}
-            onClick={onClick}
-            title={label}
-            className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-accent/20 hover:text-accent transition-all hover:scale-110 group relative"
-          >
-            <Icon className="w-4 h-4" />
-            <span className={`absolute ${dir === "rtl" ? "left-12" : "right-12"} top-1/2 -translate-y-1/2 px-2 py-1 rounded-md bg-foreground text-background text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity`}>
-              {label}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Ambient picker popover */}
+      {/* AI popup menu */}
       <AnimatePresence>
-        {showAmbient && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 10 }}
-            className={`fixed bottom-28 ${dir === "rtl" ? "left-6" : "right-6"} z-50 glass-strong rounded-2xl p-3 shadow-book grid grid-cols-5 gap-2`}
-          >
-            {ambientOpts.map(({ id, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => { onAmbient(id); setShowAmbient(false); }}
-                className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all ${
-                  ambient === id ? "bg-gradient-warm text-primary-foreground shadow-glow" : "hover:bg-accent/20"
-                }`}
-                title={t(`amb_${id}` as never)}
-              >
-                <Icon className="w-4 h-4" />
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Floating Action Button (FAB) - AI menu */}
-      <div className={`fixed bottom-6 ${dir === "rtl" ? "left-6" : "right-6"} z-50`}>
-        <AnimatePresence>
-          {open && (
+        {aiOpen && (
+          <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute bottom-16 end-0 flex flex-col gap-3 items-end"
+              onClick={() => setAiOpen(false)}
+              className="fixed inset-0 z-40"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="fixed left-1/2 -translate-x-1/2 bottom-28 z-50 glass-strong rounded-2xl p-2 shadow-book border border-accent/20 grid grid-cols-2 gap-1 w-[min(340px,90vw)]"
             >
-              {aiActions.map(({ id, icon: Icon, label, onClick }, i) => (
-                <motion.button
+              {aiActions.map(({ id, icon: Icon, label, mode }) => (
+                <button
                   key={id}
-                  initial={{ opacity: 0, x: dir === "rtl" ? -20 : 20, scale: 0.7 }}
-                  animate={{ opacity: 1, x: 0, scale: 1 }}
-                  exit={{ opacity: 0, x: dir === "rtl" ? -20 : 20, scale: 0.7 }}
-                  transition={{ duration: 0.25, delay: i * 0.05 }}
-                  onClick={onClick}
-                  className="flex items-center gap-3 glass-strong rounded-full ps-4 pe-2 py-2 shadow-book hover:shadow-glow hover:bg-accent/20 transition-all group"
+                  onClick={() => { onAi(mode); setAiOpen(false); }}
+                  className="flex items-center gap-2.5 p-3 rounded-xl hover:bg-accent/15 transition-colors text-start"
                 >
-                  <span className="text-sm font-medium whitespace-nowrap">{label}</span>
-                  <span className="w-9 h-9 rounded-full bg-gradient-warm flex items-center justify-center text-primary-foreground group-hover:scale-110 transition-transform">
+                  <span className="w-9 h-9 rounded-lg bg-gradient-warm flex items-center justify-center text-primary-foreground shrink-0">
                     <Icon className="w-4 h-4" />
                   </span>
-                </motion.button>
+                  <span className="text-sm font-medium">{label}</span>
+                </button>
               ))}
             </motion.div>
-          )}
-        </AnimatePresence>
+          </>
+        )}
+      </AnimatePresence>
 
-        <motion.button
-          onClick={() => setOpen(!open)}
-          whileTap={{ scale: 0.92 }}
-          animate={{ rotate: open ? 135 : 0 }}
-          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="w-14 h-14 rounded-full bg-gradient-warm shadow-glow flex items-center justify-center text-primary-foreground relative overflow-hidden"
-          aria-label="AI menu"
-        >
-          <motion.div
-            className="absolute inset-0 bg-gradient-gold opacity-0"
-            animate={{ opacity: open ? 0.5 : 0 }}
-          />
-          {open ? <X className="w-6 h-6 relative" /> : <Sparkles className="w-6 h-6 relative" />}
-          {!open && (
+      {/* Ambient popup */}
+      <AnimatePresence>
+        {ambOpen && (
+          <>
             <motion.div
-              className="absolute inset-0 rounded-full border-2 border-accent"
-              animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0, 0.6] }}
-              transition={{ duration: 2, repeat: Infinity }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setAmbOpen(false)}
+              className="fixed inset-0 z-40"
             />
-          )}
-        </motion.button>
-      </div>
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              className="fixed left-1/2 -translate-x-1/2 bottom-28 z-50 glass-strong rounded-2xl p-3 shadow-book border border-accent/20 flex gap-2"
+            >
+              {ambientOpts.map(({ id, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => { onAmbient(id); setAmbOpen(false); }}
+                  className={`flex flex-col items-center gap-1 w-14 h-14 rounded-xl transition-all ${
+                    ambient === id
+                      ? "bg-gradient-warm text-primary-foreground shadow-glow"
+                      : "hover:bg-accent/15"
+                  }`}
+                  title={t(`amb_${id}` as never)}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="text-[10px]">{t(`amb_${id}` as never)}</span>
+                </button>
+              ))}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* More popup (mobile overflow) */}
+      <AnimatePresence>
+        {moreOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setMoreOpen(false)}
+              className="fixed inset-0 z-40"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              className="fixed left-1/2 -translate-x-1/2 bottom-28 z-50 glass-strong rounded-2xl p-2 shadow-book border border-accent/20 flex gap-1"
+            >
+              <Item icon={dark ? Sun : Moon} label={dark ? t("light") : t("dark")} onClick={() => { onToggleDark(); setMoreOpen(false); }} />
+              <Item icon={Settings2} label={t("settings")} onClick={() => { onOpenSettings(); setMoreOpen(false); }} />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Bottom dock */}
+      <motion.nav
+        initial={{ y: 100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 glass-strong rounded-3xl px-2 py-2 shadow-book border border-border/60 flex items-center gap-1 max-w-[calc(100vw-2rem)]"
+      >
+        <Item icon={Menu} label={lang === "fa" ? "فصل‌ها" : "Chapters"} onClick={onOpenChapters} />
+        <Item icon={Sparkles} label={lang === "fa" ? "هوش مصنوعی" : "AI"} onClick={() => setAiOpen((v) => !v)} active={aiOpen} />
+        <Item
+          icon={isSpeaking ? VolumeX : Volume2}
+          label={isSpeaking ? t("stop") : t("listen")}
+          onClick={() => (isSpeaking ? onStopSpeak() : onSpeak())}
+          active={isSpeaking}
+        />
+        <Item icon={Highlighter} label={t("highlight")} onClick={onToggleHighlight} active={highlightMode} />
+        <Item icon={BookmarkCheck} label={lang === "fa" ? "نشان‌ها" : "Notes"} onClick={onOpenHighlights} badge={highlightCount} />
+        <Item icon={ambient === "off" ? VolumeOff : CloudRain} label={t("ambient")} onClick={() => setAmbOpen((v) => !v)} active={ambient !== "off"} />
+        <div className="hidden sm:flex items-center gap-1">
+          <Item icon={dark ? Sun : Moon} label={dark ? t("light") : t("dark")} onClick={onToggleDark} />
+          <Item icon={Settings2} label={t("settings")} onClick={onOpenSettings} />
+        </div>
+        <div className="sm:hidden">
+          <Item icon={Search} label={lang === "fa" ? "بیشتر" : "More"} onClick={() => setMoreOpen((v) => !v)} />
+        </div>
+      </motion.nav>
     </>
   );
 };
