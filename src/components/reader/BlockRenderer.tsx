@@ -102,58 +102,104 @@ const renderWithHighlights = (
 const InteractiveImage = ({
   src, caption, hotspots,
 }: { src: string; caption?: string; hotspots?: Hotspot[] }) => {
+  const [zoomed, setZoomed] = useState(false);
   return (
-    <figure className="my-6 group">
-      <div className="relative overflow-hidden rounded-2xl book-shadow">
-        <img
-          src={resolveImg(src)}
-          alt={caption || ""}
-          loading="lazy"
-          width={1280}
-          height={768}
-          className="w-full h-auto transition-transform duration-700 group-hover:scale-[1.02]"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-foreground/40 via-transparent to-transparent pointer-events-none" />
+    <>
+      <figure className="my-6 group">
+        <div className="relative overflow-hidden rounded-2xl book-shadow">
+          <button
+            type="button"
+            onClick={() => setZoomed(true)}
+            className="block w-full cursor-zoom-in"
+            aria-label={caption || "zoom"}
+          >
+            <img
+              src={resolveImg(src)}
+              alt={caption || ""}
+              loading="lazy"
+              width={1280}
+              height={768}
+              className="w-full h-auto transition-transform duration-700 group-hover:scale-[1.02]"
+            />
+          </button>
+          <div className="absolute inset-0 bg-gradient-to-t from-foreground/40 via-transparent to-transparent pointer-events-none" />
 
-        {hotspots?.map((h, i) => (
-          <Popover key={i}>
-            <PopoverTrigger asChild>
-              <button
-                className="absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 group/dot"
-                style={{ left: `${h.x}%`, top: `${h.y}%` }}
-                aria-label={h.label}
-              >
-                <span className="absolute inset-0 rounded-full bg-accent/40 animate-ping" />
-                <span className="absolute inset-1 rounded-full bg-gradient-warm shadow-glow flex items-center justify-center text-primary-foreground">
-                  <Plus className="w-4 h-4" />
-                </span>
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="glass-strong border-accent/30 w-72 p-4">
-              <div className="flex items-start gap-2">
-                <Sparkles className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-display font-bold text-sm mb-1">{h.label}</h4>
-                  <p className="text-sm text-foreground/80 leading-relaxed">{h.description}</p>
+          {hotspots?.map((h, i) => (
+            <Popover key={i}>
+              <PopoverTrigger asChild>
+                <button
+                  className="absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 group/dot"
+                  style={{ left: `${h.x}%`, top: `${h.y}%` }}
+                  aria-label={h.label}
+                >
+                  <span className="absolute inset-0 rounded-full bg-accent/40 animate-ping" />
+                  <span className="absolute inset-1 rounded-full bg-gradient-warm shadow-glow flex items-center justify-center text-primary-foreground">
+                    <Plus className="w-4 h-4" />
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="glass-strong border-accent/30 w-72 p-4">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-display font-bold text-sm mb-1">{h.label}</h4>
+                    <p className="text-sm text-foreground/80 leading-relaxed">{h.description}</p>
+                  </div>
                 </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-        ))}
+              </PopoverContent>
+            </Popover>
+          ))}
 
-        {hotspots && hotspots.length > 0 && (
-          <div className="absolute bottom-3 start-3 glass rounded-full px-3 py-1 text-xs flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-accent" />
-            <span>{hotspots.length} نکتهٔ تعاملی</span>
-          </div>
+          {hotspots && hotspots.length > 0 && (
+            <div className="absolute bottom-3 start-3 glass rounded-full px-3 py-1 text-xs flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-accent" />
+              <span>{hotspots.length} نکتهٔ تعاملی</span>
+            </div>
+          )}
+        </div>
+        {caption && (
+          <figcaption className="mt-2 text-sm text-muted-foreground italic text-center">
+            {caption}
+          </figcaption>
         )}
-      </div>
-      {caption && (
-        <figcaption className="mt-2 text-sm text-muted-foreground italic text-center">
-          {caption}
-        </figcaption>
-      )}
-    </figure>
+      </figure>
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {zoomed && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setZoomed(false)}
+            className="fixed inset-0 z-[80] bg-foreground/85 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
+          >
+            <button
+              onClick={() => setZoomed(false)}
+              className="absolute top-4 end-4 w-10 h-10 rounded-full glass-strong flex items-center justify-center"
+              aria-label="close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <motion.img
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              src={resolveImg(src)}
+              alt={caption || ""}
+              className="max-w-[95vw] max-h-[90vh] object-contain rounded-2xl shadow-book"
+              onClick={(e) => e.stopPropagation()}
+            />
+            {caption && (
+              <p className="absolute bottom-6 inset-x-0 text-center text-background/90 text-sm px-6 max-w-3xl mx-auto">
+                {caption}
+              </p>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 
