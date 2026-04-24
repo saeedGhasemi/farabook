@@ -370,18 +370,26 @@
   .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
   .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
 
-  /* Suppress mobile browser native callout/share/copy menu when highlighting.
-     Selection is still allowed via .allow-select children. */
+  /* === Aggressive suppression of native browser selection menus on mobile.
+     Used on the reading article. Children with .allow-select can still be selected. ===*/
   .no-native-callout {
     -webkit-touch-callout: none !important;
-    -webkit-user-select: text;
-    user-select: text;
-    /* Disable iOS share menu / Android long-press popup */
     -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
   }
   .no-native-callout * {
     -webkit-touch-callout: none !important;
   }
+  /* When in highlight mode, allow text selection only on selectable surfaces */
+  .hl-mode .selectable,
+  .hl-mode .selectable * {
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    -webkit-touch-callout: none !important;
+  }
+  /* Hide the native context menu by killing pointer events on selection range
+     handles isn't possible — but we can intercept contextmenu in JS (Reader.tsx). */
 }
 
 @keyframes float-slow {
