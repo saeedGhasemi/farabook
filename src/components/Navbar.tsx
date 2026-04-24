@@ -1,16 +1,25 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BookOpen, Library, Store, LogIn, LogOut, Languages } from "lucide-react";
+import { BookOpen, Library, Store, LogIn, LogOut, Languages, Palette } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme, type Theme } from "@/lib/theme";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export const Navbar = () => {
   const { t, lang, setLang, dir } = useI18n();
   const { user } = useAuth();
+  const { theme, setTheme } = useTheme();
   const loc = useLocation();
   const nav = useNavigate();
+
+  const themes: { value: Theme; label: string; swatch: string }[] = [
+    { value: "silver", label: lang === "fa" ? "نقره‌ای" : "Silver", swatch: "linear-gradient(135deg,#c8d0db,#8a96a8)" },
+    { value: "sky", label: lang === "fa" ? "آبی آسمانی" : "Sky Blue", swatch: "linear-gradient(135deg,#7dd3fc,#0284c7)" },
+    { value: "paper", label: lang === "fa" ? "کاغذ" : "Paper", swatch: "linear-gradient(135deg,#f5e9c8,#b8854a)" },
+  ];
 
   const links = [
     { to: "/", label: t("nav_home"), icon: BookOpen },
@@ -60,6 +69,24 @@ export const Navbar = () => {
           </nav>
 
           <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-1.5" title={lang === "fa" ? "تم" : "Theme"}>
+                  <Palette className="w-4 h-4" />
+                  <span className="hidden sm:inline w-4 h-4 rounded-full border border-border" style={{ background: themes.find(t => t.value === theme)?.swatch }} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="glass-strong">
+                {themes.map((th) => (
+                  <DropdownMenuItem key={th.value} onClick={() => setTheme(th.value)} className="gap-3 cursor-pointer">
+                    <span className="w-5 h-5 rounded-full border border-border shadow-soft" style={{ background: th.swatch }} />
+                    <span>{th.label}</span>
+                    {theme === th.value && <span className="ms-auto text-xs text-accent">✓</span>}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button
               variant="ghost"
               size="sm"
