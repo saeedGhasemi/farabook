@@ -405,7 +405,8 @@ const Reader = () => {
                         block={block}
                         fontSize={fontSize}
                         index={i}
-                        savedHighlights={pageHighlights.map((h) => ({ text: h.text, color: h.color || "yellow" }))}
+                        savedHighlights={pageHighlights.map((h) => ({ id: h.id, text: h.text, color: h.color || "yellow" }))}
+                        onHighlightClick={() => setHighlightsOpen(true)}
                       />
                     ))}
                   </div>
