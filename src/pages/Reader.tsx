@@ -45,7 +45,7 @@ const Reader = () => {
   const [book, setBook] = useState<Book | null>(null);
   const [pageIdx, setPageIdx] = useState(0);
   const [flipDir, setFlipDir] = useState<1 | -1>(1);
-  const [fontSize, setFontSize] = useState(19);
+  const [fontSize, setFontSize] = useState(16);
   const [voiceSpeed, setVoiceSpeed] = useState(1);
   const [dark, setDark] = useState(false);
   const [ambient, setAmbient] = useState<string>("off");
@@ -126,16 +126,50 @@ const Reader = () => {
   }, [pageIdx, book]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current = null;
+    }
     if (ambient === "off") return;
     const src = ambientSrc[ambient];
     if (!src) return;
     const a = new Audio(src);
-    a.loop = true; a.volume = 0.25;
-    a.play().catch(() => {});
+    a.crossOrigin = "anonymous";
+    a.loop = true;
+    a.volume = 0;
+    a.preload = "auto";
     audioRef.current = a;
-    return () => { a.pause(); };
-  }, [ambient]);
+
+    const playPromise = a.play();
+    if (playPromise) {
+      playPromise.then(() => {
+        // fade-in over 1.2s
+        const target = 0.28;
+        const steps = 20;
+        let n = 0;
+        const fade = window.setInterval(() => {
+          n++;
+          if (audioRef.current === a) a.volume = Math.min(target, (target * n) / steps);
+          if (n >= steps) window.clearInterval(fade);
+        }, 60);
+      }).catch(() => {
+        // Autoplay blocked — wait for first user interaction
+        const resume = () => {
+          a.play().then(() => { a.volume = 0.28; }).catch(() => {});
+          window.removeEventListener("pointerdown", resume);
+          window.removeEventListener("keydown", resume);
+        };
+        window.addEventListener("pointerdown", resume, { once: true });
+        window.addEventListener("keydown", resume, { once: true });
+        toast.info(lang === "fa" ? "برای پخش صدای محیطی روی صفحه کلیک کنید" : "Tap the page to start ambient sound");
+      });
+    }
+    return () => {
+      a.pause();
+      a.src = "";
+    };
+  }, [ambient, lang]);
 
   useEffect(() => () => { speechSynthesis.cancel(); }, []);
   useEffect(() => {
@@ -371,7 +405,8 @@ const Reader = () => {
                         block={block}
                         fontSize={fontSize}
                         index={i}
-                        savedHighlights={pageHighlights.map((h) => ({ text: h.text, color: h.color || "yellow" }))}
+                        savedHighlights={pageHighlights.map((h) => ({ id: h.id, text: h.text, color: h.color || "yellow" }))}
+                        onHighlightClick={() => setHighlightsOpen(true)}
                       />
                     ))}
                   </div>
@@ -464,9 +499,12 @@ const Reader = () => {
         onDelete={deleteHighlight}
       />
 
-      {/* Mobile chapters drawer */}
+      {/* Mobile chapters drawer with blur backdrop */}
       <Sheet open={chaptersOpen} onOpenChange={setChaptersOpen}>
-        <SheetContent side={dir === "rtl" ? "right" : "left"} className="p-0 w-[300px] sm:w-[340px]">
+        <SheetContent
+          side={dir === "rtl" ? "right" : "left"}
+          className="p-0 w-[88vw] sm:w-[360px] glass-strong border-s border-border/40"
+        >
           <SheetHeader className="sr-only">
             <SheetTitle>{lang === "fa" ? "فصل‌ها" : "Chapters"}</SheetTitle>
           </SheetHeader>

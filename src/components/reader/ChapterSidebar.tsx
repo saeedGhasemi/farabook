@@ -22,8 +22,8 @@ export const ChapterSidebar = ({ chapters, current, onSelect, onClose, variant =
     <aside
       className={
         variant === "panel"
-          ? "h-full w-full glass-strong rounded-3xl p-4 shadow-paper border border-border/60 flex flex-col"
-          : "h-full w-full bg-card flex flex-col"
+          ? "h-full w-full glass-strong rounded-3xl p-4 flex flex-col"
+          : "h-full w-full p-4 flex flex-col bg-transparent"
       }
     >
       <header className="flex items-center justify-between px-2 py-2 mb-2">

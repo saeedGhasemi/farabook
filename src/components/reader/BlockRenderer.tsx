@@ -56,19 +56,23 @@ export type Block =
   | { type: "video"; src: string; poster?: string; caption?: string }
   | { type: "callout"; icon?: "info" | "sparkle"; text: string };
 
-interface SavedHL { text: string; color: string }
+interface SavedHL { id?: string; text: string; color: string }
 
 interface Props {
   block: Block;
   fontSize: number;
   index: number;
   savedHighlights?: SavedHL[];
+  onHighlightClick?: (hl: SavedHL) => void;
 }
 
-/* Render text with inline yellow/colored highlight spans for saved highlights */
-const renderWithHighlights = (text: string, hls?: SavedHL[]): React.ReactNode => {
+/* Render text with inline colored highlight spans — clickable & vivid */
+const renderWithHighlights = (
+  text: string,
+  hls?: SavedHL[],
+  onClick?: (hl: SavedHL) => void,
+): React.ReactNode => {
   if (!hls || hls.length === 0) return text;
-  // Sort by length desc to match longest first
   const sorted = [...hls].sort((a, b) => b.text.length - a.text.length);
   const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(`(${sorted.map((h) => escape(h.text)).join("|")})`, "g");
@@ -76,11 +80,16 @@ const renderWithHighlights = (text: string, hls?: SavedHL[]): React.ReactNode =>
   return parts.map((p, i) => {
     const match = sorted.find((h) => h.text === p);
     if (!match) return <span key={i}>{p}</span>;
+    const color = match.color || "yellow";
     return (
       <mark
         key={i}
-        className="rounded px-0.5 -mx-0.5 text-foreground"
-        style={{ background: `hsl(var(--hl-${match.color}) / 0.55)`, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" } as React.CSSProperties}
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onClick={onClick ? () => onClick(match) : undefined}
+        onKeyDown={onClick ? (e) => { if (e.key === "Enter") onClick(match); } : undefined}
+        className={`hl-${color} text-foreground`}
+        title={onClick ? "مشاهده در نشان‌ها" : undefined}
       >
         {p}
       </mark>
@@ -247,7 +256,7 @@ const Slideshow = ({
 
 /* ---------- Main renderer ---------- */
 
-export const BlockRenderer = ({ block, fontSize, index, savedHighlights }: Props) => {
+export const BlockRenderer = ({ block, fontSize, index, savedHighlights, onHighlightClick }: Props) => {
   const delay = Math.min(index * 0.05, 0.3);
   const fade = {
     initial: { opacity: 0, y: 12 },
@@ -258,29 +267,31 @@ export const BlockRenderer = ({ block, fontSize, index, savedHighlights }: Props
   switch (block.type) {
     case "heading":
       return (
-        <motion.h3 {...fade} className="text-2xl md:text-3xl font-display font-bold gold-text mt-2 mb-4">
+        <motion.h3 {...fade} className="text-xl md:text-2xl font-display font-bold gold-text mt-6 mb-3 leading-tight">
           {block.text}
         </motion.h3>
       );
 
-    case "paragraph":
+    case "paragraph": {
+      const isFirst = index === 0;
       return (
         <motion.p
           {...fade}
-          className="text-foreground/90 leading-loose whitespace-pre-line text-balance"
-          style={{ fontSize: `${fontSize}px`, lineHeight: 1.95 }}
+          className={`text-foreground/90 leading-loose whitespace-pre-line text-pretty ${isFirst ? "drop-cap" : ""}`}
+          style={{ fontSize: `${fontSize}px`, lineHeight: 1.85 }}
         >
-          {renderWithHighlights(block.text, savedHighlights)}
+          {renderWithHighlights(block.text, savedHighlights, onHighlightClick)}
         </motion.p>
       );
+    }
 
     case "quote":
       return (
-        <motion.figure {...fade} className="my-6 relative pl-6 rtl:pl-0 rtl:pr-6">
+        <motion.figure {...fade} className="my-8 relative ps-6">
           <div className="absolute top-0 start-0 w-1 h-full bg-gradient-warm rounded-full" />
-          <QuoteIcon className="w-6 h-6 text-accent mb-2 opacity-70" />
+          <QuoteIcon className="w-6 h-6 text-accent mb-2 opacity-60" />
           <blockquote
-            className="font-display italic text-foreground/95 leading-relaxed text-balance"
+            className="pull-quote text-foreground/95 leading-relaxed text-balance"
             style={{ fontSize: `${fontSize + 2}px` }}
           >
             "{block.text}"
