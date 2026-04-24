@@ -84,6 +84,39 @@ const Auth = () => {
           >
             {mode === "signin" ? t("switch_signup") : t("switch_signin")}
           </button>
+
+          <div className="mt-4 pt-4 border-t border-border/40">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const testEmail = "demo@magicread.app";
+                  const testPassword = "demo123456";
+                  let { error } = await supabase.auth.signInWithPassword({ email: testEmail, password: testPassword });
+                  if (error) {
+                    const { error: signupErr } = await supabase.auth.signUp({
+                      email: testEmail,
+                      password: testPassword,
+                      options: { emailRedirectTo: `${window.location.origin}/library` },
+                    });
+                    if (signupErr && !signupErr.message.includes("registered")) throw signupErr;
+                    const retry = await supabase.auth.signInWithPassword({ email: testEmail, password: testPassword });
+                    if (retry.error) throw retry.error;
+                  }
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Error");
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              className="w-full h-11"
+            >
+              🚀 ورود سریع با کاربر تستی
+            </Button>
+          </div>
         </div>
       </motion.div>
     </main>
