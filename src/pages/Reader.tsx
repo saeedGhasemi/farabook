@@ -398,11 +398,32 @@ const Reader = () => {
                   backgroundSize: "60px 60px, 80px 80px",
                 }} />
 
-                <div className="relative">
+                <div className={`relative ${highlightMode ? "hl-mode" : ""}`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                       {t("page")} {pageIdx + 1}
                     </div>
+                    <div className="h-px flex-1 mx-4 bg-gradient-to-r from-transparent via-border to-transparent" />
+                    <div className="text-xs text-accent font-medium">✦</div>
+                  </div>
+
+                  <h2 className="text-3xl md:text-5xl font-display font-bold mb-8 gold-text leading-tight">
+                    {currentPage.title}
+                  </h2>
+
+                  <div className={`space-y-4 selectable ${highlightMode ? "selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text" : ""}`}>
+                    {blocks.map((block, i) => (
+                      <BlockRenderer
+                        key={i}
+                        block={block}
+                        fontSize={fontSize}
+                        index={i}
+                        savedHighlights={pageHighlights.map((h) => ({ id: h.id, text: h.text, color: h.color || "yellow" }))}
+                        onHighlightClick={() => setHighlightsOpen(true)}
+                      />
+                    ))}
+                  </div>
+                </div>
                     <div className="h-px flex-1 mx-4 bg-gradient-to-r from-transparent via-border to-transparent" />
                     <div className="text-xs text-accent font-medium">✦</div>
                   </div>
