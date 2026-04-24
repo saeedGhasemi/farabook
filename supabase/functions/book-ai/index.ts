@@ -14,13 +14,23 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const sys = lang === "fa"
-      ? (mode === "quiz"
-          ? "از متن زیر یک سؤال چهارگزینه‌ای مفهومی و کاربردی به فارسی بساز. فقط JSON با کلیدهای question, options (آرایه ۴ گزینه), correct_index برگردان."
-          : "متن زیر را به فارسی روان و کوتاه (حداکثر ۳ جمله) خلاصه کن. فقط متن خلاصه را بنویس.")
-      : (mode === "quiz"
-          ? "Create one multiple choice conceptual question from the text. Return only JSON with keys question, options (array of 4), correct_index."
-          : "Summarize the text in 3 short sentences. Only return the summary.");
+    const fa = lang === "fa";
+    const prompts: Record<string, string> = {
+      summary: fa
+        ? "متن زیر را به فارسی روان و ادبی در ۳ تا ۴ جمله خلاصه کن. فقط متن خلاصه را بنویس بدون مقدمه."
+        : "Summarize the text in 3-4 elegant sentences. Only return the summary, no preamble.",
+      quiz: fa
+        ? "از متن زیر یک پرسش چهارگزینه‌ای مفهومی و عمیق به فارسی بساز. خروجی را دقیقاً به این فرمت بده:\n\nسوال: [پرسش]\n۱) [گزینه]\n۲) [گزینه]\n۳) [گزینه]\n۴) [گزینه]\nپاسخ صحیح: [شماره]\nتوضیح: [دلیل کوتاه]"
+        : "Create one deep conceptual multiple-choice question. Format:\n\nQuestion: ...\n1) ...\n2) ...\n3) ...\n4) ...\nCorrect: [number]\nExplanation: ...",
+      mindmap: fa
+        ? "از متن زیر یک نقشهٔ ذهنی متنی به این صورت بساز:\n\n● موضوع اصلی\n  ○ شاخه ۱\n    - نکته\n    - نکته\n  ○ شاخه ۲\n    - نکته\n\nحداکثر ۳ شاخه اصلی و در هر کدام ۲ تا ۳ نکته. فارسی روان."
+        : "Create a text mind-map:\n\n● Main topic\n  ○ Branch 1\n    - point\n    - point\n  ○ Branch 2\n    - point\n\nMax 3 branches, 2-3 points each.",
+      explain: fa
+        ? "متن زیر را به زبان ساده و گفتاری برای یک نوجوان توضیح بده، با مثال روزمره. حداکثر ۴ جمله."
+        : "Explain the text in simple conversational language for a teen with a real-life example. Max 4 sentences.",
+    };
+
+    const sys = prompts[mode] ?? prompts.summary;
 
     const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -34,12 +44,12 @@ Deno.serve(async (req) => {
       }),
     });
 
-    if (r.status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    if (r.status === 402) return new Response(JSON.stringify({ error: "credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (r.status === 429) return new Response(JSON.stringify({ error: "محدودیت درخواست. کمی صبر کنید." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (r.status === 402) return new Response(JSON.stringify({ error: "اعتبار AI تمام شده است." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     if (!r.ok) {
       const err = await r.text();
       console.error("AI gateway", r.status, err);
-      return new Response(JSON.stringify({ error: "ai_error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "خطای هوش مصنوعی" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const data = await r.json();
     const content = data?.choices?.[0]?.message?.content ?? "";
