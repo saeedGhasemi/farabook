@@ -254,13 +254,21 @@ const Reader = () => {
     };
     document.addEventListener("mouseup", handler);
     document.addEventListener("touchend", handler);
+    // Aggressively block native context/share menus while in highlight mode
+    const blockCtx = (e: Event) => {
+      if (!highlightMode) return;
+      const target = e.target as HTMLElement | null;
+      if (target && articleRef.current?.contains(target)) e.preventDefault();
+    };
+    document.addEventListener("contextmenu", blockCtx);
     return () => {
       document.removeEventListener("mouseup", handler);
       document.removeEventListener("touchend", handler);
+      document.removeEventListener("contextmenu", blockCtx);
     };
   }, [highlightMode]);
 
-  const saveHighlight = async (color: string) => {
+  const saveHighlight = async (color: string, note?: string) => {
     if (!savePopover || !user || !id) return;
     const { data, error } = await supabase
       .from("highlights")
@@ -270,8 +278,9 @@ const Reader = () => {
         page_index: pageIdx,
         text: savePopover.text,
         color,
+        note: note || null,
       })
-      .select("id, text, page_index, color, created_at")
+      .select("id, text, page_index, color, created_at, note")
       .single();
     if (error) { toast.error(error.message); return; }
     if (data) {
@@ -280,6 +289,18 @@ const Reader = () => {
     }
     setSavePopover(null);
     window.getSelection()?.removeAllRanges();
+  };
+
+  const updateHighlightNote = async (hid: string, note: string) => {
+    const { error } = await supabase
+      .from("highlights")
+      .update({ note })
+      .eq("id", hid);
+    if (error) { toast.error(error.message); return; }
+    setHighlights((prev) =>
+      prev.map((h) => (h.id === hid ? { ...h, note } : h)),
+    );
+    toast.success(lang === "fa" ? "یادداشت ذخیره شد" : "Note saved");
   };
 
   const deleteHighlight = async (hid: string) => {
