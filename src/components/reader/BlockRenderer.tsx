@@ -56,19 +56,23 @@ export type Block =
   | { type: "video"; src: string; poster?: string; caption?: string }
   | { type: "callout"; icon?: "info" | "sparkle"; text: string };
 
-interface SavedHL { text: string; color: string }
+interface SavedHL { id?: string; text: string; color: string }
 
 interface Props {
   block: Block;
   fontSize: number;
   index: number;
   savedHighlights?: SavedHL[];
+  onHighlightClick?: (hl: SavedHL) => void;
 }
 
-/* Render text with inline yellow/colored highlight spans for saved highlights */
-const renderWithHighlights = (text: string, hls?: SavedHL[]): React.ReactNode => {
+/* Render text with inline colored highlight spans — clickable & vivid */
+const renderWithHighlights = (
+  text: string,
+  hls?: SavedHL[],
+  onClick?: (hl: SavedHL) => void,
+): React.ReactNode => {
   if (!hls || hls.length === 0) return text;
-  // Sort by length desc to match longest first
   const sorted = [...hls].sort((a, b) => b.text.length - a.text.length);
   const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(`(${sorted.map((h) => escape(h.text)).join("|")})`, "g");
@@ -76,11 +80,16 @@ const renderWithHighlights = (text: string, hls?: SavedHL[]): React.ReactNode =>
   return parts.map((p, i) => {
     const match = sorted.find((h) => h.text === p);
     if (!match) return <span key={i}>{p}</span>;
+    const color = match.color || "yellow";
     return (
       <mark
         key={i}
-        className="rounded px-0.5 -mx-0.5 text-foreground"
-        style={{ background: `hsl(var(--hl-${match.color}) / 0.55)`, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" } as React.CSSProperties}
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onClick={onClick ? () => onClick(match) : undefined}
+        onKeyDown={onClick ? (e) => { if (e.key === "Enter") onClick(match); } : undefined}
+        className={`hl-${color} text-foreground`}
+        title={onClick ? "مشاهده در نشان‌ها" : undefined}
       >
         {p}
       </mark>
