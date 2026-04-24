@@ -45,7 +45,7 @@ const Reader = () => {
   const [book, setBook] = useState<Book | null>(null);
   const [pageIdx, setPageIdx] = useState(0);
   const [flipDir, setFlipDir] = useState<1 | -1>(1);
-  const [fontSize, setFontSize] = useState(19);
+  const [fontSize, setFontSize] = useState(16);
   const [voiceSpeed, setVoiceSpeed] = useState(1);
   const [dark, setDark] = useState(false);
   const [ambient, setAmbient] = useState<string>("off");
