@@ -97,7 +97,7 @@ const Reader = () => {
     if (!user || !id) return;
     const { data } = await supabase
       .from("highlights")
-      .select("id, text, page_index, color, created_at")
+      .select("id, text, page_index, color, created_at, note")
       .eq("user_id", user.id).eq("book_id", id)
       .order("created_at", { ascending: false });
     if (data) setHighlights(data as HighlightItem[]);
