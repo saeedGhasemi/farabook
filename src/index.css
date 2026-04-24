@@ -166,8 +166,8 @@
       radial-gradient(ellipse 80% 60% at 30% 20%, hsl(40 70% 88% / 0.7) 0%, transparent 60%),
       radial-gradient(ellipse 70% 60% at 70% 80%, hsl(35 60% 85% / 0.6) 0%, transparent 60%),
       linear-gradient(180deg, hsl(38 40% 93%) 0%, hsl(36 30% 88%) 100%);
-    --glass-bg: hsla(40, 50%, 97%, 0.4);
-    --glass-bg-strong: hsla(40, 50%, 97%, 0.58);
+    --glass-bg: hsla(40, 50%, 97%, 0.25);
+    --glass-bg-strong: hsla(40, 50%, 97%, 0.35);
     --shadow-glow: 0 0 40px hsl(35 80% 60% / 0.4);
   }
 
