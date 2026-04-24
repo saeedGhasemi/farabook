@@ -499,9 +499,12 @@ const Reader = () => {
         onDelete={deleteHighlight}
       />
 
-      {/* Mobile chapters drawer */}
+      {/* Mobile chapters drawer with blur backdrop */}
       <Sheet open={chaptersOpen} onOpenChange={setChaptersOpen}>
-        <SheetContent side={dir === "rtl" ? "right" : "left"} className="p-0 w-[300px] sm:w-[340px]">
+        <SheetContent
+          side={dir === "rtl" ? "right" : "left"}
+          className="p-0 w-[88vw] sm:w-[360px] glass-strong border-s border-border/40"
+        >
           <SheetHeader className="sr-only">
             <SheetTitle>{lang === "fa" ? "فصل‌ها" : "Chapters"}</SheetTitle>
           </SheetHeader>
