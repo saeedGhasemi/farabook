@@ -510,6 +510,7 @@ const Reader = () => {
         onClose={() => setHighlightsOpen(false)}
         onJump={(i) => goTo(i)}
         onDelete={deleteHighlight}
+        onUpdateNote={updateHighlightNote}
       />
 
       {/* Mobile chapters drawer with blur backdrop */}
