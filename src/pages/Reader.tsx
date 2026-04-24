@@ -424,27 +424,6 @@ const Reader = () => {
                     ))}
                   </div>
                 </div>
-                    <div className="h-px flex-1 mx-4 bg-gradient-to-r from-transparent via-border to-transparent" />
-                    <div className="text-xs text-accent font-medium">✦</div>
-                  </div>
-
-                  <h2 className="text-3xl md:text-5xl font-display font-bold mb-8 gold-text leading-tight">
-                    {currentPage.title}
-                  </h2>
-
-                  <div className={`space-y-4 ${highlightMode ? "selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text" : ""}`}>
-                    {blocks.map((block, i) => (
-                      <BlockRenderer
-                        key={i}
-                        block={block}
-                        fontSize={fontSize}
-                        index={i}
-                        savedHighlights={pageHighlights.map((h) => ({ id: h.id, text: h.text, color: h.color || "yellow" }))}
-                        onHighlightClick={() => setHighlightsOpen(true)}
-                      />
-                    ))}
-                  </div>
-                </div>
               </motion.article>
             </AnimatePresence>
 
