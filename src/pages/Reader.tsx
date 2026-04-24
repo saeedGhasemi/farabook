@@ -354,16 +354,8 @@ const Reader = () => {
           />
         </div>
 
-        {/* Two-column layout: sidebar + content */}
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6">
-          {/* Desktop sidebar */}
-          <div className="hidden md:block sticky top-24 self-start max-h-[calc(100vh-8rem)]">
-            <ChapterSidebar
-              chapters={chapters}
-              current={pageIdx}
-              onSelect={(i) => goTo(i)}
-            />
-          </div>
+        {/* Single-column layout — chapter sidebar is now always opened via drawer */}
+        <div className="max-w-4xl mx-auto">
 
           {/* Page */}
           <div className="relative" style={{ perspective: 2200 }}>
