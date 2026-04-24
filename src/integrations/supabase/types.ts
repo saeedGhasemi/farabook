@@ -14,7 +14,166 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      books: {
+        Row: {
+          ambient_theme: string | null
+          author: string
+          category: string | null
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          pages: Json
+          price: number
+          publisher: string | null
+          title: string
+          title_en: string | null
+        }
+        Insert: {
+          ambient_theme?: string | null
+          author: string
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          pages?: Json
+          price?: number
+          publisher?: string | null
+          title: string
+          title_en?: string | null
+        }
+        Update: {
+          ambient_theme?: string | null
+          author?: string
+          category?: string | null
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          pages?: Json
+          price?: number
+          publisher?: string | null
+          title?: string
+          title_en?: string | null
+        }
+        Relationships: []
+      }
+      highlights: {
+        Row: {
+          book_id: string
+          color: string
+          created_at: string
+          id: string
+          is_public: boolean
+          note: string | null
+          page_index: number
+          text: string
+          user_id: string
+        }
+        Insert: {
+          book_id: string
+          color?: string
+          created_at?: string
+          id?: string
+          is_public?: boolean
+          note?: string | null
+          page_index: number
+          text: string
+          user_id: string
+        }
+        Update: {
+          book_id?: string
+          color?: string
+          created_at?: string
+          id?: string
+          is_public?: boolean
+          note?: string | null
+          page_index?: number
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "highlights_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          credits: number
+          display_name: string | null
+          id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          credits?: number
+          display_name?: string | null
+          id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          credits?: number
+          display_name?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      user_books: {
+        Row: {
+          acquired_via: string
+          book_id: string
+          created_at: string
+          current_page: number
+          id: string
+          lent_to: string | null
+          lent_until: string | null
+          progress: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          acquired_via?: string
+          book_id: string
+          created_at?: string
+          current_page?: number
+          id?: string
+          lent_to?: string | null
+          lent_until?: string | null
+          progress?: number
+          status?: string
+          user_id: string
+        }
+        Update: {
+          acquired_via?: string
+          book_id?: string
+          created_at?: string
+          current_page?: number
+          id?: string
+          lent_to?: string | null
+          lent_until?: string | null
+          progress?: number
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_books_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
