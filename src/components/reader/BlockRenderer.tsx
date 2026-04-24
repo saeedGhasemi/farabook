@@ -56,11 +56,37 @@ export type Block =
   | { type: "video"; src: string; poster?: string; caption?: string }
   | { type: "callout"; icon?: "info" | "sparkle"; text: string };
 
+interface SavedHL { text: string; color: string }
+
 interface Props {
   block: Block;
   fontSize: number;
   index: number;
+  savedHighlights?: SavedHL[];
 }
+
+/* Render text with inline yellow/colored highlight spans for saved highlights */
+const renderWithHighlights = (text: string, hls?: SavedHL[]): React.ReactNode => {
+  if (!hls || hls.length === 0) return text;
+  // Sort by length desc to match longest first
+  const sorted = [...hls].sort((a, b) => b.text.length - a.text.length);
+  const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`(${sorted.map((h) => escape(h.text)).join("|")})`, "g");
+  const parts = text.split(pattern);
+  return parts.map((p, i) => {
+    const match = sorted.find((h) => h.text === p);
+    if (!match) return <span key={i}>{p}</span>;
+    return (
+      <mark
+        key={i}
+        className="rounded px-0.5 -mx-0.5 text-foreground"
+        style={{ background: `hsl(var(--hl-${match.color}) / 0.55)`, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" } as React.CSSProperties}
+      >
+        {p}
+      </mark>
+    );
+  });
+};
 
 /* ---------- Sub-components ---------- */
 
@@ -221,7 +247,7 @@ const Slideshow = ({
 
 /* ---------- Main renderer ---------- */
 
-export const BlockRenderer = ({ block, fontSize, index }: Props) => {
+export const BlockRenderer = ({ block, fontSize, index, savedHighlights }: Props) => {
   const delay = Math.min(index * 0.05, 0.3);
   const fade = {
     initial: { opacity: 0, y: 12 },
@@ -244,7 +270,7 @@ export const BlockRenderer = ({ block, fontSize, index }: Props) => {
           className="text-foreground/90 leading-loose whitespace-pre-line text-balance"
           style={{ fontSize: `${fontSize}px`, lineHeight: 1.95 }}
         >
-          {block.text}
+          {renderWithHighlights(block.text, savedHighlights)}
         </motion.p>
       );
 
