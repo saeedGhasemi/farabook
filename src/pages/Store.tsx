@@ -9,6 +9,20 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import medCoverAnatomy from "@/assets/med-cover-anatomy.jpg";
+import medCoverNeuro from "@/assets/med-cover-neuro.jpg";
+import heroBook from "@/assets/hero-book.jpg";
+import scenePrince from "@/assets/scene-prince.jpg";
+import sceneTehran from "@/assets/scene-tehran.jpg";
+
+const coverMap: Record<string, string> = {
+  "med-cover-anatomy": medCoverAnatomy,
+  "med-cover-neuro": medCoverNeuro,
+  "hero": heroBook,
+  "prince": scenePrince,
+  "tehran": sceneTehran,
+};
+const resolveCover = (s: string | null) => (s ? coverMap[s] || s : "");
 
 interface Book {
   id: string;
@@ -91,7 +105,7 @@ const Store = () => {
               <div className="relative aspect-[3/4] overflow-hidden bg-secondary">
                 {book.cover_url && (
                   <img
-                    src={book.cover_url}
+                    src={resolveCover(book.cover_url)}
                     alt={title}
                     loading="lazy"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
