@@ -97,7 +97,7 @@ const Reader = () => {
     if (!user || !id) return;
     const { data } = await supabase
       .from("highlights")
-      .select("id, text, page_index, color, created_at")
+      .select("id, text, page_index, color, created_at, note")
       .eq("user_id", user.id).eq("book_id", id)
       .order("created_at", { ascending: false });
     if (data) setHighlights(data as HighlightItem[]);
@@ -254,13 +254,21 @@ const Reader = () => {
     };
     document.addEventListener("mouseup", handler);
     document.addEventListener("touchend", handler);
+    // Aggressively block native context/share menus while in highlight mode
+    const blockCtx = (e: Event) => {
+      if (!highlightMode) return;
+      const target = e.target as HTMLElement | null;
+      if (target && articleRef.current?.contains(target)) e.preventDefault();
+    };
+    document.addEventListener("contextmenu", blockCtx);
     return () => {
       document.removeEventListener("mouseup", handler);
       document.removeEventListener("touchend", handler);
+      document.removeEventListener("contextmenu", blockCtx);
     };
   }, [highlightMode]);
 
-  const saveHighlight = async (color: string) => {
+  const saveHighlight = async (color: string, note?: string) => {
     if (!savePopover || !user || !id) return;
     const { data, error } = await supabase
       .from("highlights")
@@ -270,8 +278,9 @@ const Reader = () => {
         page_index: pageIdx,
         text: savePopover.text,
         color,
+        note: note || null,
       })
-      .select("id, text, page_index, color, created_at")
+      .select("id, text, page_index, color, created_at, note")
       .single();
     if (error) { toast.error(error.message); return; }
     if (data) {
@@ -280,6 +289,18 @@ const Reader = () => {
     }
     setSavePopover(null);
     window.getSelection()?.removeAllRanges();
+  };
+
+  const updateHighlightNote = async (hid: string, note: string) => {
+    const { error } = await supabase
+      .from("highlights")
+      .update({ note })
+      .eq("id", hid);
+    if (error) { toast.error(error.message); return; }
+    setHighlights((prev) =>
+      prev.map((h) => (h.id === hid ? { ...h, note } : h)),
+    );
+    toast.success(lang === "fa" ? "یادداشت ذخیره شد" : "Note saved");
   };
 
   const deleteHighlight = async (hid: string) => {
@@ -377,7 +398,7 @@ const Reader = () => {
                   backgroundSize: "60px 60px, 80px 80px",
                 }} />
 
-                <div className="relative">
+                <div className={`relative ${highlightMode ? "hl-mode" : ""}`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                       {t("page")} {pageIdx + 1}
@@ -390,7 +411,7 @@ const Reader = () => {
                     {currentPage.title}
                   </h2>
 
-                  <div className={`space-y-4 ${highlightMode ? "selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text" : ""}`}>
+                  <div className={`space-y-4 selectable ${highlightMode ? "selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text" : ""}`}>
                     {blocks.map((block, i) => (
                       <BlockRenderer
                         key={i}
@@ -489,6 +510,7 @@ const Reader = () => {
         onClose={() => setHighlightsOpen(false)}
         onJump={(i) => goTo(i)}
         onDelete={deleteHighlight}
+        onUpdateNote={updateHighlightNote}
       />
 
       {/* Mobile chapters drawer with blur backdrop */}

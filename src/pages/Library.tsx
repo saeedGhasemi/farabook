@@ -48,10 +48,18 @@ const Library = () => {
 
   return (
     <main className="container py-10 md:py-16 min-h-[calc(100vh-4rem)]">
-      <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-        className="text-4xl md:text-5xl font-display font-bold mb-10">
-        {t("library_title")}
-      </motion.h1>
+      <div className="flex items-center justify-between mb-10 flex-wrap gap-4">
+        <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          className="text-4xl md:text-5xl font-display font-bold">
+          {t("library_title")}
+        </motion.h1>
+        <Link to="/upload">
+          <Button className="bg-gradient-warm hover:opacity-90 gap-2">
+            <BookOpen className="w-4 h-4" />
+            {lang === "fa" ? "ساخت کتاب از ورد" : "Import from Word"}
+          </Button>
+        </Link>
+      </div>
 
       {rows.length === 0 ? (
         <div className="glass-strong rounded-3xl p-16 text-center max-w-xl mx-auto">

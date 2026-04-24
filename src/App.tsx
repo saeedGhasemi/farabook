@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import Library from "./pages/Library";
 import Store from "./pages/Store";
 import Reader from "./pages/Reader";
+import Upload from "./pages/Upload";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
               <Route path="/library" element={<Library />} />
               <Route path="/store" element={<Store />} />
               <Route path="/read/:id" element={<Reader />} />
+              <Route path="/upload" element={<Upload />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
