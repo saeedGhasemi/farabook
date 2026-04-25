@@ -440,6 +440,56 @@
   .book-table-cell { cursor: text; transition: background-color 0.18s ease; }
   .book-table-cell::selection,
   .book-table-cell *::selection { background: hsl(var(--hl-yellow) / 0.6); }
+
+  /* === Typography Presets — applied to .typo-* on Reader article === */
+  /* editorial: refined serif, classic book vibe (default) */
+  .typo-editorial { font-family: 'Crimson Pro', 'Vazirmatn', serif; }
+  .typo-editorial h1, .typo-editorial h2, .typo-editorial h3 {
+    font-family: 'Fraunces', 'Vazirmatn', serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  [dir="rtl"] .typo-editorial,
+  [dir="rtl"] .typo-editorial h1,
+  [dir="rtl"] .typo-editorial h2,
+  [dir="rtl"] .typo-editorial h3 { font-family: 'Vazirmatn', serif; }
+
+  /* academic: tight serif, scholarly */
+  .typo-academic { font-family: 'Fraunces', 'Vazirmatn', serif; font-size: 0.98em; line-height: 1.75; }
+  .typo-academic h1, .typo-academic h2, .typo-academic h3 {
+    font-family: 'Fraunces', 'Vazirmatn', serif;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  .typo-academic p { text-align: justify; text-justify: inter-word; }
+  [dir="rtl"] .typo-academic,
+  [dir="rtl"] .typo-academic h1,
+  [dir="rtl"] .typo-academic h2,
+  [dir="rtl"] .typo-academic h3 { font-family: 'Vazirmatn', serif; }
+
+  /* modern: crisp sans, generous spacing */
+  .typo-modern { font-family: 'Inter', 'Vazirmatn', sans-serif; line-height: 1.8; letter-spacing: 0.005em; }
+  .typo-modern h1, .typo-modern h2, .typo-modern h3 {
+    font-family: 'Inter', 'Vazirmatn', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+  [dir="rtl"] .typo-modern,
+  [dir="rtl"] .typo-modern h1,
+  [dir="rtl"] .typo-modern h2,
+  [dir="rtl"] .typo-modern h3 { font-family: 'Vazirmatn', sans-serif; }
+
+  /* playful: warmer, friendly */
+  .typo-playful { font-family: 'Vazirmatn', 'Fraunces', serif; line-height: 1.85; }
+  .typo-playful h1, .typo-playful h2, .typo-playful h3 {
+    font-family: 'Fraunces', 'Vazirmatn', serif;
+    font-weight: 600;
+    font-style: italic;
+    letter-spacing: -0.01em;
+  }
+  [dir="rtl"] .typo-playful h1,
+  [dir="rtl"] .typo-playful h2,
+  [dir="rtl"] .typo-playful h3 { font-family: 'Vazirmatn', serif; font-style: normal; }
 }
 
 @layer utilities {
