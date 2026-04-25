@@ -253,10 +253,9 @@ const Reader = () => {
   };
   const stopSpeak = () => { speechSynthesis.cancel(); setIsSpeaking(false); };
 
-  // Selection-based highlighting
+  // Selection-based highlighting — always active, no toolbar toggle needed
   useEffect(() => {
-    const handler = () => {
-      if (!highlightMode) return;
+    const handler = () => window.setTimeout(() => {
       const sel = window.getSelection();
       const text = sel?.toString().trim();
       if (!text || text.length < 2) { setSavePopover(null); return; }
@@ -264,17 +263,18 @@ const Reader = () => {
       if (!articleRef.current.contains(sel.anchorNode)) return;
       const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
+      if (!rect.width && !rect.height) return;
       setSavePopover({
-        x: rect.left + rect.width / 2,
-        y: rect.top - 8 + window.scrollY,
+        x: Math.min(window.innerWidth - 64, Math.max(64, rect.left + rect.width / 2)),
+        y: Math.max(72, rect.top - 10),
         text,
       });
-    };
+    }, 80);
     document.addEventListener("mouseup", handler);
     document.addEventListener("touchend", handler);
-    // Aggressively block native context/share menus while in highlight mode
+    document.addEventListener("selectionchange", handler);
+    // Aggressively block native context/share menus inside the reader
     const blockCtx = (e: Event) => {
-      if (!highlightMode) return;
       const target = e.target as HTMLElement | null;
       if (target && articleRef.current?.contains(target)) e.preventDefault();
     };
@@ -282,9 +282,10 @@ const Reader = () => {
     return () => {
       document.removeEventListener("mouseup", handler);
       document.removeEventListener("touchend", handler);
+      document.removeEventListener("selectionchange", handler);
       document.removeEventListener("contextmenu", blockCtx);
     };
-  }, [highlightMode]);
+  }, []);
 
   const saveHighlight = async (color: string, note?: string) => {
     if (!savePopover || !user || !id) return;
