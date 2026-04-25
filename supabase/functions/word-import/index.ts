@@ -1,7 +1,8 @@
 // Edge Function: parse uploaded .docx into a structured book and insert it.
 // Uses mammoth to extract HTML, then splits by headings into chapters/blocks.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import mammoth from "https://esm.sh/mammoth@1.8.0";
+import mammoth from "https://esm.sh/mammoth@1.8.0?target=deno";
+import { Buffer } from "node:buffer";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -116,7 +117,8 @@ Deno.serve(async (req) => {
     }
 
     const arrayBuffer = await file.arrayBuffer();
-    const result = await mammoth.convertToHtml({ arrayBuffer });
+    const buffer = Buffer.from(arrayBuffer);
+    const result = await mammoth.convertToHtml({ buffer });
     const pages = htmlToBlocks(result.value || "");
 
     if (pages.length === 0) {
