@@ -45,7 +45,9 @@ const Store = () => {
   const [previewBook, setPreviewBook] = useState<Book | null>(null);
 
   const reload = () => {
-    supabase.from("books").select("*").order("created_at", { ascending: false })
+    supabase.from("books")
+      .select("id, title, title_en, author, publisher, publisher_id, status, category, cover_url, description, price, ambient_theme")
+      .order("created_at", { ascending: false })
       .then(({ data }) => setBooks((data as Book[]) ?? []));
   };
 
