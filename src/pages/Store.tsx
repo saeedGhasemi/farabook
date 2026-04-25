@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, ShoppingBag, Check, Pencil, Trash2 } from "lucide-react";
+import { Search, ShoppingBag, Check, Pencil, Trash2, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { resolveBookMedia } from "@/lib/book-media";
+import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
 
 const resolveCover = (s: string | null) => resolveBookMedia(s);
 
@@ -41,6 +42,7 @@ const Store = () => {
   const [q, setQ] = useState(searchParams.get("q") ?? "");
   const cat = searchParams.get("cat");
   const [confirmDelete, setConfirmDelete] = useState<Book | null>(null);
+  const [previewBook, setPreviewBook] = useState<Book | null>(null);
 
   const reload = () => {
     supabase.from("books").select("*").order("created_at", { ascending: false })
