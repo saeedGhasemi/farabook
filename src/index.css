@@ -437,6 +437,9 @@
   }
   .book-table tbody tr:nth-child(even) td { background: hsl(var(--muted) / 0.4); }
   .book-table tbody tr:hover td { background: hsl(var(--accent) / 0.08); }
+  .book-table-cell { cursor: text; transition: background-color 0.18s ease; }
+  .book-table-cell::selection,
+  .book-table-cell *::selection { background: hsl(var(--hl-yellow) / 0.6); }
 }
 
 @layer utilities {
