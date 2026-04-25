@@ -8,6 +8,28 @@ import { Scrollytelling, type ScrollyStep } from "./Scrollytelling";
 
 const resolveImg = (src: string) => resolveBookMedia(src);
 
+/** Convert a YouTube/Vimeo URL to an embeddable iframe URL. Returns null for direct files. */
+const toVideoEmbed = (url: string): string | null => {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("youtube.com")) {
+      const v = u.searchParams.get("v");
+      if (v) return `https://www.youtube.com/embed/${v}`;
+      // youtube.com/embed/<id> already
+      if (u.pathname.startsWith("/embed/")) return url;
+    }
+    if (u.hostname === "youtu.be") return `https://www.youtube.com/embed${u.pathname}`;
+    if (u.hostname.includes("vimeo.com")) {
+      const id = u.pathname.split("/").filter(Boolean)[0];
+      if (id) return `https://player.vimeo.com/video/${id}`;
+    }
+  } catch {
+    /* not a URL — treat as direct file path */
+  }
+  return null;
+};
+
 export interface Hotspot {
   x: number; // 0-100 percent
   y: number; // 0-100 percent
