@@ -617,6 +617,7 @@ const Reader = () => {
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenChapters={() => setChaptersOpen(true)}
         onOpenHighlights={() => setHighlightsOpen(true)}
+        onOpenChat={() => setChatOpen(true)}
         highlightCount={highlights.length}
         dark={dark}
         onToggleDark={() => setDark(!dark)}
