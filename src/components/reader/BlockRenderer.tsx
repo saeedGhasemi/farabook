@@ -372,7 +372,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
     case "image":
       return (
         <motion.div {...fade} id={blockId}>
-          <InteractiveImage src={block.src} caption={block.caption} hotspots={block.hotspots} mediaKey={blockId} />
+          <InteractiveImage src={block.src} caption={block.caption} hotspots={block.hotspots} mediaKey={blockId} figureNumber={block.figureNumber} />
         </motion.div>
       );
 
@@ -407,11 +407,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
               </motion.div>
             ))}
           </div>
-          {block.caption && (
-            <figcaption className="mt-2 text-sm text-muted-foreground italic text-center">
-              {block.caption}
-            </figcaption>
-          )}
+          {block.caption && <figcaption className="book-figcaption">{block.caption}</figcaption>}
         </motion.figure>
       );
 
@@ -427,12 +423,53 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
               className="w-full h-auto"
             />
           </div>
+          {block.caption && <figcaption className="book-figcaption">{block.caption}</figcaption>}
+        </motion.figure>
+      );
+
+    case "table":
+      return (
+        <motion.figure {...fade} className="my-6">
+          <div className="book-table-wrap">
+            <table className="book-table">
+              <thead>
+                <tr>{block.headers.map((h, i) => <th key={i}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {block.rows.map((row, r) => (
+                  <tr key={r}>{row.map((cell, c) => <td key={c}>{cell}</td>)}</tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {block.caption && (
-            <figcaption className="mt-2 text-sm text-muted-foreground italic text-center">
+            <figcaption className="book-figcaption">
+              {block.tableNumber && <span className="figcap-label">{block.tableNumber}</span>}
               {block.caption}
             </figcaption>
           )}
         </motion.figure>
+      );
+
+    case "references":
+      return (
+        <motion.section {...fade} className="my-8 p-5 rounded-2xl glass border border-glass-border">
+          <h4 className="font-display font-bold text-base mb-3 text-foreground/90 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+            منابع و مراجع
+          </h4>
+          <ol className="space-y-2 text-sm text-foreground/80 leading-relaxed list-decimal ps-5 marker:text-accent marker:font-bold">
+            {block.items.map((it, i) => (
+              <li key={i} className="ps-1">
+                {it.url ? (
+                  <a href={it.url} target="_blank" rel="noreferrer" className="hover:text-accent underline-offset-2 hover:underline">
+                    {it.text}
+                  </a>
+                ) : it.text}
+              </li>
+            ))}
+          </ol>
+        </motion.section>
       );
 
     case "callout": {
