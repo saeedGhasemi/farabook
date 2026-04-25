@@ -37,6 +37,7 @@ const App = () => (
               <Route path="/upload" element={<Upload />} />
               <Route path="/edit/:id" element={<Edit />} />
               <Route path="/publish/:id" element={<Publish />} />
+              <Route path="/publisher/:id" element={<Publisher />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
