@@ -29,7 +29,11 @@ const Upload = () => {
     if (!title.trim()) { toast.error(lang === "fa" ? "عنوان لازم است" : "Title required"); return; }
     setBusy(true);
     try {
-      const path = `${user.id}/${Date.now()}-${file.name}`;
+      // Sanitize filename: Storage keys must be ASCII-safe.
+      const dot = file.name.lastIndexOf(".");
+      const ext = (dot >= 0 ? file.name.slice(dot + 1) : "docx").toLowerCase().replace(/[^a-z0-9]/g, "") || "docx";
+      const safeName = `book-${Date.now()}.${ext}`;
+      const path = `${user.id}/${safeName}`;
       const up = await supabase.storage.from("book-uploads").upload(path, file, {
         contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
