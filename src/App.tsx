@@ -14,6 +14,7 @@ import Reader from "./pages/Reader";
 import Upload from "./pages/Upload";
 import Edit from "./pages/Edit";
 import Publish from "./pages/Publish";
+import Publisher from "./pages/Publisher";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
