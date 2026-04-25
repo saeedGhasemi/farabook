@@ -19,19 +19,30 @@ interface Props {
   steps: TimelineStep[];
 }
 
+/** Detect direction (rtl/ltr) for a piece of text based on script majority. */
+const detectDir = (text: string): "rtl" | "ltr" => {
+  if (!text) return "ltr";
+  const rtl = text.match(/[\u0600-\u06FF\u0750-\u077F\u0590-\u05FF\uFB50-\uFDFF\uFE70-\uFEFF]/g)?.length ?? 0;
+  const ltr = text.match(/[A-Za-z]/g)?.length ?? 0;
+  return rtl >= ltr ? "rtl" : "ltr";
+};
+
 /** Horizontal interactive timeline — tap markers to reveal a detail card. */
 export const Timeline = ({ title, steps }: Props) => {
   const [active, setActive] = useState(0);
   if (!steps?.length) return null;
   const total = steps.length;
   const cur = steps[active];
+  const titleDir = detectDir(`${cur.title} ${cur.marker}`);
+  const descDir = detectDir(cur.description);
+  const headerDir = title ? detectDir(title) : "ltr";
 
   const go = (d: 1 | -1) => setActive((p) => (p + d + total) % total);
 
   return (
     <figure className="my-8 select-none">
       {title && (
-        <header className="flex items-center gap-2 mb-4">
+        <header dir={headerDir} className="flex items-center gap-2 mb-4">
           <Clock className="w-4 h-4 text-accent" />
           <h4 className="font-display font-bold text-base text-foreground/90">{title}</h4>
         </header>
@@ -60,6 +71,7 @@ export const Timeline = ({ title, steps }: Props) => {
                   {i + 1}
                 </span>
                 <span
+                  dir={detectDir(s.marker)}
                   className={`text-[11px] leading-tight text-center max-w-[100px] truncate transition-colors ${
                     isActive ? "text-accent font-semibold" : "text-muted-foreground"
                   }`}
@@ -95,13 +107,13 @@ export const Timeline = ({ title, steps }: Props) => {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className="text-[11px] uppercase tracking-wider text-accent font-semibold mb-1">
+                <div dir={detectDir(cur.marker)} className="text-[11px] uppercase tracking-wider text-accent font-semibold mb-1">
                   {cur.marker}
                 </div>
-                <h5 className="font-display font-bold text-lg md:text-xl text-foreground mb-2 leading-tight">
+                <h5 dir={titleDir} className="font-display font-bold text-lg md:text-xl text-foreground mb-2 leading-tight">
                   {cur.title}
                 </h5>
-                <p className="text-sm md:text-[15px] text-foreground/80 leading-relaxed whitespace-pre-line">
+                <p dir={descDir} className="text-sm md:text-[15px] text-foreground/80 leading-relaxed whitespace-pre-line">
                   {cur.description}
                 </p>
               </div>

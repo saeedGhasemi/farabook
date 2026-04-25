@@ -515,18 +515,17 @@ const Reader = () => {
         <div className={`max-w-4xl mx-auto transition-all duration-300 ${allOverlaysOpen ? "blur-[2px] opacity-55" : ""}`}>
 
           {/* Page */}
-          <div className="relative" style={{ perspective: 2200 }}>
+          <div className="relative">
             <AnimatePresence mode="wait" custom={flipDir}>
               <motion.article
                 ref={articleRef}
                 key={pageIdx}
                 custom={flipDir}
                 dir={bookDir}
-                initial={{ rotateY: flipDir * 60, opacity: 0, x: flipDir * 30 }}
-                animate={{ rotateY: 0, opacity: 1, x: 0 }}
-                exit={{ rotateY: flipDir * -60, opacity: 0, x: flipDir * -30 }}
-                transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-                style={{ transformStyle: "preserve-3d", transformOrigin: bookDir === "rtl" ? "right center" : "left center" }}
+                initial={{ opacity: 0, y: 40, scale: 0.96, filter: "blur(8px)" }}
+                animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -30, scale: 0.98, filter: "blur(6px)" }}
+                transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
                 className="paper-card rounded-3xl p-6 md:p-12 min-h-[60vh] book-shadow relative overflow-hidden no-native-callout"
               >
                 <div className="absolute top-0 inset-x-0 h-1 bg-gradient-gold opacity-50" />
