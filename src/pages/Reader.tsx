@@ -240,6 +240,30 @@ const Reader = () => {
     } finally { setAiLoading(false); }
   };
 
+  const regenerateAI = () => { if (aiMode) runAI(aiMode); };
+
+  const saveAiAsNote = async (text: string) => {
+    if (!user || !id) { toast.error(lang === "fa" ? "ابتدا وارد شوید" : "Please sign in first"); return; }
+    const snippet = pageText.slice(0, 80) + (pageText.length > 80 ? "…" : "");
+    const { data, error } = await supabase
+      .from("highlights")
+      .insert({
+        user_id: user.id,
+        book_id: id,
+        page_index: pageIdx,
+        text: snippet || (lang === "fa" ? "یادداشت هوش مصنوعی" : "AI note"),
+        color: "blue",
+        note: text,
+      })
+      .select("id, text, page_index, color, created_at, note")
+      .single();
+    if (error) { toast.error(error.message); return; }
+    if (data) {
+      setHighlights((prev) => [data as HighlightItem, ...prev]);
+      toast.success(lang === "fa" ? "به نشان‌ها اضافه شد" : "Saved to notes");
+    }
+  };
+
   const speak = () => {
     if (!pageText) return;
     speechSynthesis.cancel();
@@ -573,6 +597,8 @@ const Reader = () => {
         loading={aiLoading}
         content={aiContent}
         onClose={() => setAiOpen(false)}
+        onRegenerate={regenerateAI}
+        onSaveAsNote={saveAiAsNote}
       />
 
       {/* Highlights panel */}
