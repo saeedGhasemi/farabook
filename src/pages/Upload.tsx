@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { ManualBuilder } from "@/components/builder/ManualBuilder";
+import { BookEditor } from "@/components/builder/BookEditor";
 
 const Upload = () => {
   const { user } = useAuth();
@@ -45,7 +45,7 @@ const Upload = () => {
         (lang === "fa" ? "کتاب با " : "Imported with ") + (data?.chapters ?? 0) +
         (lang === "fa" ? " فصل ساخته شد" : " chapters")
       );
-      nav(`/read/${data.book.id}`);
+      nav(`/edit/${data.book.id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -83,7 +83,7 @@ const Upload = () => {
           </TabsList>
 
           <TabsContent value="manual">
-            <ManualBuilder onCreated={(id) => nav(`/read/${id}`)} />
+            <BookEditor onCreated={(id) => nav(`/edit/${id}`)} />
           </TabsContent>
 
           <TabsContent value="word">
