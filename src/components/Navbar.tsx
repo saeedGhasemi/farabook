@@ -1,6 +1,7 @@
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { BookOpen, Library, Store, LogIn, LogOut, Languages, Palette, Wand2, Briefcase } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { BookOpen, Library, Store, LogIn, LogOut, Languages, Palette, Wand2, Briefcase, Menu, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme, type Theme } from "@/lib/theme";
@@ -14,6 +15,10 @@ export const Navbar = () => {
   const { theme, setTheme } = useTheme();
   const loc = useLocation();
   const nav = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close mobile menu on route change
+  useEffect(() => { setMobileOpen(false); }, [loc.pathname]);
 
   const themes: { value: Theme; label: string; swatch: string }[] = [
     { value: "silver", label: lang === "fa" ? "نقره‌ای" : "Silver", swatch: "linear-gradient(135deg,#c8d0db,#8a96a8)" },
