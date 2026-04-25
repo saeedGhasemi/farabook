@@ -499,21 +499,34 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
         </motion.figure>
       );
 
-    case "video":
+    case "video": {
+      const embed = toVideoEmbed(block.src);
       return (
         <motion.figure {...fade} className="my-6">
-          <div className="relative overflow-hidden rounded-2xl book-shadow bg-foreground/5">
-            <video
-              src={block.src}
-              poster={block.poster ? resolveImg(block.poster) : undefined}
-              controls
-              preload="metadata"
-              className="w-full h-auto"
-            />
+          <div className="relative overflow-hidden rounded-2xl book-shadow bg-foreground/5 aspect-video">
+            {embed ? (
+              <iframe
+                src={embed}
+                title={block.caption || "video"}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="absolute inset-0 w-full h-full border-0"
+              />
+            ) : (
+              <video
+                src={block.src}
+                poster={block.poster ? resolveImg(block.poster) : undefined}
+                controls
+                playsInline
+                preload="metadata"
+                className="absolute inset-0 w-full h-full object-contain bg-black"
+              />
+            )}
           </div>
           {block.caption && <figcaption className="book-figcaption">{block.caption}</figcaption>}
         </motion.figure>
       );
+    }
 
     case "table":
       return (
