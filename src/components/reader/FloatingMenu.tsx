@@ -55,6 +55,7 @@ export const FloatingMenu = ({
     { id: "quiz", icon: ListChecks, label: t("ai_quiz"), mode: "quiz" as const },
     { id: "mindmap", icon: BrainCircuit, label: t("ai_mindmap"), mode: "mindmap" as const },
     { id: "explain", icon: Lightbulb, label: t("ai_explain"), mode: "explain" as const },
+    { id: "timeline", icon: Clock, label: lang === "fa" ? "تایم‌لاین" : "Timeline", mode: "timeline" as const },
   ];
 
   const Item = ({
