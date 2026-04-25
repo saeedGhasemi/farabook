@@ -463,11 +463,12 @@ const Reader = () => {
                 ref={articleRef}
                 key={pageIdx}
                 custom={flipDir}
+                dir={bookDir}
                 initial={{ rotateY: flipDir * 60, opacity: 0, x: flipDir * 30 }}
                 animate={{ rotateY: 0, opacity: 1, x: 0 }}
                 exit={{ rotateY: flipDir * -60, opacity: 0, x: flipDir * -30 }}
                 transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-                style={{ transformStyle: "preserve-3d", transformOrigin: dir === "rtl" ? "right center" : "left center" }}
+                style={{ transformStyle: "preserve-3d", transformOrigin: bookDir === "rtl" ? "right center" : "left center" }}
                 className="paper-card rounded-3xl p-6 md:p-12 min-h-[60vh] book-shadow relative overflow-hidden no-native-callout"
               >
                 <div className="absolute top-0 inset-x-0 h-1 bg-gradient-gold opacity-50" />
