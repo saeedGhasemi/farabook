@@ -42,9 +42,9 @@ export type Block =
   | { type: "paragraph"; text: string }
   | { type: "quote"; text: string; author?: string }
   | { type: "highlight"; text: string }
-  | { type: "image"; src: string; caption?: string; figureNumber?: string; hotspots?: Hotspot[] }
+  | { type: "image"; src: string; caption?: string; figureNumber?: string; hotspots?: Hotspot[]; hideCaption?: boolean }
   | { type: "gallery"; images: string[]; caption?: string }
-  | { type: "slideshow"; images: { src: string; caption?: string }[]; autoplay?: boolean; interval?: number }
+  | { type: "slideshow"; images: { src: string; caption?: string }[]; autoplay?: boolean; interval?: number; hideCaption?: boolean }
   | { type: "video"; src: string; poster?: string; caption?: string }
   | { type: "callout"; icon?: "info" | "sparkle"; text: string }
   | { type: "table"; caption?: string; tableNumber?: string; headers: string[]; rows: string[][] }
@@ -224,6 +224,46 @@ const InteractiveImage = ({
         </figcaption>
       )}
     </figure>
+  );
+};
+
+/* Image with hover/tap-revealed caption — for hideCaption=true */
+const HiddenCaptionImage = ({
+  src, caption, figureNumber,
+}: { src: string; caption?: string; figureNumber?: string }) => {
+  const [revealed, setRevealed] = useState(false);
+  return (
+    <figure className="my-6 group">
+      <div
+        className="relative overflow-hidden rounded-2xl book-shadow bg-foreground/5"
+        onMouseEnter={() => setRevealed(true)}
+        onMouseLeave={() => setRevealed(false)}
+        onClick={() => setRevealed((v) => !v)}
+      >
+        <img src={resolveImg(src)} alt={caption || ""} loading="lazy" className="w-full h-auto" />
+        {caption && (
+          <AnimatePresence>
+            {revealed && (
+              <motion.figcaption
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 12 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black/85 via-black/55 to-transparent text-background"
+              >
+                {figureNumber && <span className="figcap-label me-2">{figureNumber}</span>}
+                <span className="text-sm md:text-base leading-snug">{caption}</span>
+              </motion.figcaption>
+            )}
+          </AnimatePresence>
+        )}
+        {caption && !revealed && (
+          <div className="absolute bottom-3 end-3 glass rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider text-foreground/80 pointer-events-none">
+            {/* small hint */}
+            ⓘ
+          </div>
+        )}
+      </div>
   );
 };
 
