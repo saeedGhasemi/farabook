@@ -621,6 +621,13 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
         </motion.div>
       );
 
+    case "scrollytelling":
+      return (
+        <motion.div {...fade} id={blockId}>
+          <Scrollytelling title={block.title} steps={block.steps} />
+        </motion.div>
+      );
+
     default:
       return null;
   }
