@@ -185,7 +185,9 @@ const Reader = () => {
     };
   }, [ambient, lang]);
 
-  useEffect(() => () => { speechSynthesis.cancel(); }, []);
+  useEffect(() => () => { stopSpeakSmart(); }, []);
+  useEffect(() => {
+    stopSpeakSmart();
   useEffect(() => {
     speechSynthesis.cancel();
     setIsSpeaking(false);
