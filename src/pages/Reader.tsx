@@ -410,7 +410,7 @@ const Reader = () => {
   const ltrChars = (sampleText.match(/[A-Za-z]/g) || []).length;
   const bookDir: "rtl" | "ltr" = rtlChars >= ltrChars ? "rtl" : "ltr";
   // Chapter & search drawers always slide from the RIGHT edge of the screen
-  const allOverlaysOpen = chaptersOpen || searchOpen || settingsOpen || highlightsOpen || aiOpen;
+  const allOverlaysOpen = chaptersOpen || searchOpen || settingsOpen || highlightsOpen || aiOpen || chatOpen;
   const goToPageNumber = () => {
     const next = Math.min(total, Math.max(1, Number(jumpValue) || 1)) - 1;
     goTo(next);
