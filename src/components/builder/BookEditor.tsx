@@ -1078,6 +1078,34 @@ export const BookEditor = ({ initial, onCreated }: Props) => {
             className="mt-1"
           />
         </div>
+        <div>
+          <Label>{lang === "fa" ? "پیش‌تنظیم تایپوگرافی" : "Typography preset"}</Label>
+          <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { v: "editorial", fa: "ادبی", en: "Editorial", sample: "Aa" },
+              { v: "academic", fa: "علمی", en: "Academic", sample: "Aa" },
+              { v: "modern", fa: "مدرن", en: "Modern", sample: "Aa" },
+              { v: "playful", fa: "بازیگوش", en: "Playful", sample: "Aa" },
+            ].map((p) => {
+              const active = typography === p.v;
+              return (
+                <button
+                  key={p.v}
+                  type="button"
+                  onClick={() => { setTypography(p.v); setDirty(true); }}
+                  className={`p-3 rounded-xl border transition-all text-center ${
+                    active
+                      ? "border-accent bg-accent/10 ring-2 ring-accent/40"
+                      : "border-border hover:border-accent/50 bg-background/40"
+                  }`}
+                >
+                  <div className={`typo-${p.v} text-2xl font-bold mb-1`}>{p.sample}</div>
+                  <div className="text-xs font-medium">{lang === "fa" ? p.fa : p.en}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Pages */}
