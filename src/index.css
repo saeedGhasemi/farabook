@@ -437,6 +437,7 @@
   }
   .book-table tbody tr:nth-child(even) td { background: hsl(var(--muted) / 0.4); }
   .book-table tbody tr:hover td { background: hsl(var(--accent) / 0.08); }
+}
 
 @layer utilities {
   .text-balance { text-wrap: balance; }
