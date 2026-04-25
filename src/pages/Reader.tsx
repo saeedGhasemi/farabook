@@ -353,7 +353,7 @@ const Reader = () => {
     const next = Math.min(total, Math.max(1, Number(jumpValue) || 1)) - 1;
     goTo(next);
   };
-  const searchResults: SearchResult[] = useMemo(() => {
+  const searchResults: SearchResult[] = (() => {
     if (!book) return [];
     const term = searchTerm.trim().toLowerCase();
     if (!term) return [];
@@ -384,7 +384,7 @@ const Reader = () => {
         }];
       });
     }).slice(0, 30);
-  }, [book, searchTerm, t]);
+  })();
   const openSearchResult = (result: SearchResult) => {
     goTo(result.pageIndex);
     setSearchOpen(false);
@@ -544,13 +544,7 @@ const Reader = () => {
         onSpeak={speak}
         onStopSpeak={stopSpeak}
         isSpeaking={isSpeaking}
-        onToggleHighlight={() => {
-          setHighlightMode((v) => !v);
-          toast.info(highlightMode
-            ? (lang === "fa" ? "حالت هایلایت خاموش شد" : "Highlight off")
-            : (lang === "fa" ? "متن دلخواه را انتخاب کنید" : "Select any text"));
-        }}
-        highlightMode={highlightMode}
+        onOpenSearch={() => setSearchOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenChapters={() => setChaptersOpen(true)}
         onOpenHighlights={() => setHighlightsOpen(true)}
