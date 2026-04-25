@@ -71,6 +71,7 @@ export const Timeline = ({ title, steps }: Props) => {
                   {i + 1}
                 </span>
                 <span
+                  dir={detectDir(s.marker)}
                   className={`text-[11px] leading-tight text-center max-w-[100px] truncate transition-colors ${
                     isActive ? "text-accent font-semibold" : "text-muted-foreground"
                   }`}
