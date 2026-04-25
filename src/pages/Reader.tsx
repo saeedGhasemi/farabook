@@ -15,6 +15,7 @@ import { AiPanel } from "@/components/reader/AiPanel";
 import { ChapterSidebar } from "@/components/reader/ChapterSidebar";
 import { HighlightsPanel, type HighlightItem } from "@/components/reader/HighlightsPanel";
 import { resolveBookMedia } from "@/lib/book-media";
+import { speakSmart, stopSpeak as stopSpeakSmart } from "@/lib/tts";
 
 interface Page {
   title: string;
