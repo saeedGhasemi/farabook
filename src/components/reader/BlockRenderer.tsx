@@ -264,6 +264,7 @@ const HiddenCaptionImage = ({
           </div>
         )}
       </div>
+    </figure>
   );
 };
 
