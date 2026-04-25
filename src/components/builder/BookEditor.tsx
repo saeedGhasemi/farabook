@@ -388,6 +388,7 @@ export const BookEditor = ({ initial, onCreated }: Props) => {
             description: description || null,
             cover_url: cover,
             pages: dbPages,
+            typography_preset: typography,
           })
           .eq("id", initial.id);
         if (error) throw error;
@@ -400,7 +401,7 @@ export const BookEditor = ({ initial, onCreated }: Props) => {
         setSavingDraft(false);
       }
     },
-    [isEdit, initial, user, pages, title, author, description, coverFile, coverUrl, lang],
+    [isEdit, initial, user, pages, title, author, description, coverFile, coverUrl, typography, lang],
   );
 
   // Autosave: debounce 4s after any change in edit mode
@@ -415,7 +416,7 @@ export const BookEditor = ({ initial, onCreated }: Props) => {
       persistDraft(false);
     }, 4000);
     return () => window.clearTimeout(t);
-  }, [pages, title, author, description, dirty, isEdit, persistDraft]);
+  }, [pages, title, author, description, typography, dirty, isEdit, persistDraft]);
 
   /* ---------- create new book ---------- */
   const submitCreate = async () => {
