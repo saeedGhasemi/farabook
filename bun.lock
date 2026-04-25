@@ -8,6 +8,7 @@
         "@fontsource-variable/inter": "^5.2.8",
         "@fontsource-variable/vazirmatn": "^5.2.8",
         "@fontsource/crimson-pro": "^5.2.8",
+        "@fontsource/fraunces": "^5.2.9",
         "@hookform/resolvers": "^3.10.0",
         "@radix-ui/react-accordion": "^1.2.11",
         "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -177,6 +178,8 @@
     "@fontsource-variable/vazirmatn": ["@fontsource-variable/vazirmatn@5.2.8", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@fontsource-variable/vazirmatn/-/vazirmatn-5.2.8.tgz", {}, "sha512-2YzXfH4PNOeoZsBsgJgjbnm+IC2nonGyMLX3gXLm8FQrP+wpi1uGBIWYWlEzJ0lmntgdyAc3lRViHHfZWKvbog=="],
 
     "@fontsource/crimson-pro": ["@fontsource/crimson-pro@5.2.8", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@fontsource/crimson-pro/-/crimson-pro-5.2.8.tgz", {}, "sha512-t+cAoAswUKEReDPqDNWWSyAp7baZkKrtF6Ry0KrDZQHJCldS9pIbRH0n2hm1u4+SbIUI7c+nUS9yfK6rEhycTw=="],
+
+    "@fontsource/fraunces": ["@fontsource/fraunces@5.2.9", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/@fontsource/fraunces/-/fraunces-5.2.9.tgz", {}, "sha512-XDzuddBtoC7BZgZdBn6b7hsFZY2+V1hgN7yca5fBTKuHjb/lOd45a0Ji8dTUgFhPoL7RdGupo+bC2BFSt6UH8Q=="],
 
     "@hookform/resolvers": ["@hookform/resolvers@3.10.0", "", { "peerDependencies": { "react-hook-form": "^7.0.0" } }, "sha512-79Dv+3mDF7i+2ajj7SkypSKHhl1cbln1OGavqrsF7p6mbUv11xpqpacPsGDCTRvCSjEEIez2ef1NveSVL3b0Ag=="],
 
