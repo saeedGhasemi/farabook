@@ -239,6 +239,16 @@ const Store = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BookPreviewDialog
+        book={previewBook}
+        open={!!previewBook}
+        onOpenChange={(o) => !o && setPreviewBook(null)}
+        isOwned={previewBook ? owned.has(previewBook.id) : false}
+        isOwner={!!user && !!previewBook && previewBook.publisher_id === user.id}
+        canBuy={!!user && !!previewBook && !owned.has(previewBook.id) && previewBook.publisher_id !== user.id}
+        onBuy={() => { if (previewBook) { handleAdd(previewBook); setPreviewBook(null); } }}
+      />
     </main>
   );
 };
