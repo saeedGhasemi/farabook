@@ -230,6 +230,33 @@ const Reader = () => {
 
   const runAI = async (mode: AiMode) => {
     if (!pageText) return;
+
+    // Timeline → structured output, render as preview + offer to insert as note
+    if (mode === "timeline") {
+      setTimelineData(null);
+      setAiMode("timeline");
+      setAiOpen(true);
+      setAiLoading(true);
+      setAiContent("");
+      try {
+        const { data, error } = await supabase.functions.invoke("book-ai", {
+          body: { text: pageText, mode: "timeline", lang },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        const tl = data?.timeline ?? { steps: [] };
+        setTimelineData(tl);
+        if (!tl.steps?.length) {
+          setAiContent(lang === "fa"
+            ? "این متن قابل تبدیل به تایم‌لاین نیست."
+            : "This text isn't timeline-shaped.");
+        }
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "AI error");
+      } finally { setAiLoading(false); }
+      return;
+    }
+
     setAiMode(mode); setAiOpen(true); setAiLoading(true); setAiContent("");
     try {
       const { data, error } = await supabase.functions.invoke("book-ai", {
