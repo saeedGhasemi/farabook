@@ -16,46 +16,85 @@ export type Database = {
     Tables: {
       books: {
         Row: {
+          ai_audio_url: string | null
+          ai_summary: string | null
           ambient_theme: string | null
+          audience: string | null
           author: string
           category: string | null
           cover_url: string | null
           created_at: string
           description: string | null
           id: string
+          isbn: string | null
+          language: string | null
           pages: Json
+          preview_pages: number[] | null
           price: number
+          published_at: string | null
           publisher: string | null
+          publisher_id: string | null
+          slug: string | null
+          status: string
+          tags: string[] | null
           title: string
           title_en: string | null
+          typography_preset: string | null
+          updated_at: string
         }
         Insert: {
+          ai_audio_url?: string | null
+          ai_summary?: string | null
           ambient_theme?: string | null
+          audience?: string | null
           author: string
           category?: string | null
           cover_url?: string | null
           created_at?: string
           description?: string | null
           id?: string
+          isbn?: string | null
+          language?: string | null
           pages?: Json
+          preview_pages?: number[] | null
           price?: number
+          published_at?: string | null
           publisher?: string | null
+          publisher_id?: string | null
+          slug?: string | null
+          status?: string
+          tags?: string[] | null
           title: string
           title_en?: string | null
+          typography_preset?: string | null
+          updated_at?: string
         }
         Update: {
+          ai_audio_url?: string | null
+          ai_summary?: string | null
           ambient_theme?: string | null
+          audience?: string | null
           author?: string
           category?: string | null
           cover_url?: string | null
           created_at?: string
           description?: string | null
           id?: string
+          isbn?: string | null
+          language?: string | null
           pages?: Json
+          preview_pages?: number[] | null
           price?: number
+          published_at?: string | null
           publisher?: string | null
+          publisher_id?: string | null
+          slug?: string | null
+          status?: string
+          tags?: string[] | null
           title?: string
           title_en?: string | null
+          typography_preset?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
