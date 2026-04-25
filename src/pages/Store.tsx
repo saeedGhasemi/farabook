@@ -101,6 +101,8 @@ const Store = () => {
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filtered.map((book, i) => {
           const isOwned = owned.has(book.id);
+          const isOwner = !!user && book.publisher_id === user.id;
+          const isDraft = book.status === "draft";
           const title = lang === "en" && book.title_en ? book.title_en : book.title;
           return (
             <motion.div
@@ -109,7 +111,7 @@ const Store = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05, duration: 0.5 }}
               whileHover={{ y: -8 }}
-              className="paper-card rounded-2xl overflow-hidden flex flex-col group"
+              className="paper-card rounded-2xl overflow-hidden flex flex-col group relative"
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-secondary">
                 {book.cover_url && (
@@ -123,6 +125,28 @@ const Store = () => {
                 {book.category && (
                   <Badge className="absolute top-3 start-3 glass-strong text-foreground border-0">{book.category}</Badge>
                 )}
+                {isDraft && (
+                  <Badge variant="outline" className="absolute top-3 end-3 bg-amber-500/90 text-white border-0">
+                    {lang === "fa" ? "پیش‌نویس" : "Draft"}
+                  </Badge>
+                )}
+                {isOwner && (
+                  <div className="absolute bottom-2 end-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Link to={`/edit/${book.id}`}>
+                      <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full shadow-md">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                    </Link>
+                    <Button
+                      size="icon"
+                      variant="destructive"
+                      className="h-8 w-8 rounded-full shadow-md"
+                      onClick={() => setConfirmDelete(book)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                )}
               </div>
               <div className="p-5 flex-1 flex flex-col gap-3">
                 <div>
@@ -134,7 +158,13 @@ const Store = () => {
                   <span className="font-semibold text-primary">
                     {book.price === 0 ? t("free") : `${book.price.toLocaleString()} ${t("toman")}`}
                   </span>
-                  {isOwned ? (
+                  {isOwner ? (
+                    <Link to={`/edit/${book.id}`}>
+                      <Button size="sm" variant="outline" className="gap-1.5">
+                        <Pencil className="w-3.5 h-3.5" /> {lang === "fa" ? "ویرایش" : "Edit"}
+                      </Button>
+                    </Link>
+                  ) : isOwned ? (
                     <Link to={`/read/${book.id}`}>
                       <Button size="sm" variant="outline" className="gap-1.5">
                         <Check className="w-3.5 h-3.5" /> {t("read")}
@@ -151,6 +181,27 @@ const Store = () => {
           );
         })}
       </div>
+
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {lang === "fa" ? "حذف کتاب" : "Delete book"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {lang === "fa"
+                ? `آیا از حذف «${confirmDelete?.title}» مطمئن هستید؟ این عملیات قابل بازگشت نیست.`
+                : `Delete "${confirmDelete?.title}"? This cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{lang === "fa" ? "انصراف" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {lang === "fa" ? "حذف" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 };
