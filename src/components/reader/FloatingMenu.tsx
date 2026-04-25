@@ -195,6 +195,7 @@ export const FloatingMenu = ({
               <Item icon={Menu} label={lang === "fa" ? "فصل‌ها" : "Chapters"} onClick={onOpenChapters} />
               <Item icon={Search} label={lang === "fa" ? "جستجو" : "Search"} onClick={onOpenSearch} />
               <Item icon={Sparkles} label={lang === "fa" ? "هوش" : "AI"} onClick={() => setAiOpen((v) => !v)} active={aiOpen} />
+              <Item icon={MessageSquare} label={lang === "fa" ? "گفتگو" : "Chat"} onClick={onOpenChat} />
               <Item
                 icon={isSpeaking ? VolumeX : Volume2}
                 label={isSpeaking ? t("stop") : t("listen")}
