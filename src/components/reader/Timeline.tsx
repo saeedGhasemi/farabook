@@ -107,13 +107,13 @@ export const Timeline = ({ title, steps }: Props) => {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className="text-[11px] uppercase tracking-wider text-accent font-semibold mb-1">
+                <div dir={detectDir(cur.marker)} className="text-[11px] uppercase tracking-wider text-accent font-semibold mb-1">
                   {cur.marker}
                 </div>
-                <h5 className="font-display font-bold text-lg md:text-xl text-foreground mb-2 leading-tight">
+                <h5 dir={titleDir} className="font-display font-bold text-lg md:text-xl text-foreground mb-2 leading-tight">
                   {cur.title}
                 </h5>
-                <p className="text-sm md:text-[15px] text-foreground/80 leading-relaxed whitespace-pre-line">
+                <p dir={descDir} className="text-sm md:text-[15px] text-foreground/80 leading-relaxed whitespace-pre-line">
                   {cur.description}
                 </p>
               </div>
