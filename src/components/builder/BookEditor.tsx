@@ -214,6 +214,7 @@ interface InitialBook {
   description: string | null;
   cover_url: string | null;
   pages: PageDraft[];
+  typography_preset?: string | null;
 }
 
 interface Props {
@@ -236,6 +237,9 @@ export const BookEditor = ({ initial, onCreated }: Props) => {
   const [coverUrl, setCoverUrl] = useState<string>(initial?.cover_url || "");
   const [pages, setPages] = useState<PageDraft[]>(
     initial?.pages?.length ? initial.pages : [newPage()],
+  );
+  const [typography, setTypography] = useState<string>(
+    initial?.typography_preset || "editorial",
   );
   const [busy, setBusy] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
