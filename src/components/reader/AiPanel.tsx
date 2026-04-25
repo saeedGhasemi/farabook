@@ -118,6 +118,16 @@ export const AiPanel = ({ open, mode, loading, content, timeline, onClose, onReg
                     </pre>
                   </details>
                 </motion.div>
+              ) : mode === "timeline" ? (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
+                  {timeline?.steps?.length ? (
+                    <Timeline title={timeline.title} steps={timeline.steps} />
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-6 text-center">
+                      {content || (lang === "fa" ? "تایم‌لاینی استخراج نشد." : "No timeline extracted.")}
+                    </p>
+                  )}
+                </motion.div>
               ) : (
                 <motion.div
                   initial={{ opacity: 0 }}
