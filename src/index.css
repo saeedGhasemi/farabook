@@ -87,9 +87,9 @@
       0 8px 32px -8px hsl(222 30% 14% / 0.12);
 
     /* Sandblasted glass — strong translucency, true frosted feel */
-    --glass-bg: hsla(220, 25%, 98%, 0.22);
-    --glass-bg-strong: hsla(220, 25%, 98%, 0.32);
-    --glass-border: hsla(220, 30%, 100%, 0.45);
+    --glass-bg: hsla(220, 25%, 98%, 0.42);
+    --glass-bg-strong: hsla(220, 25%, 98%, 0.58);
+    --glass-border: hsla(220, 30%, 100%, 0.55);
     --glass-border-dark: hsla(222, 30%, 14%, 0.06);
 
     /* Motion */
@@ -192,8 +192,8 @@
     --border: 222 15% 20%;
     --input: 222 15% 18%;
     --ring: 215 55% 55%;
-    --glass-bg: hsla(222, 25%, 12%, 0.30);
-    --glass-bg-strong: hsla(222, 25%, 12%, 0.42);
+    --glass-bg: hsla(222, 25%, 12%, 0.55);
+    --glass-bg-strong: hsla(222, 25%, 12%, 0.72);
     --glass-border: hsla(220, 30%, 100%, 0.10);
     --glass-border-dark: hsla(0, 0%, 0%, 0.3);
     --gradient-paper: linear-gradient(145deg, hsl(222 22% 13%) 0%, hsl(222 25% 9%) 100%);
