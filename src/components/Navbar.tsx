@@ -1,6 +1,7 @@
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { BookOpen, Library, Store, LogIn, LogOut, Languages, Palette, Wand2, Briefcase } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { BookOpen, Library, Store, LogIn, LogOut, Languages, Palette, Wand2, Briefcase, Menu, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme, type Theme } from "@/lib/theme";
@@ -14,6 +15,10 @@ export const Navbar = () => {
   const { theme, setTheme } = useTheme();
   const loc = useLocation();
   const nav = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close mobile menu on route change
+  useEffect(() => { setMobileOpen(false); }, [loc.pathname]);
 
   const themes: { value: Theme; label: string; swatch: string }[] = [
     { value: "silver", label: lang === "fa" ? "نقره‌ای" : "Silver", swatch: "linear-gradient(135deg,#c8d0db,#8a96a8)" },
@@ -109,8 +114,51 @@ export const Navbar = () => {
                 {t("nav_signin")}
               </Button>
             )}
+
+            {/* Mobile menu trigger */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              onClick={() => setMobileOpen((v) => !v)}
+              aria-label="Menu"
+              aria-expanded={mobileOpen}
+            >
+              {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </Button>
           </div>
         </div>
+
+        {/* Mobile nav drawer */}
+        <AnimatePresence>
+          {mobileOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="md:hidden overflow-hidden border-t border-border/40"
+            >
+              <nav className="container py-3 flex flex-col gap-1">
+                {links.map(({ to, label, icon: Icon }) => {
+                  const active = loc.pathname === to;
+                  return (
+                    <Link
+                      key={to}
+                      to={to}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                        active ? "bg-primary text-primary-foreground shadow-soft" : "text-foreground/80 hover:bg-secondary/60"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span>{label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.header>
   );

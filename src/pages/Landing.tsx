@@ -147,15 +147,17 @@ const Landing = () => {
             </p>
 
             <form onSubmit={onSearch} className="relative max-w-xl mx-auto pt-4">
-              <Search className="absolute top-1/2 mt-2 -translate-y-1/2 start-4 w-5 h-5 text-muted-foreground" />
+              <Search className="absolute top-1/2 mt-2 -translate-y-1/2 start-4 w-5 h-5 text-muted-foreground pointer-events-none" />
               <Input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder={t("search_ph")}
-                className="ps-12 pe-32 h-14 glass-strong text-base"
+                className="ps-12 pe-24 sm:pe-32 h-14 glass-strong text-base"
               />
-              <Button type="submit" className="absolute end-2 top-2 bottom-2 bg-gradient-warm">
-                {t("nav_store")} <Arrow className="w-4 h-4 ms-1" />
+              <Button type="submit" size="sm" className="absolute end-2 top-2 bottom-2 bg-gradient-warm px-3 sm:px-4">
+                <Search className="w-4 h-4 sm:hidden" />
+                <span className="hidden sm:inline">{t("nav_store")}</span>
+                <Arrow className="w-4 h-4 ms-1 hidden sm:inline-block" />
               </Button>
             </form>
           </motion.div>
