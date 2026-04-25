@@ -25,7 +25,8 @@ export type Block =
   | { type: "video"; src: string; poster?: string; caption?: string }
   | { type: "callout"; icon?: "info" | "sparkle"; text: string }
   | { type: "table"; caption?: string; tableNumber?: string; headers: string[]; rows: string[][] }
-  | { type: "references"; items: { id?: string; text: string; url?: string }[] };
+  | { type: "references"; items: { id?: string; text: string; url?: string }[] }
+  | { type: "timeline"; title?: string; steps: TimelineStep[] };
 
 interface SavedHL { id?: string; text: string; color: string }
 
