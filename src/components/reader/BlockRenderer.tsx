@@ -101,8 +101,8 @@ const renderWithHighlights = (
 /* ---------- Sub-components ---------- */
 
 const InteractiveImage = ({
-  src, caption, hotspots, mediaKey,
-}: { src: string; caption?: string; hotspots?: Hotspot[]; mediaKey?: string }) => {
+  src, caption, hotspots, mediaKey, figureNumber,
+}: { src: string; caption?: string; hotspots?: Hotspot[]; mediaKey?: string; figureNumber?: string }) => {
   const [zoomed, setZoomed] = useState(false);
   useEffect(() => {
     if (!mediaKey) return;
