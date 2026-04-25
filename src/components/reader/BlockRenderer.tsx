@@ -523,7 +523,11 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
     case "image":
       return (
         <motion.div {...fade} id={blockId}>
-          <InteractiveImage src={block.src} caption={block.caption} hotspots={block.hotspots} mediaKey={blockId} figureNumber={block.figureNumber} />
+          {block.hideCaption && block.caption ? (
+            <HiddenCaptionImage src={block.src} caption={block.caption} figureNumber={block.figureNumber} />
+          ) : (
+            <InteractiveImage src={block.src} caption={block.caption} hotspots={block.hotspots} mediaKey={blockId} figureNumber={block.figureNumber} />
+          )}
         </motion.div>
       );
 
