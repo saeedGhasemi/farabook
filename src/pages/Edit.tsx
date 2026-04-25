@@ -15,7 +15,7 @@ import { BookEditor, draftsFromDbPages } from "@/components/builder/BookEditor";
 const Edit = () => {
   const { id } = useParams();
   const nav = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { lang, dir } = useI18n();
   const Back = dir === "rtl" ? ArrowRight : ArrowLeft;
 
@@ -24,6 +24,7 @@ const Edit = () => {
 
   useEffect(() => {
     if (!id) return;
+    if (authLoading) return; // wait for session to hydrate
     if (!user) {
       nav("/auth");
       return;
@@ -68,7 +69,7 @@ const Edit = () => {
       });
       setLoading(false);
     })();
-  }, [id, user, nav, lang]);
+  }, [id, user, authLoading, nav, lang]);
 
   if (loading || !initial) {
     return (
