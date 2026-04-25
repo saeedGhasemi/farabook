@@ -9,20 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import medCoverAnatomy from "@/assets/med-cover-anatomy.jpg";
-import medCoverNeuro from "@/assets/med-cover-neuro.jpg";
-import heroBook from "@/assets/hero-book.jpg";
-import scenePrince from "@/assets/scene-prince.jpg";
-import sceneTehran from "@/assets/scene-tehran.jpg";
+import { resolveBookMedia } from "@/lib/book-media";
 
-const coverMap: Record<string, string> = {
-  "med-cover-anatomy": medCoverAnatomy,
-  "med-cover-neuro": medCoverNeuro,
-  "hero": heroBook,
-  "prince": scenePrince,
-  "tehran": sceneTehran,
-};
-const resolveCover = (s: string | null) => (s ? coverMap[s] || s : "");
+const resolveCover = (s: string | null) => resolveBookMedia(s);
 
 interface Book {
   id: string;
