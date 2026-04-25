@@ -87,9 +87,9 @@
       0 8px 32px -8px hsl(222 30% 14% / 0.12);
 
     /* Sandblasted glass — strong translucency, true frosted feel */
-    --glass-bg: hsla(220, 25%, 98%, 0.22);
-    --glass-bg-strong: hsla(220, 25%, 98%, 0.32);
-    --glass-border: hsla(220, 30%, 100%, 0.45);
+    --glass-bg: hsla(220, 25%, 98%, 0.42);
+    --glass-bg-strong: hsla(220, 25%, 98%, 0.58);
+    --glass-border: hsla(220, 30%, 100%, 0.55);
     --glass-border-dark: hsla(222, 30%, 14%, 0.06);
 
     /* Motion */
@@ -192,8 +192,8 @@
     --border: 222 15% 20%;
     --input: 222 15% 18%;
     --ring: 215 55% 55%;
-    --glass-bg: hsla(222, 25%, 12%, 0.30);
-    --glass-bg-strong: hsla(222, 25%, 12%, 0.42);
+    --glass-bg: hsla(222, 25%, 12%, 0.55);
+    --glass-bg-strong: hsla(222, 25%, 12%, 0.72);
     --glass-border: hsla(220, 30%, 100%, 0.10);
     --glass-border-dark: hsla(0, 0%, 0%, 0.3);
     --gradient-paper: linear-gradient(145deg, hsl(222 22% 13%) 0%, hsl(222 25% 9%) 100%);
@@ -360,6 +360,83 @@
     transform-style: preserve-3d;
     transition: transform 0.7s var(--ease-paper);
   }
+
+  /* === Figure caption typography === */
+  .book-figcaption {
+    font-family: 'Fraunces', 'Vazirmatn', serif;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    font-style: italic;
+    color: hsl(var(--muted-foreground));
+    text-align: center;
+    margin-top: 0.6rem;
+    letter-spacing: 0.005em;
+    text-wrap: balance;
+  }
+  [dir="rtl"] .book-figcaption { font-style: normal; font-family: 'Vazirmatn', serif; }
+  .book-figcaption .figcap-label {
+    display: inline-block;
+    font-style: normal;
+    font-weight: 700;
+    color: hsl(var(--accent));
+    margin-inline-end: 0.4rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+  }
+
+  /* === Inline reference / citation === */
+  .ref-cite {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4em;
+    height: 1.4em;
+    padding: 0 0.35em;
+    margin: 0 0.1em;
+    border-radius: 999px;
+    background: hsl(var(--accent) / 0.12);
+    color: hsl(var(--accent));
+    font-size: 0.7em;
+    font-weight: 700;
+    line-height: 1;
+    vertical-align: super;
+    text-decoration: none;
+    transition: all 0.15s ease;
+  }
+  .ref-cite:hover { background: hsl(var(--accent) / 0.22); transform: translateY(-1px); }
+
+  /* === Table block === */
+  .book-table-wrap {
+    margin: 1.5rem 0;
+    border-radius: 1rem;
+    overflow: hidden;
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+    box-shadow: var(--shadow-paper);
+  }
+  .book-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92em;
+    font-family: 'Vazirmatn', 'Inter', system-ui, sans-serif;
+  }
+  .book-table thead th {
+    background: var(--gradient-warm);
+    color: hsl(var(--primary-foreground));
+    font-weight: 600;
+    text-align: start;
+    padding: 0.75rem 1rem;
+    letter-spacing: 0.01em;
+  }
+  .book-table tbody td {
+    padding: 0.7rem 1rem;
+    border-top: 1px solid hsl(var(--border) / 0.6);
+    color: hsl(var(--foreground) / 0.92);
+    vertical-align: top;
+  }
+  .book-table tbody tr:nth-child(even) td { background: hsl(var(--muted) / 0.4); }
+  .book-table tbody tr:hover td { background: hsl(var(--accent) / 0.08); }
 }
 
 @layer utilities {

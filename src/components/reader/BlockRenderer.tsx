@@ -18,11 +18,13 @@ export type Block =
   | { type: "paragraph"; text: string }
   | { type: "quote"; text: string; author?: string }
   | { type: "highlight"; text: string }
-  | { type: "image"; src: string; caption?: string; hotspots?: Hotspot[] }
+  | { type: "image"; src: string; caption?: string; figureNumber?: string; hotspots?: Hotspot[] }
   | { type: "gallery"; images: string[]; caption?: string }
   | { type: "slideshow"; images: { src: string; caption?: string }[]; autoplay?: boolean; interval?: number }
   | { type: "video"; src: string; poster?: string; caption?: string }
-  | { type: "callout"; icon?: "info" | "sparkle"; text: string };
+  | { type: "callout"; icon?: "info" | "sparkle"; text: string }
+  | { type: "table"; caption?: string; tableNumber?: string; headers: string[]; rows: string[][] }
+  | { type: "references"; items: { id?: string; text: string; url?: string }[] };
 
 interface SavedHL { id?: string; text: string; color: string }
 
@@ -35,20 +37,50 @@ interface Props {
   onHighlightClick?: (hl: SavedHL) => void;
 }
 
+/* Strip massive inline citation blobs that some Word imports leave behind:
+   "(Author, 2024)https://dummy-citation.com/citation?d=...."  → keep the
+   "(Author, 2024)" plus a small superscript ref pill. */
+const cleanInlineRefs = (text: string): React.ReactNode => {
+  // Match either dummy-citation links or any bare URL stuck to text
+  const re = /(https?:\/\/[^\s)]+)/g;
+  const parts = text.split(re);
+  let refIdx = 0;
+  return parts.map((p, i) => {
+    if (i % 2 === 1) {
+      // it's a URL — replace with compact ref pill
+      refIdx += 1;
+      const isDummy = p.includes("dummy-citation");
+      return (
+        <a
+          key={i}
+          href={isDummy ? undefined : p}
+          target="_blank"
+          rel="noreferrer"
+          className="ref-cite"
+          onClick={isDummy ? (e) => e.preventDefault() : undefined}
+        >
+          ↗
+        </a>
+      );
+    }
+    return <span key={i}>{p}</span>;
+  });
+};
+
 /* Render text with inline colored highlight spans — clickable & vivid */
 const renderWithHighlights = (
   text: string,
   hls?: SavedHL[],
   onClick?: (hl: SavedHL) => void,
 ): React.ReactNode => {
-  if (!hls || hls.length === 0) return text;
+  if (!hls || hls.length === 0) return cleanInlineRefs(text);
   const sorted = [...hls].sort((a, b) => b.text.length - a.text.length);
   const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(`(${sorted.map((h) => escape(h.text)).join("|")})`, "g");
   const parts = text.split(pattern);
   return parts.map((p, i) => {
     const match = sorted.find((h) => h.text === p);
-    if (!match) return <span key={i}>{p}</span>;
+    if (!match) return <span key={i}>{cleanInlineRefs(p)}</span>;
     const color = match.color || "yellow";
     return (
       <mark
@@ -69,8 +101,8 @@ const renderWithHighlights = (
 /* ---------- Sub-components ---------- */
 
 const InteractiveImage = ({
-  src, caption, hotspots, mediaKey,
-}: { src: string; caption?: string; hotspots?: Hotspot[]; mediaKey?: string }) => {
+  src, caption, hotspots, mediaKey, figureNumber,
+}: { src: string; caption?: string; hotspots?: Hotspot[]; mediaKey?: string; figureNumber?: string }) => {
   const [zoomed, setZoomed] = useState(false);
   useEffect(() => {
     if (!mediaKey) return;
@@ -136,7 +168,8 @@ const InteractiveImage = ({
           )}
         </div>
         {caption && (
-          <figcaption className="mt-2 text-sm text-muted-foreground italic text-center">
+          <figcaption className="book-figcaption">
+            {figureNumber && <span className="figcap-label">{figureNumber}</span>}
             {caption}
           </figcaption>
         )}
@@ -339,7 +372,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
     case "image":
       return (
         <motion.div {...fade} id={blockId}>
-          <InteractiveImage src={block.src} caption={block.caption} hotspots={block.hotspots} mediaKey={blockId} />
+          <InteractiveImage src={block.src} caption={block.caption} hotspots={block.hotspots} mediaKey={blockId} figureNumber={block.figureNumber} />
         </motion.div>
       );
 
@@ -374,11 +407,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
               </motion.div>
             ))}
           </div>
-          {block.caption && (
-            <figcaption className="mt-2 text-sm text-muted-foreground italic text-center">
-              {block.caption}
-            </figcaption>
-          )}
+          {block.caption && <figcaption className="book-figcaption">{block.caption}</figcaption>}
         </motion.figure>
       );
 
@@ -394,12 +423,53 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
               className="w-full h-auto"
             />
           </div>
+          {block.caption && <figcaption className="book-figcaption">{block.caption}</figcaption>}
+        </motion.figure>
+      );
+
+    case "table":
+      return (
+        <motion.figure {...fade} className="my-6">
+          <div className="book-table-wrap">
+            <table className="book-table">
+              <thead>
+                <tr>{block.headers.map((h, i) => <th key={i}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {block.rows.map((row, r) => (
+                  <tr key={r}>{row.map((cell, c) => <td key={c}>{cell}</td>)}</tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {block.caption && (
-            <figcaption className="mt-2 text-sm text-muted-foreground italic text-center">
+            <figcaption className="book-figcaption">
+              {block.tableNumber && <span className="figcap-label">{block.tableNumber}</span>}
               {block.caption}
             </figcaption>
           )}
         </motion.figure>
+      );
+
+    case "references":
+      return (
+        <motion.section {...fade} className="my-8 p-5 rounded-2xl glass border border-glass-border">
+          <h4 className="font-display font-bold text-base mb-3 text-foreground/90 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+            منابع و مراجع
+          </h4>
+          <ol className="space-y-2 text-sm text-foreground/80 leading-relaxed list-decimal ps-5 marker:text-accent marker:font-bold">
+            {block.items.map((it, i) => (
+              <li key={i} className="ps-1">
+                {it.url ? (
+                  <a href={it.url} target="_blank" rel="noreferrer" className="hover:text-accent underline-offset-2 hover:underline">
+                    {it.text}
+                  </a>
+                ) : it.text}
+              </li>
+            ))}
+          </ol>
+        </motion.section>
       );
 
     case "callout": {

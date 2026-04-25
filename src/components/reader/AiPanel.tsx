@@ -34,7 +34,7 @@ export const AiPanel = ({ open, mode, loading, content, onClose }: Props) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-foreground/30 backdrop-blur-sm z-40"
+            className="fixed inset-0 backdrop-blur-md z-40"
           />
           <motion.div
             initial={{ opacity: 0, y: 40, scale: 0.96 }}
