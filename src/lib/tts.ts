@@ -156,21 +156,28 @@ export const speakSmart = async (opts: SpeakOptions): Promise<void> => {
   if (!synth) return;
   synth.cancel();
 
-  const lang = detectLang(opts.text) || opts.fallbackLang || "en";
   const voices = await waitForVoices();
-  const voice = pickBestVoice(voices, lang)
-    ?? (opts.fallbackLang ? pickBestVoice(voices, opts.fallbackLang) : undefined);
+  const segments = splitByLanguage(opts.text);
+  if (!segments.length) return;
 
-  const chunks = chunkText(opts.text);
+  // Build a flat queue: [{ chunk, voice, lang }]
+  const queue: Array<{ chunk: string; voice?: SpeechSynthesisVoice; lang: DetectedLang }> = [];
+  for (const seg of segments) {
+    const lang = seg.lang || opts.fallbackLang || "en";
+    const voice = pickBestVoice(voices, lang)
+      ?? (opts.fallbackLang ? pickBestVoice(voices, opts.fallbackLang) : undefined);
+    for (const c of chunkText(seg.text)) queue.push({ chunk: c, voice, lang });
+  }
+
   let started = false;
   let cancelled = false;
 
-  for (let i = 0; i < chunks.length; i++) {
+  for (const item of queue) {
     if (cancelled) break;
     await new Promise<void>((resolve) => {
-      const u = new SpeechSynthesisUtterance(chunks[i]);
-      if (voice) u.voice = voice;
-      u.lang = voice?.lang || BCP47[lang][0];
+      const u = new SpeechSynthesisUtterance(item.chunk);
+      if (item.voice) u.voice = item.voice;
+      u.lang = item.voice?.lang || BCP47[item.lang][0];
       u.rate = opts.rate ?? 1;
       u.pitch = opts.pitch ?? 1;
       u.onstart = () => {
