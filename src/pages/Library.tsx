@@ -85,7 +85,7 @@ const Library = () => {
                 <Link to={`/read/${r.books.id}`} className="flex w-full">
                   <div className="w-32 flex-shrink-0 aspect-[3/4] overflow-hidden bg-secondary">
                     {r.books.cover_url && (
-                      <img src={r.books.cover_url} alt={title} loading="lazy"
+                      <img src={resolveBookMedia(r.books.cover_url)} alt={title} loading="lazy"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                     )}
                   </div>
