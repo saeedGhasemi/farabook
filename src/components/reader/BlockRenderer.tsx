@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Info, Sparkles, Quote as QuoteIcon, ChevronLeft, ChevronRight, Play, Pause, Plus, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { resolveBookMedia } from "@/lib/book-media";
+import { Timeline, type TimelineStep } from "./Timeline";
 
 const resolveImg = (src: string) => resolveBookMedia(src);
 
