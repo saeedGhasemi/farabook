@@ -168,7 +168,8 @@ const InteractiveImage = ({
           )}
         </div>
         {caption && (
-          <figcaption className="mt-2 text-sm text-muted-foreground italic text-center">
+          <figcaption className="book-figcaption">
+            {figureNumber && <span className="figcap-label">{figureNumber}</span>}
             {caption}
           </figcaption>
         )}
