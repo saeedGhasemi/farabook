@@ -126,7 +126,7 @@ const Store = () => {
                   <Badge className="absolute top-3 start-3 glass-strong text-foreground border-0">{book.category}</Badge>
                 )}
                 {isDraft && (
-                  <Badge variant="outline" className="absolute top-3 end-3 bg-amber-500/90 text-white border-0">
+                  <Badge className="absolute top-3 end-3 bg-accent text-accent-foreground border-0">
                     {lang === "fa" ? "پیش‌نویس" : "Draft"}
                   </Badge>
                 )}
