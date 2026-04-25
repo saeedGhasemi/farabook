@@ -346,8 +346,12 @@ const Reader = () => {
     : []);
 
   const chapters = book.pages.map((p, i) => ({ index: i, title: p.title }));
-  const panelSide = dir === "rtl" ? "left-0" : "right-0";
-  const panelInitialX = dir === "rtl" ? -440 : 440;
+  // Detect book content direction independently of UI language
+  const sampleText = (book.pages.slice(0, 3).map((p) => p.title + " " + (p.blocks?.map((b) => "text" in b ? b.text : "").join(" ") ?? p.content ?? "")).join(" ")).slice(0, 2000);
+  const rtlChars = (sampleText.match(/[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length;
+  const ltrChars = (sampleText.match(/[A-Za-z]/g) || []).length;
+  const bookDir: "rtl" | "ltr" = rtlChars >= ltrChars ? "rtl" : "ltr";
+  // Chapter & search drawers always slide from the RIGHT edge of the screen
   const allOverlaysOpen = chaptersOpen || searchOpen || settingsOpen || highlightsOpen || aiOpen;
   const goToPageNumber = () => {
     const next = Math.min(total, Math.max(1, Number(jumpValue) || 1)) - 1;
