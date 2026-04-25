@@ -46,16 +46,14 @@ export const HighlightsPanel = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-foreground/30 backdrop-blur-md z-40"
+            className="fixed inset-0 backdrop-blur-md z-40"
           />
           <motion.aside
-            initial={{ x: dir === "rtl" ? -440 : 440, opacity: 0 }}
+            initial={{ x: 440, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: dir === "rtl" ? -440 : 440, opacity: 0 }}
+            exit={{ x: 440, opacity: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className={`fixed top-0 bottom-0 ${
-              dir === "rtl" ? "left-0" : "right-0"
-            } z-50 w-full sm:w-[440px] glass-strong shadow-book border-s border-glass-border flex flex-col`}
+            className="fixed top-0 bottom-0 right-0 z-50 w-full sm:w-[440px] glass-strong shadow-book border-l border-glass-border flex flex-col"
           >
             <header className="flex items-center justify-between p-5 border-b border-border/40">
               <div className="flex items-center gap-3">
