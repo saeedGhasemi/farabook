@@ -30,6 +30,7 @@ interface Props {
   block: Block;
   fontSize: number;
   index: number;
+  pageIndex?: number;
   savedHighlights?: SavedHL[];
   onHighlightClick?: (hl: SavedHL) => void;
 }
@@ -68,9 +69,18 @@ const renderWithHighlights = (
 /* ---------- Sub-components ---------- */
 
 const InteractiveImage = ({
-  src, caption, hotspots,
-}: { src: string; caption?: string; hotspots?: Hotspot[] }) => {
+  src, caption, hotspots, mediaKey,
+}: { src: string; caption?: string; hotspots?: Hotspot[]; mediaKey?: string }) => {
   const [zoomed, setZoomed] = useState(false);
+  useEffect(() => {
+    if (!mediaKey) return;
+    const open = (event: Event) => {
+      const detail = (event as CustomEvent<{ key?: string }>).detail;
+      if (detail?.key === mediaKey) setZoomed(true);
+    };
+    window.addEventListener("open-book-media", open as EventListener);
+    return () => window.removeEventListener("open-book-media", open as EventListener);
+  }, [mediaKey]);
   return (
     <>
       <figure className="my-6 group">
@@ -270,8 +280,9 @@ const Slideshow = ({
 
 /* ---------- Main renderer ---------- */
 
-export const BlockRenderer = ({ block, fontSize, index, savedHighlights, onHighlightClick }: Props) => {
+export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHighlights, onHighlightClick }: Props) => {
   const delay = Math.min(index * 0.05, 0.3);
+  const blockId = `book-block-${pageIndex}-${index}`;
   const fade = {
     initial: { opacity: 0, y: 12 },
     animate: { opacity: 1, y: 0 },
@@ -327,8 +338,8 @@ export const BlockRenderer = ({ block, fontSize, index, savedHighlights, onHighl
 
     case "image":
       return (
-        <motion.div {...fade}>
-          <InteractiveImage src={block.src} caption={block.caption} hotspots={block.hotspots} />
+        <motion.div {...fade} id={blockId}>
+          <InteractiveImage src={block.src} caption={block.caption} hotspots={block.hotspots} mediaKey={blockId} />
         </motion.div>
       );
 

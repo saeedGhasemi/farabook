@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, BrainCircuit, ListChecks, Lightbulb,
-  Volume2, VolumeX, Highlighter, Settings2, Sun, Moon,
+  Volume2, VolumeX, Settings2, Sun, Moon, Search,
   CloudRain, Trees, Coffee, Stars, VolumeOff, Menu, BookmarkCheck,
   ChevronUp, ChevronDown,
 } from "lucide-react";
@@ -13,8 +13,7 @@ interface Props {
   onSpeak: () => void;
   onStopSpeak: () => void;
   isSpeaking: boolean;
-  onToggleHighlight: () => void;
-  highlightMode: boolean;
+  onOpenSearch: () => void;
   onOpenSettings: () => void;
   onOpenChapters: () => void;
   onOpenHighlights: () => void;
@@ -34,7 +33,7 @@ const ambientOpts = [
 ];
 
 export const FloatingMenu = ({
-  onAi, onSpeak, onStopSpeak, isSpeaking, onToggleHighlight, highlightMode,
+  onAi, onSpeak, onStopSpeak, isSpeaking, onOpenSearch,
   onOpenSettings, onOpenChapters, onOpenHighlights, highlightCount,
   dark, onToggleDark, ambient, onAmbient,
 }: Props) => {
@@ -190,6 +189,7 @@ export const FloatingMenu = ({
               className="pointer-events-auto mb-3 mx-3 glass-strong rounded-3xl px-1.5 py-1.5 sm:px-2 sm:py-2 flex items-center gap-0.5 sm:gap-1 max-w-[calc(100vw-1.5rem)] overflow-x-auto scrollbar-thin"
             >
               <Item icon={Menu} label={lang === "fa" ? "فصل‌ها" : "Chapters"} onClick={onOpenChapters} />
+              <Item icon={Search} label={lang === "fa" ? "جستجو" : "Search"} onClick={onOpenSearch} />
               <Item icon={Sparkles} label={lang === "fa" ? "هوش" : "AI"} onClick={() => setAiOpen((v) => !v)} active={aiOpen} />
               <Item
                 icon={isSpeaking ? VolumeX : Volume2}
@@ -197,7 +197,6 @@ export const FloatingMenu = ({
                 onClick={() => (isSpeaking ? onStopSpeak() : onSpeak())}
                 active={isSpeaking}
               />
-              <Item icon={Highlighter} label={t("highlight")} onClick={onToggleHighlight} active={highlightMode} />
               <Item icon={BookmarkCheck} label={lang === "fa" ? "نشان‌ها" : "Notes"} onClick={onOpenHighlights} badge={highlightCount} />
               <Item icon={ambient === "off" ? VolumeOff : CloudRain} label={t("ambient")} onClick={() => setAmbOpen((v) => !v)} active={ambient !== "off"} />
               <Item icon={dark ? Sun : Moon} label={dark ? t("light") : t("dark")} onClick={onToggleDark} />

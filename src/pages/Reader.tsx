@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, Loader2, Menu, Highlighter as HlIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Menu, Highlighter as HlIcon, X, Search, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { BlockRenderer, type Block } from "@/components/reader/BlockRenderer";
 import { FloatingMenu } from "@/components/reader/FloatingMenu";
 import { AiPanel } from "@/components/reader/AiPanel";
 import { ChapterSidebar } from "@/components/reader/ChapterSidebar";
 import { HighlightsPanel, type HighlightItem } from "@/components/reader/HighlightsPanel";
+import { resolveBookMedia } from "@/lib/book-media";
 
 interface Page {
   title: string;
@@ -36,6 +37,16 @@ const ambientSrc: Record<string, string> = {
 
 type AiMode = "summary" | "quiz" | "mindmap" | "explain";
 
+interface SearchResult {
+  pageIndex: number;
+  blockIndex: number;
+  title: string;
+  excerpt: string;
+  mediaSrc?: string;
+  mediaKey?: string;
+  mediaCaption?: string;
+}
+
 const Reader = () => {
   const { id } = useParams();
   const nav = useNavigate();
@@ -57,12 +68,14 @@ const Reader = () => {
   const [aiLoading, setAiLoading] = useState(false);
 
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [highlightMode, setHighlightMode] = useState(false);
 
   const [chaptersOpen, setChaptersOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [highlightsOpen, setHighlightsOpen] = useState(false);
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
   const [savePopover, setSavePopover] = useState<{ x: number; y: number; text: string } | null>(null);
+  const [jumpValue, setJumpValue] = useState("1");
 
   const [userBookId, setUserBookId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -181,6 +194,11 @@ const Reader = () => {
   const currentPage = book?.pages[pageIdx];
   const total = book?.pages.length ?? 0;
 
+  useEffect(() => {
+    setJumpValue(String(pageIdx + 1));
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+  }, [pageIdx]);
+
   const pageText = useMemo(() => {
     if (!currentPage) return "";
     if (currentPage.blocks) {
@@ -235,10 +253,9 @@ const Reader = () => {
   };
   const stopSpeak = () => { speechSynthesis.cancel(); setIsSpeaking(false); };
 
-  // Selection-based highlighting
+  // Selection-based highlighting — always active, no toolbar toggle needed
   useEffect(() => {
-    const handler = () => {
-      if (!highlightMode) return;
+    const handler = () => window.setTimeout(() => {
       const sel = window.getSelection();
       const text = sel?.toString().trim();
       if (!text || text.length < 2) { setSavePopover(null); return; }
@@ -246,17 +263,18 @@ const Reader = () => {
       if (!articleRef.current.contains(sel.anchorNode)) return;
       const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
+      if (!rect.width && !rect.height) return;
       setSavePopover({
-        x: rect.left + rect.width / 2,
-        y: rect.top - 8 + window.scrollY,
+        x: Math.min(window.innerWidth - 64, Math.max(64, rect.left + rect.width / 2)),
+        y: Math.max(72, rect.top - 10),
         text,
       });
-    };
+    }, 80);
     document.addEventListener("mouseup", handler);
     document.addEventListener("touchend", handler);
-    // Aggressively block native context/share menus while in highlight mode
+    document.addEventListener("selectionchange", handler);
+    // Aggressively block native context/share menus inside the reader
     const blockCtx = (e: Event) => {
-      if (!highlightMode) return;
       const target = e.target as HTMLElement | null;
       if (target && articleRef.current?.contains(target)) e.preventDefault();
     };
@@ -264,9 +282,10 @@ const Reader = () => {
     return () => {
       document.removeEventListener("mouseup", handler);
       document.removeEventListener("touchend", handler);
+      document.removeEventListener("selectionchange", handler);
       document.removeEventListener("contextmenu", blockCtx);
     };
-  }, [highlightMode]);
+  }, []);
 
   const saveHighlight = async (color: string, note?: string) => {
     if (!savePopover || !user || !id) return;
@@ -327,6 +346,61 @@ const Reader = () => {
     : []);
 
   const chapters = book.pages.map((p, i) => ({ index: i, title: p.title }));
+  const panelSide = dir === "rtl" ? "left-0" : "right-0";
+  const panelInitialX = dir === "rtl" ? -440 : 440;
+  const allOverlaysOpen = chaptersOpen || searchOpen || settingsOpen || highlightsOpen || aiOpen;
+  const goToPageNumber = () => {
+    const next = Math.min(total, Math.max(1, Number(jumpValue) || 1)) - 1;
+    goTo(next);
+  };
+  const searchResults: SearchResult[] = (() => {
+    if (!book) return [];
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return [];
+    return book.pages.flatMap((page, pIndex) => {
+      const pageBlocks = page.blocks ?? (page.content ? [{ type: "paragraph", text: page.content } as Block] : []);
+      const firstMedia = pageBlocks.map((candidate, candidateIndex) => {
+        const src = candidate.type === "image" ? candidate.src : candidate.type === "gallery" ? candidate.images[0] : candidate.type === "slideshow" ? candidate.images[0]?.src : undefined;
+        const caption = candidate.type === "image" ? candidate.caption : candidate.type === "gallery" ? candidate.caption : candidate.type === "slideshow" ? candidate.images[0]?.caption : undefined;
+        return src ? { src, caption, key: `book-block-${pIndex}-${candidateIndex}` } : null;
+      }).find(Boolean);
+      return pageBlocks.flatMap((block, bIndex) => {
+        const text = block.type === "paragraph" || block.type === "heading" || block.type === "highlight" || block.type === "callout"
+          ? block.text
+          : block.type === "quote"
+          ? block.text
+          : block.type === "image"
+          ? block.caption || ""
+          : block.type === "gallery"
+          ? block.caption || ""
+          : block.type === "slideshow"
+          ? block.images.map((img) => img.caption || "").join(" ")
+          : "";
+        if (!`${page.title} ${text}`.toLowerCase().includes(term)) return [];
+        const mediaSrc = block.type === "image" ? block.src : block.type === "gallery" ? block.images[0] : block.type === "slideshow" ? block.images[0]?.src : undefined;
+        const blockMediaKey = mediaSrc ? `book-block-${pIndex}-${bIndex}` : undefined;
+        return [{
+          pageIndex: pIndex,
+          blockIndex: bIndex,
+          title: page.title || `${t("page")} ${pIndex + 1}`,
+          excerpt: text || page.title,
+          mediaSrc: mediaSrc || firstMedia?.src,
+          mediaCaption: block.type === "image" ? block.caption : block.type === "gallery" ? block.caption : block.type === "slideshow" ? block.images[0]?.caption : undefined,
+          mediaKey: blockMediaKey || firstMedia?.key,
+        }];
+      });
+    }).slice(0, 30);
+  })();
+  const openSearchResult = (result: SearchResult) => {
+    goTo(result.pageIndex);
+    setSearchOpen(false);
+    if (result.mediaKey) {
+      window.setTimeout(() => {
+        document.getElementById(result.mediaKey || "")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        window.dispatchEvent(new CustomEvent("open-book-media", { detail: { key: result.mediaKey } }));
+      }, 700);
+    }
+  };
 
   return (
     <main className={`min-h-[calc(100vh-4rem)] relative transition-colors duration-700 ${dark ? "bg-background" : "bg-gradient-hero"}`}>
@@ -376,7 +450,7 @@ const Reader = () => {
         </div>
 
         {/* Single-column layout — chapter sidebar is now always opened via drawer */}
-        <div className="max-w-4xl mx-auto">
+        <div className={`max-w-4xl mx-auto transition-all duration-300 ${allOverlaysOpen ? "blur-[2px] opacity-55" : ""}`}>
 
           {/* Page */}
           <div className="relative" style={{ perspective: 2200 }}>
@@ -398,7 +472,7 @@ const Reader = () => {
                   backgroundSize: "60px 60px, 80px 80px",
                 }} />
 
-                <div className={`relative ${highlightMode ? "hl-mode" : ""}`}>
+                <div className="relative hl-mode">
                   <div className="flex items-center justify-between mb-4">
                     <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                       {t("page")} {pageIdx + 1}
@@ -411,13 +485,14 @@ const Reader = () => {
                     {currentPage.title}
                   </h2>
 
-                  <div className={`space-y-4 selectable ${highlightMode ? "selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text" : ""}`}>
+                  <div className="space-y-4 selectable selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text">
                     {blocks.map((block, i) => (
                       <BlockRenderer
                         key={i}
                         block={block}
                         fontSize={fontSize}
                         index={i}
+                        pageIndex={pageIdx}
                         savedHighlights={pageHighlights.map((h) => ({ id: h.id, text: h.text, color: h.color || "yellow" }))}
                         onHighlightClick={() => setHighlightsOpen(true)}
                       />
@@ -435,9 +510,7 @@ const Reader = () => {
               <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-2">
                 <HlIcon className="w-3 h-3" />
                 <span>
-                  {highlightMode
-                    ? (lang === "fa" ? "متن را انتخاب کنید" : "Select text to save")
-                    : (lang === "fa" ? "از منوی پایین استفاده کنید" : "Use the dock below")}
+                  {lang === "fa" ? "متن را انتخاب کنید تا رنگ هایلایت ظاهر شود" : "Select text to highlight"}
                 </span>
               </div>
               <Button variant="outline" onClick={goNext} disabled={pageIdx >= total - 1} className="gap-2 glass-strong">
@@ -477,13 +550,7 @@ const Reader = () => {
         onSpeak={speak}
         onStopSpeak={stopSpeak}
         isSpeaking={isSpeaking}
-        onToggleHighlight={() => {
-          setHighlightMode((v) => !v);
-          toast.info(highlightMode
-            ? (lang === "fa" ? "حالت هایلایت خاموش شد" : "Highlight off")
-            : (lang === "fa" ? "متن دلخواه را انتخاب کنید" : "Select any text"));
-        }}
-        highlightMode={highlightMode}
+        onOpenSearch={() => setSearchOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenChapters={() => setChaptersOpen(true)}
         onOpenHighlights={() => setHighlightsOpen(true)}
@@ -513,50 +580,57 @@ const Reader = () => {
         onUpdateNote={updateHighlightNote}
       />
 
-      {/* Mobile chapters drawer with blur backdrop */}
-      <Sheet open={chaptersOpen} onOpenChange={setChaptersOpen}>
-        <SheetContent
-          side={dir === "rtl" ? "right" : "left"}
-          className="p-0 w-[88vw] sm:w-[360px] glass-strong border-s border-border/40"
-        >
-          <SheetHeader className="sr-only">
-            <SheetTitle>{lang === "fa" ? "فصل‌ها" : "Chapters"}</SheetTitle>
-          </SheetHeader>
-          <ChapterSidebar
-            chapters={chapters}
-            current={pageIdx}
-            variant="drawer"
-            onSelect={(i) => { goTo(i); setChaptersOpen(false); }}
-            onClose={() => setChaptersOpen(false)}
-          />
-        </SheetContent>
-      </Sheet>
+      <AnimatePresence>
+        {chaptersOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setChaptersOpen(false)} className="fixed inset-0 bg-foreground/30 backdrop-blur-md z-40" />
+            <motion.aside initial={{ x: panelInitialX, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: panelInitialX, opacity: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className={`fixed top-0 bottom-0 ${panelSide} z-50 w-full sm:w-[440px] glass-strong shadow-book border-s border-glass-border flex flex-col`}>
+              <ChapterSidebar chapters={chapters} current={pageIdx} variant="drawer" onSelect={(i) => { goTo(i); setChaptersOpen(false); }} onClose={() => setChaptersOpen(false)} />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
 
-      {/* Settings */}
-      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <SheetContent side={dir === "rtl" ? "left" : "right"} className="glass-strong">
-          <SheetHeader><SheetTitle>{t("settings")}</SheetTitle></SheetHeader>
-          <div className="space-y-8 mt-8">
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="font-medium">{t("font_size")}</span>
-                <span className="text-muted-foreground tabular-nums">{fontSize}px</span>
+      <AnimatePresence>
+        {searchOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSearchOpen(false)} className="fixed inset-0 bg-foreground/30 backdrop-blur-md z-40" />
+            <motion.aside initial={{ x: panelInitialX, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: panelInitialX, opacity: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className={`fixed top-0 bottom-0 ${panelSide} z-50 w-full sm:w-[440px] glass-strong shadow-book border-s border-glass-border flex flex-col`}>
+              <header className="flex items-center justify-between p-5 border-b border-border/40">
+                <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-gradient-warm flex items-center justify-center text-primary-foreground shadow-glow"><Search className="w-5 h-5" /></div><h3 className="font-display font-bold">{lang === "fa" ? "جستجوی قوی" : "Power search"}</h3></div>
+                <button onClick={() => setSearchOpen(false)} className="w-9 h-9 rounded-full hover:bg-foreground/10 flex items-center justify-center" aria-label="close"><X className="w-4 h-4" /></button>
+              </header>
+              <div className="p-4 border-b border-border/30"><Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={lang === "fa" ? "جستجو در متن، فصل و مدیا..." : "Search text, chapters, media..."} className="glass h-11" /></div>
+              <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-3">
+                {searchResults.map((result) => (
+                  <button key={`${result.pageIndex}-${result.blockIndex}`} onClick={() => openSearchResult(result)} className="w-full text-start p-3 rounded-2xl glass border border-glass-border hover:border-accent/50 hover:shadow-paper transition-all flex gap-3">
+                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-foreground/5 shrink-0 flex items-center justify-center">
+                      {result.mediaSrc ? <img src={resolveBookMedia(result.mediaSrc)} alt={result.mediaCaption || result.title} className="w-full h-full object-cover" /> : <ImageIcon className="w-6 h-6 text-muted-foreground" />}
+                    </div>
+                    <div className="min-w-0 flex-1"><p className="text-xs text-accent mb-1">{lang === "fa" ? "صفحهٔ" : "Page"} {result.pageIndex + 1}</p><h4 className="font-semibold text-sm line-clamp-1">{result.title}</h4><p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 mt-1">{result.excerpt}</p></div>
+                  </button>
+                ))}
               </div>
-              <Slider value={[fontSize]} onValueChange={(v) => setFontSize(v[0])} min={14} max={32} step={1} />
-              <p className="text-foreground/80 leading-loose text-balance" style={{ fontSize: `${fontSize}px` }}>
-                {lang === "fa" ? "نمونه‌ای از اندازه فونت انتخابی شما." : "Sample of your selected font size."}
-              </p>
-            </div>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="font-medium">{t("reading_speed")}</span>
-                <span className="text-muted-foreground tabular-nums">{voiceSpeed.toFixed(1)}x</span>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {settingsOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSettingsOpen(false)} className="fixed inset-0 bg-foreground/30 backdrop-blur-md z-40" />
+            <motion.aside initial={{ x: -panelInitialX, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -panelInitialX, opacity: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className={`fixed top-0 bottom-0 ${dir === "rtl" ? "right-0" : "left-0"} z-50 w-full sm:w-[440px] glass-strong shadow-book border-s border-glass-border flex flex-col`}>
+              <header className="flex items-center justify-between p-5 border-b border-border/40"><h3 className="font-display font-bold">{t("settings")}</h3><button onClick={() => setSettingsOpen(false)} className="w-9 h-9 rounded-full hover:bg-foreground/10 flex items-center justify-center" aria-label="close"><X className="w-4 h-4" /></button></header>
+              <div className="space-y-8 p-5 overflow-y-auto scrollbar-thin">
+                <div className="space-y-3"><div className="flex justify-between text-sm"><span className="font-medium">{t("font_size")}</span><span className="text-muted-foreground tabular-nums">{fontSize}px</span></div><Slider value={[fontSize]} onValueChange={(v) => setFontSize(v[0])} min={14} max={32} step={1} /></div>
+                <div className="space-y-3"><div className="flex justify-between text-sm"><span className="font-medium">{t("reading_speed")}</span><span className="text-muted-foreground tabular-nums">{voiceSpeed.toFixed(1)}x</span></div><Slider value={[voiceSpeed * 10]} onValueChange={(v) => setVoiceSpeed(v[0] / 10)} min={5} max={20} step={1} /></div>
+                <div className="space-y-3"><label className="text-sm font-medium">{lang === "fa" ? "پرش به صفحه" : "Jump to page"}</label><div className="flex gap-2"><Input value={jumpValue} onChange={(e) => setJumpValue(e.target.value)} type="number" min={1} max={total} className="glass h-11" /><Button onClick={goToPageNumber} className="bg-gradient-warm">{lang === "fa" ? "برو" : "Go"}</Button></div></div>
               </div>
-              <Slider value={[voiceSpeed * 10]} onValueChange={(v) => setVoiceSpeed(v[0] / 10)} min={5} max={20} step={1} />
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
     </main>
   );
 };
