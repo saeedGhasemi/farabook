@@ -58,12 +58,12 @@ export const Navbar = () => {
                   <motion.div
                     whileHover={{ y: -2 }}
                     whileTap={{ y: 0 }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                    className={`flex items-center gap-2 px-3 lg:px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                       active ? "bg-primary text-primary-foreground shadow-soft" : "text-foreground/70 hover:text-foreground hover:bg-secondary/50"
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
-                    {label}
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="hidden lg:inline">{label}</span>
                   </motion.div>
                 </Link>
               );
