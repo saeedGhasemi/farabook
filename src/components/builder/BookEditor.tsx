@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import {
   Plus, Trash2, Image as ImageIcon, Video, Layers, Type, ArrowUp,
   ArrowDown, FileText, Quote as QuoteIcon, Lightbulb, GalleryHorizontal,
-  ListOrdered, Map as MapIcon, Save, Loader2, EyeOff,
+  ListOrdered, Map as MapIcon, Save, Loader2, EyeOff, Rocket,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -214,6 +214,7 @@ interface InitialBook {
   description: string | null;
   cover_url: string | null;
   pages: PageDraft[];
+  typography_preset?: string | null;
 }
 
 interface Props {
@@ -236,6 +237,9 @@ export const BookEditor = ({ initial, onCreated }: Props) => {
   const [coverUrl, setCoverUrl] = useState<string>(initial?.cover_url || "");
   const [pages, setPages] = useState<PageDraft[]>(
     initial?.pages?.length ? initial.pages : [newPage()],
+  );
+  const [typography, setTypography] = useState<string>(
+    initial?.typography_preset || "editorial",
   );
   const [busy, setBusy] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
@@ -384,6 +388,7 @@ export const BookEditor = ({ initial, onCreated }: Props) => {
             description: description || null,
             cover_url: cover,
             pages: dbPages,
+            typography_preset: typography,
           })
           .eq("id", initial.id);
         if (error) throw error;
@@ -396,7 +401,7 @@ export const BookEditor = ({ initial, onCreated }: Props) => {
         setSavingDraft(false);
       }
     },
-    [isEdit, initial, user, pages, title, author, description, coverFile, coverUrl, lang],
+    [isEdit, initial, user, pages, title, author, description, coverFile, coverUrl, typography, lang],
   );
 
   // Autosave: debounce 4s after any change in edit mode
@@ -411,7 +416,7 @@ export const BookEditor = ({ initial, onCreated }: Props) => {
       persistDraft(false);
     }, 4000);
     return () => window.clearTimeout(t);
-  }, [pages, title, author, description, dirty, isEdit, persistDraft]);
+  }, [pages, title, author, description, typography, dirty, isEdit, persistDraft]);
 
   /* ---------- create new book ---------- */
   const submitCreate = async () => {
@@ -1073,6 +1078,34 @@ export const BookEditor = ({ initial, onCreated }: Props) => {
             className="mt-1"
           />
         </div>
+        <div>
+          <Label>{lang === "fa" ? "پیش‌تنظیم تایپوگرافی" : "Typography preset"}</Label>
+          <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { v: "editorial", fa: "ادبی", en: "Editorial", sample: "Aa" },
+              { v: "academic", fa: "علمی", en: "Academic", sample: "Aa" },
+              { v: "modern", fa: "مدرن", en: "Modern", sample: "Aa" },
+              { v: "playful", fa: "بازیگوش", en: "Playful", sample: "Aa" },
+            ].map((p) => {
+              const active = typography === p.v;
+              return (
+                <button
+                  key={p.v}
+                  type="button"
+                  onClick={() => { setTypography(p.v); setDirty(true); }}
+                  className={`p-3 rounded-xl border transition-all text-center ${
+                    active
+                      ? "border-accent bg-accent/10 ring-2 ring-accent/40"
+                      : "border-border hover:border-accent/50 bg-background/40"
+                  }`}
+                >
+                  <div className={`typo-${p.v} text-2xl font-bold mb-1`}>{p.sample}</div>
+                  <div className="text-xs font-medium">{lang === "fa" ? p.fa : p.en}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Pages */}
@@ -1191,10 +1224,21 @@ export const BookEditor = ({ initial, onCreated }: Props) => {
               <Button
                 size="sm"
                 onClick={() => persistDraft(true)}
-                className="bg-gradient-warm hover:opacity-90"
+                variant="outline"
               >
                 <Save className="w-3.5 h-3.5 me-1.5" />
                 {lang === "fa" ? "ذخیره" : "Save"}
+              </Button>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  await persistDraft(false);
+                  if (initial?.id) nav(`/publish/${initial.id}`);
+                }}
+                className="bg-gradient-warm hover:opacity-90"
+              >
+                <Rocket className="w-3.5 h-3.5 me-1.5" />
+                {lang === "fa" ? "انتشار…" : "Publish…"}
               </Button>
             </div>
           </div>

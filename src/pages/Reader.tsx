@@ -27,6 +27,7 @@ interface Page {
 interface Book {
   id: string; title: string; author: string;
   ambient_theme: string | null;
+  typography_preset?: string | null;
   pages: Page[];
 }
 
@@ -526,7 +527,7 @@ const Reader = () => {
                 animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
                 exit={{ opacity: 0, y: -30, scale: 0.98, filter: "blur(6px)" }}
                 transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-                className="paper-card rounded-3xl p-6 md:p-12 min-h-[60vh] book-shadow relative overflow-hidden no-native-callout"
+                className={`paper-card rounded-3xl p-6 md:p-12 min-h-[60vh] book-shadow relative overflow-hidden no-native-callout typo-${book.typography_preset || "editorial"}`}
               >
                 <div className="absolute top-0 inset-x-0 h-1 bg-gradient-gold opacity-50" />
                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{

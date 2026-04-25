@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 import { resolveBookMedia } from "@/lib/book-media";
 
 interface Row {
@@ -23,6 +28,8 @@ interface Row {
     author: string;
     cover_url: string | null;
     category: string | null;
+    publisher_id: string | null;
+    status: string;
   } | null;
 }
 
@@ -31,6 +38,7 @@ const Library = () => {
   const { user, loading } = useAuth();
   const nav = useNavigate();
   const [rows, setRows] = useState<Row[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState<Row["books"] | null>(null);
 
   useEffect(() => {
     if (!loading && !user) nav("/auth");
@@ -39,10 +47,19 @@ const Library = () => {
   useEffect(() => {
     if (!user) return;
     supabase.from("user_books")
-      .select("id, status, progress, current_page, acquired_via, books(id, title, title_en, author, cover_url, category)")
+      .select("id, status, progress, current_page, acquired_via, books(id, title, title_en, author, cover_url, category, publisher_id, status)")
       .eq("user_id", user.id)
       .then(({ data }) => setRows((data as unknown as Row[]) ?? []));
   }, [user]);
+
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    const { error } = await supabase.from("books").delete().eq("id", confirmDelete.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(lang === "fa" ? "کتاب حذف شد" : "Book deleted");
+    setRows((prev) => prev.filter((r) => r.books?.id !== confirmDelete.id));
+    setConfirmDelete(null);
+  };
 
   const statusLabel = (s: string) =>
     s === "reading" ? t("status_reading") : s === "finished" ? t("status_finished") : t("status_unread");
@@ -75,19 +92,26 @@ const Library = () => {
           {rows.map((r, i) => {
             if (!r.books) return null;
             const title = lang === "en" && r.books.title_en ? r.books.title_en : r.books.title;
+            const isOwner = !!user && r.books.publisher_id === user.id;
+            const isDraft = r.books.status === "draft";
             return (
               <motion.div key={r.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
                 whileHover={{ y: -6 }}
-                className="paper-card rounded-2xl overflow-hidden flex group"
+                className="paper-card rounded-2xl overflow-hidden flex group relative"
               >
                 <Link to={`/read/${r.books.id}`} className="flex w-full">
-                  <div className="w-32 flex-shrink-0 aspect-[3/4] overflow-hidden bg-secondary">
+                  <div className="w-32 flex-shrink-0 aspect-[3/4] overflow-hidden bg-secondary relative">
                     {r.books.cover_url && (
                       <img src={resolveBookMedia(r.books.cover_url)} alt={title} loading="lazy"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                    )}
+                    {isDraft && (
+                      <Badge className="absolute top-1 start-1 bg-accent text-accent-foreground border-0 text-[10px] px-1.5 py-0">
+                        {lang === "fa" ? "پیش‌نویس" : "Draft"}
+                      </Badge>
                     )}
                   </div>
                   <div className="p-4 flex-1 flex flex-col gap-2">
@@ -102,11 +126,47 @@ const Library = () => {
                     </div>
                   </div>
                 </Link>
+                {isOwner && (
+                  <div className="absolute top-2 end-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <Link to={`/edit/${r.books.id}`}>
+                      <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full shadow-md">
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                    </Link>
+                    <Button
+                      size="icon"
+                      variant="destructive"
+                      className="h-7 w-7 rounded-full shadow-md"
+                      onClick={(e) => { e.preventDefault(); setConfirmDelete(r.books); }}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
               </motion.div>
             );
           })}
         </div>
       )}
+
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{lang === "fa" ? "حذف کتاب" : "Delete book"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {lang === "fa"
+                ? `آیا از حذف «${confirmDelete?.title}» مطمئن هستید؟ این عملیات قابل بازگشت نیست.`
+                : `Delete "${confirmDelete?.title}"? This cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{lang === "fa" ? "انصراف" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {lang === "fa" ? "حذف" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 };
