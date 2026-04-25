@@ -18,6 +18,12 @@ import hemoBloodSmear from "@/assets/hemo-blood-smear.jpg";
 import hemoSickleDiagram from "@/assets/hemo-sickle-diagram.jpg";
 import hemoCover from "@/assets/hemo-cover.jpg";
 import hemoChart from "@/assets/hemo-chart.jpg";
+import pathSickleSmear from "@/assets/path-sickle-smear.jpg";
+import pathAmlBlasts from "@/assets/path-aml-blasts.jpg";
+import pathAllBlasts from "@/assets/path-all-blasts.jpg";
+import pathSmearTechnique from "@/assets/path-smear-technique.jpg";
+import pathNormalSmear from "@/assets/path-normal-smear.jpg";
+import pathMarrowBiopsy from "@/assets/path-marrow-biopsy.jpg";
 
 const mediaMap: Record<string, string> = {
   tehran: tehranImg,
@@ -40,6 +46,12 @@ const mediaMap: Record<string, string> = {
   "hemo-sickle-diagram": hemoSickleDiagram,
   "hemo-cover": hemoCover,
   "hemo-chart": hemoChart,
+  "path-sickle-smear": pathSickleSmear,
+  "path-aml-blasts": pathAmlBlasts,
+  "path-all-blasts": pathAllBlasts,
+  "path-smear-technique": pathSmearTechnique,
+  "path-normal-smear": pathNormalSmear,
+  "path-marrow-biopsy": pathMarrowBiopsy,
 };
 
 export const resolveBookMedia = (src: string | null | undefined) => (src ? mediaMap[src] || src : "");
