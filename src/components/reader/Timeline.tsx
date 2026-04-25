@@ -19,12 +19,23 @@ interface Props {
   steps: TimelineStep[];
 }
 
+/** Detect direction (rtl/ltr) for a piece of text based on script majority. */
+const detectDir = (text: string): "rtl" | "ltr" => {
+  if (!text) return "ltr";
+  const rtl = text.match(/[\u0600-\u06FF\u0750-\u077F\u0590-\u05FF\uFB50-\uFDFF\uFE70-\uFEFF]/g)?.length ?? 0;
+  const ltr = text.match(/[A-Za-z]/g)?.length ?? 0;
+  return rtl >= ltr ? "rtl" : "ltr";
+};
+
 /** Horizontal interactive timeline — tap markers to reveal a detail card. */
 export const Timeline = ({ title, steps }: Props) => {
   const [active, setActive] = useState(0);
   if (!steps?.length) return null;
   const total = steps.length;
   const cur = steps[active];
+  const titleDir = detectDir(`${cur.title} ${cur.marker}`);
+  const descDir = detectDir(cur.description);
+  const headerDir = title ? detectDir(title) : "ltr";
 
   const go = (d: 1 | -1) => setActive((p) => (p + d + total) % total);
 
