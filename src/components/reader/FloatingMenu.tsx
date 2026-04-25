@@ -105,7 +105,8 @@ export const FloatingMenu = ({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
               transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="fixed left-1/2 -translate-x-1/2 bottom-28 z-50 glass-strong rounded-2xl p-2 grid grid-cols-2 gap-1 w-[min(360px,92vw)]"
+              className="fixed left-1/2 -translate-x-1/2 z-50 glass-strong rounded-2xl p-2 grid grid-cols-2 gap-1 w-[min(360px,92vw)] max-h-[55vh] overflow-y-auto"
+              style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 6.5rem)" }}
             >
               {aiActions.map(({ id, icon: Icon, label, mode }) => (
                 <button
@@ -139,7 +140,8 @@ export const FloatingMenu = ({
               initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              className="fixed left-1/2 -translate-x-1/2 bottom-28 z-50 glass-strong rounded-2xl p-3 flex gap-2"
+              className="fixed left-1/2 -translate-x-1/2 z-50 glass-strong rounded-2xl p-3 flex gap-2 max-w-[calc(100vw-1.5rem)] overflow-x-auto scrollbar-thin"
+              style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 6.5rem)" }}
             >
               {ambientOpts.map(({ id, icon: Icon }) => (
                 <button
