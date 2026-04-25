@@ -24,7 +24,7 @@ const titles: Record<Mode, { fa: string; en: string; icon: React.ComponentType<{
 };
 
 export const AiPanel = ({ open, mode, loading, content, onClose, onRegenerate, onSaveAsNote }: Props) => {
-  const { lang, dir } = useI18n();
+  const { lang } = useI18n();
   if (!mode) return null;
   const { icon: Icon } = titles[mode];
   const title = titles[mode][lang];
@@ -94,7 +94,10 @@ export const AiPanel = ({ open, mode, loading, content, onClose, onRegenerate, o
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.4 }}
                 >
-                  <MindMap text={content} />
+                  <MindMap
+                    text={content}
+                    onSaveNode={onSaveAsNote ? (label, note) => onSaveAsNote(`[${title}: ${label}]\n${note}`) : undefined}
+                  />
                   <details className="mt-4">
                     <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
                       {lang === "fa" ? "نمایش متنی" : "Show as text"}
