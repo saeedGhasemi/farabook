@@ -444,7 +444,7 @@ const Reader = () => {
         </div>
 
         {/* Single-column layout — chapter sidebar is now always opened via drawer */}
-        <div className="max-w-4xl mx-auto">
+        <div className={`max-w-4xl mx-auto transition-all duration-300 ${allOverlaysOpen ? "blur-[2px] opacity-55" : ""}`}>
 
           {/* Page */}
           <div className="relative" style={{ perspective: 2200 }}>
@@ -574,50 +574,57 @@ const Reader = () => {
         onUpdateNote={updateHighlightNote}
       />
 
-      {/* Mobile chapters drawer with blur backdrop */}
-      <Sheet open={chaptersOpen} onOpenChange={setChaptersOpen}>
-        <SheetContent
-          side={dir === "rtl" ? "right" : "left"}
-          className="p-0 w-[88vw] sm:w-[360px] glass-strong border-s border-border/40"
-        >
-          <SheetHeader className="sr-only">
-            <SheetTitle>{lang === "fa" ? "فصل‌ها" : "Chapters"}</SheetTitle>
-          </SheetHeader>
-          <ChapterSidebar
-            chapters={chapters}
-            current={pageIdx}
-            variant="drawer"
-            onSelect={(i) => { goTo(i); setChaptersOpen(false); }}
-            onClose={() => setChaptersOpen(false)}
-          />
-        </SheetContent>
-      </Sheet>
+      <AnimatePresence>
+        {chaptersOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setChaptersOpen(false)} className="fixed inset-0 bg-foreground/30 backdrop-blur-md z-40" />
+            <motion.aside initial={{ x: panelInitialX, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: panelInitialX, opacity: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className={`fixed top-0 bottom-0 ${panelSide} z-50 w-full sm:w-[440px] glass-strong shadow-book border-s border-glass-border flex flex-col`}>
+              <ChapterSidebar chapters={chapters} current={pageIdx} variant="drawer" onSelect={(i) => { goTo(i); setChaptersOpen(false); }} onClose={() => setChaptersOpen(false)} />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
 
-      {/* Settings */}
-      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <SheetContent side={dir === "rtl" ? "left" : "right"} className="glass-strong">
-          <SheetHeader><SheetTitle>{t("settings")}</SheetTitle></SheetHeader>
-          <div className="space-y-8 mt-8">
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="font-medium">{t("font_size")}</span>
-                <span className="text-muted-foreground tabular-nums">{fontSize}px</span>
+      <AnimatePresence>
+        {searchOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSearchOpen(false)} className="fixed inset-0 bg-foreground/30 backdrop-blur-md z-40" />
+            <motion.aside initial={{ x: panelInitialX, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: panelInitialX, opacity: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className={`fixed top-0 bottom-0 ${panelSide} z-50 w-full sm:w-[440px] glass-strong shadow-book border-s border-glass-border flex flex-col`}>
+              <header className="flex items-center justify-between p-5 border-b border-border/40">
+                <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-gradient-warm flex items-center justify-center text-primary-foreground shadow-glow"><Search className="w-5 h-5" /></div><h3 className="font-display font-bold">{lang === "fa" ? "جستجوی قوی" : "Power search"}</h3></div>
+                <button onClick={() => setSearchOpen(false)} className="w-9 h-9 rounded-full hover:bg-foreground/10 flex items-center justify-center" aria-label="close"><X className="w-4 h-4" /></button>
+              </header>
+              <div className="p-4 border-b border-border/30"><Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={lang === "fa" ? "جستجو در متن، فصل و مدیا..." : "Search text, chapters, media..."} className="glass h-11" /></div>
+              <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-3">
+                {searchResults.map((result) => (
+                  <button key={`${result.pageIndex}-${result.blockIndex}`} onClick={() => openSearchResult(result)} className="w-full text-start p-3 rounded-2xl glass border border-glass-border hover:border-accent/50 hover:shadow-paper transition-all flex gap-3">
+                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-foreground/5 shrink-0 flex items-center justify-center">
+                      {result.mediaSrc ? <img src={resolveBookMedia(result.mediaSrc)} alt={result.mediaCaption || result.title} className="w-full h-full object-cover" /> : <ImageIcon className="w-6 h-6 text-muted-foreground" />}
+                    </div>
+                    <div className="min-w-0 flex-1"><p className="text-xs text-accent mb-1">{lang === "fa" ? "صفحهٔ" : "Page"} {result.pageIndex + 1}</p><h4 className="font-semibold text-sm line-clamp-1">{result.title}</h4><p className="text-xs text-muted-foreground leading-relaxed line-clamp-3 mt-1">{result.excerpt}</p></div>
+                  </button>
+                ))}
               </div>
-              <Slider value={[fontSize]} onValueChange={(v) => setFontSize(v[0])} min={14} max={32} step={1} />
-              <p className="text-foreground/80 leading-loose text-balance" style={{ fontSize: `${fontSize}px` }}>
-                {lang === "fa" ? "نمونه‌ای از اندازه فونت انتخابی شما." : "Sample of your selected font size."}
-              </p>
-            </div>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="font-medium">{t("reading_speed")}</span>
-                <span className="text-muted-foreground tabular-nums">{voiceSpeed.toFixed(1)}x</span>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {settingsOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSettingsOpen(false)} className="fixed inset-0 bg-foreground/30 backdrop-blur-md z-40" />
+            <motion.aside initial={{ x: -panelInitialX, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -panelInitialX, opacity: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className={`fixed top-0 bottom-0 ${dir === "rtl" ? "right-0" : "left-0"} z-50 w-full sm:w-[440px] glass-strong shadow-book border-s border-glass-border flex flex-col`}>
+              <header className="flex items-center justify-between p-5 border-b border-border/40"><h3 className="font-display font-bold">{t("settings")}</h3><button onClick={() => setSettingsOpen(false)} className="w-9 h-9 rounded-full hover:bg-foreground/10 flex items-center justify-center" aria-label="close"><X className="w-4 h-4" /></button></header>
+              <div className="space-y-8 p-5 overflow-y-auto scrollbar-thin">
+                <div className="space-y-3"><div className="flex justify-between text-sm"><span className="font-medium">{t("font_size")}</span><span className="text-muted-foreground tabular-nums">{fontSize}px</span></div><Slider value={[fontSize]} onValueChange={(v) => setFontSize(v[0])} min={14} max={32} step={1} /></div>
+                <div className="space-y-3"><div className="flex justify-between text-sm"><span className="font-medium">{t("reading_speed")}</span><span className="text-muted-foreground tabular-nums">{voiceSpeed.toFixed(1)}x</span></div><Slider value={[voiceSpeed * 10]} onValueChange={(v) => setVoiceSpeed(v[0] / 10)} min={5} max={20} step={1} /></div>
+                <div className="space-y-3"><label className="text-sm font-medium">{lang === "fa" ? "پرش به صفحه" : "Jump to page"}</label><div className="flex gap-2"><Input value={jumpValue} onChange={(e) => setJumpValue(e.target.value)} type="number" min={1} max={total} className="glass h-11" /><Button onClick={goToPageNumber} className="bg-gradient-warm">{lang === "fa" ? "برو" : "Go"}</Button></div></div>
               </div>
-              <Slider value={[voiceSpeed * 10]} onValueChange={(v) => setVoiceSpeed(v[0] / 10)} min={5} max={20} step={1} />
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
     </main>
   );
 };
