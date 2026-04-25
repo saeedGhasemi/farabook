@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, ShoppingBag, Check } from "lucide-react";
+import { Search, ShoppingBag, Check, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { resolveBookMedia } from "@/lib/book-media";
 
@@ -19,6 +23,8 @@ interface Book {
   title_en: string | null;
   author: string;
   publisher: string | null;
+  publisher_id: string | null;
+  status: string;
   category: string | null;
   cover_url: string | null;
   description: string | null;
@@ -32,10 +38,15 @@ const Store = () => {
   const [books, setBooks] = useState<Book[]>([]);
   const [owned, setOwned] = useState<Set<string>>(new Set());
   const [q, setQ] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<Book | null>(null);
+
+  const reload = () => {
+    supabase.from("books").select("*").order("created_at", { ascending: false })
+      .then(({ data }) => setBooks((data as Book[]) ?? []));
+  };
 
   useEffect(() => {
-    supabase.from("books").select("*").order("created_at", { ascending: false })
-      .then(({ data }) => setBooks(data ?? []));
+    reload();
   }, []);
 
   useEffect(() => {
@@ -43,6 +54,15 @@ const Store = () => {
     supabase.from("user_books").select("book_id").eq("user_id", user.id)
       .then(({ data }) => setOwned(new Set((data ?? []).map((d) => d.book_id))));
   }, [user]);
+
+  const handleDelete = async () => {
+    if (!confirmDelete || !user) return;
+    const { error } = await supabase.from("books").delete().eq("id", confirmDelete.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(lang === "fa" ? "کتاب حذف شد" : "Book deleted");
+    setBooks((prev) => prev.filter((b) => b.id !== confirmDelete.id));
+    setConfirmDelete(null);
+  };
 
   const handleAdd = async (book: Book) => {
     if (!user) { toast.error(t("nav_signin")); return; }
