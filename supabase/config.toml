@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.word-import]
 verify_jwt = true
+
+[functions.book-publish]
+verify_jwt = true
