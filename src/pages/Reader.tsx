@@ -37,7 +37,7 @@ const ambientSrc: Record<string, string> = {
   night: "https://cdn.pixabay.com/audio/2022/10/30/audio_347111d662.mp3",
 };
 
-type AiMode = "summary" | "quiz" | "mindmap" | "explain";
+type AiMode = "summary" | "quiz" | "mindmap" | "explain" | "timeline";
 
 interface SearchResult {
   pageIndex: number;
