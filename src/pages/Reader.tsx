@@ -417,7 +417,7 @@ const Reader = () => {
                   backgroundSize: "60px 60px, 80px 80px",
                 }} />
 
-                <div className={`relative ${highlightMode ? "hl-mode" : ""}`}>
+                <div className="relative hl-mode">
                   <div className="flex items-center justify-between mb-4">
                     <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                       {t("page")} {pageIdx + 1}
@@ -430,13 +430,14 @@ const Reader = () => {
                     {currentPage.title}
                   </h2>
 
-                  <div className={`space-y-4 selectable ${highlightMode ? "selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text" : ""}`}>
+                  <div className="space-y-4 selectable selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text">
                     {blocks.map((block, i) => (
                       <BlockRenderer
                         key={i}
                         block={block}
                         fontSize={fontSize}
                         index={i}
+                        pageIndex={pageIdx}
                         savedHighlights={pageHighlights.map((h) => ({ id: h.id, text: h.text, color: h.color || "yellow" }))}
                         onHighlightClick={() => setHighlightsOpen(true)}
                       />
@@ -454,9 +455,7 @@ const Reader = () => {
               <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-2">
                 <HlIcon className="w-3 h-3" />
                 <span>
-                  {highlightMode
-                    ? (lang === "fa" ? "متن را انتخاب کنید" : "Select text to save")
-                    : (lang === "fa" ? "از منوی پایین استفاده کنید" : "Use the dock below")}
+                  {lang === "fa" ? "متن را انتخاب کنید تا رنگ هایلایت ظاهر شود" : "Select text to highlight"}
                 </span>
               </div>
               <Button variant="outline" onClick={goNext} disabled={pageIdx >= total - 1} className="gap-2 glass-strong">
