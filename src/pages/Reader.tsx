@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { BlockRenderer, type Block } from "@/components/reader/BlockRenderer";
 import { FloatingMenu } from "@/components/reader/FloatingMenu";
 import { AiPanel } from "@/components/reader/AiPanel";
+import { ChatPanel } from "@/components/reader/ChatPanel";
 import { ChapterSidebar } from "@/components/reader/ChapterSidebar";
 import { HighlightsPanel, type HighlightItem } from "@/components/reader/HighlightsPanel";
 import { resolveBookMedia } from "@/lib/book-media";
