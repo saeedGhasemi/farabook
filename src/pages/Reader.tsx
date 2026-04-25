@@ -188,8 +188,6 @@ const Reader = () => {
   useEffect(() => () => { stopSpeakSmart(); }, []);
   useEffect(() => {
     stopSpeakSmart();
-  useEffect(() => {
-    speechSynthesis.cancel();
     setIsSpeaking(false);
     setSavePopover(null);
   }, [pageIdx]);
