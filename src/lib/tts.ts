@@ -95,7 +95,22 @@ const pickBestVoice = (voices: SpeechSynthesisVoice[], lang: DetectedLang): Spee
   return candidates.sort((a, b) => score(b) - score(a))[0];
 };
 
-/** Split text into sentence-aware chunks (~200 chars) to avoid Chrome cutoffs. */
+/** Split text by detected language first, then sentence-aware chunk each segment. */
+const splitByLanguage = (text: string): Array<{ text: string; lang: DetectedLang }> => {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return [];
+  // Tokenize into sentences (keep punctuation)
+  const sentences = clean.split(/(?<=[.!?؟。！？\n])\s+/).filter(Boolean);
+  const out: Array<{ text: string; lang: DetectedLang }> = [];
+  for (const s of sentences) {
+    const lang = detectLang(s);
+    const last = out[out.length - 1];
+    if (last && last.lang === lang) last.text = (last.text + " " + s).trim();
+    else out.push({ text: s, lang });
+  }
+  return out;
+};
+
 const chunkText = (text: string, max = 220): string[] => {
   const clean = text.replace(/\s+/g, " ").trim();
   if (clean.length <= max) return [clean];
