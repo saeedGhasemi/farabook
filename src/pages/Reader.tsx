@@ -68,12 +68,14 @@ const Reader = () => {
   const [aiLoading, setAiLoading] = useState(false);
 
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [highlightMode, setHighlightMode] = useState(false);
 
   const [chaptersOpen, setChaptersOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [highlightsOpen, setHighlightsOpen] = useState(false);
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
   const [savePopover, setSavePopover] = useState<{ x: number; y: number; text: string } | null>(null);
+  const [jumpValue, setJumpValue] = useState("1");
 
   const [userBookId, setUserBookId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -191,6 +193,11 @@ const Reader = () => {
 
   const currentPage = book?.pages[pageIdx];
   const total = book?.pages.length ?? 0;
+
+  useEffect(() => {
+    setJumpValue(String(pageIdx + 1));
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+  }, [pageIdx]);
 
   const pageText = useMemo(() => {
     if (!currentPage) return "";
