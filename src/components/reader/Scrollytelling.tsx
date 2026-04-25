@@ -1,18 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { resolveBookMedia } from "@/lib/book-media";
-import { Layers } from "lucide-react";
+import { Layers, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n";
 
 export interface ScrollyStep {
-  /** Optional small label / step number, e.g. "مرحله ۱" */
   marker?: string;
-  /** Step title */
   title: string;
-  /** Long description */
   description: string;
-  /** Optional image (asset key or full URL) */
   image?: string;
-  /** Optional video URL (mp4 or YouTube/Vimeo) — alternative to image */
   video?: string;
 }
 
@@ -22,38 +19,22 @@ interface Props {
 }
 
 /**
- * Scroll-driven multi-step explainer.
- * The right column is sticky and shows the active step's media; the left
- * column is a vertical stack of step cards. As the user scrolls, the card
- * closest to the viewport center becomes active and the media swaps.
- *
- * Layout collapses to a single column on mobile.
+ * Click-driven multi-step explainer. Users navigate between steps with the
+ * Prev / Next buttons, the numbered dots, or by clicking any step in the
+ * side rail. Replaces the previous scroll-driven layout that was awkward
+ * inside a paginated reader on desktop.
  */
 export const Scrollytelling = ({ title, steps }: Props) => {
+  const { dir } = useI18n();
   const [active, setActive] = useState(0);
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-  useEffect(() => {
-    if (!steps?.length) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        // pick the entry with the largest intersection ratio that's currently intersecting
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-        if (visible[0]) {
-          const idx = Number((visible[0].target as HTMLElement).dataset.idx);
-          if (!Number.isNaN(idx)) setActive(idx);
-        }
-      },
-      { rootMargin: "-40% 0px -40% 0px", threshold: [0, 0.25, 0.5, 0.75, 1] },
-    );
-    cardRefs.current.forEach((el) => el && observer.observe(el));
-    return () => observer.disconnect();
-  }, [steps]);
 
   if (!steps?.length) return null;
   const cur = steps[active];
+  const Prev = dir === "rtl" ? ChevronRight : ChevronLeft;
+  const Next = dir === "rtl" ? ChevronLeft : ChevronRight;
+
+  const goPrev = () => setActive((i) => Math.max(0, i - 1));
+  const goNext = () => setActive((i) => Math.min(steps.length - 1, i + 1));
 
   return (
     <figure className="my-10">
@@ -64,71 +45,67 @@ export const Scrollytelling = ({ title, steps }: Props) => {
         </header>
       )}
 
-      <div className="grid md:grid-cols-2 gap-6 md:gap-8 items-start">
-        {/* Step cards (scrolling column) */}
-        <div className="space-y-6 md:space-y-[28vh] order-2 md:order-1">
-          {steps.map((s, i) => (
-            <div
-              key={i}
-              data-idx={i}
-              ref={(el) => (cardRefs.current[i] = el)}
-              className={`rounded-2xl p-5 transition-all duration-500 ${
-                i === active
-                  ? "glass-strong border border-accent/40 shadow-glow"
-                  : "bg-foreground/[0.03] border border-glass-border opacity-70"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <span
-                  className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                    i === active
-                      ? "bg-gradient-warm text-primary-foreground shadow-glow scale-110"
-                      : "bg-foreground/10 text-foreground/60"
-                  }`}
-                >
-                  {i + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  {s.marker && (
-                    <div className="text-[11px] uppercase tracking-wider text-accent font-semibold mb-1">
-                      {s.marker}
+      <div className="grid md:grid-cols-[220px_1fr] gap-5 md:gap-7 items-start">
+        {/* Step rail (clickable) */}
+        <nav
+          aria-label="Steps"
+          className="flex md:flex-col gap-2 md:gap-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0 -mx-1 px-1 snap-x"
+        >
+          {steps.map((s, i) => {
+            const isActive = i === active;
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setActive(i)}
+                aria-current={isActive ? "step" : undefined}
+                className={`snap-start text-start shrink-0 md:w-full rounded-xl px-3 py-2.5 transition-all border ${
+                  isActive
+                    ? "glass-strong border-accent/50 shadow-glow"
+                    : "bg-foreground/[0.03] border-glass-border hover:border-accent/30 hover:bg-foreground/[0.06] opacity-80 hover:opacity-100"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                      isActive
+                        ? "bg-gradient-warm text-primary-foreground shadow-glow"
+                        : "bg-foreground/10 text-foreground/70"
+                    }`}
+                  >
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    {s.marker && (
+                      <div className="text-[10px] uppercase tracking-wider text-accent font-semibold leading-tight">
+                        {s.marker}
+                      </div>
+                    )}
+                    <div className="text-xs md:text-[13px] font-medium leading-tight line-clamp-2">
+                      {s.title}
                     </div>
-                  )}
-                  <h5 className="font-display font-bold text-base md:text-lg text-foreground mb-2 leading-tight">
-                    {s.title}
-                  </h5>
-                  <p className="text-sm md:text-[15px] text-foreground/80 leading-relaxed whitespace-pre-line">
-                    {s.description}
-                  </p>
+                  </div>
                 </div>
-              </div>
+              </button>
+            );
+          })}
+        </nav>
 
-              {/* On mobile, render the media inline under each card */}
-              {(s.image || s.video) && (
-                <div className="mt-4 md:hidden overflow-hidden rounded-xl bg-foreground/5">
-                  {renderMedia(s)}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Sticky media column (desktop) */}
-        <div className="hidden md:block sticky top-24 order-1 md:order-2">
-          <div className="relative aspect-[4/3] rounded-2xl overflow-hidden book-shadow bg-foreground/5">
+        {/* Active step panel */}
+        <div className="min-w-0">
+          <div className="relative aspect-[4/3] rounded-2xl overflow-hidden book-shadow bg-foreground/5 mb-4">
             <AnimatePresence mode="wait">
               <motion.div
                 key={active}
-                initial={{ opacity: 0, scale: 1.04 }}
+                initial={{ opacity: 0, scale: 1.03 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                 className="absolute inset-0"
               >
                 {renderMedia(cur)}
               </motion.div>
             </AnimatePresence>
-            {/* progress bar */}
             <div className="absolute bottom-0 inset-x-0 h-1 bg-foreground/10">
               <motion.div
                 className="h-full bg-gradient-warm"
@@ -139,6 +116,67 @@ export const Scrollytelling = ({ title, steps }: Props) => {
             <div className="absolute top-3 end-3 glass rounded-full px-3 py-1 text-xs font-medium tabular-nums">
               {active + 1} / {steps.length}
             </div>
+          </div>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={active}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.25 }}
+              className="glass-strong rounded-2xl p-5 border border-glass-border"
+            >
+              {cur.marker && (
+                <div className="text-[11px] uppercase tracking-wider text-accent font-semibold mb-1">
+                  {cur.marker}
+                </div>
+              )}
+              <h5 className="font-display font-bold text-lg md:text-xl text-foreground mb-2 leading-tight">
+                {cur.title}
+              </h5>
+              <p className="text-sm md:text-[15px] text-foreground/85 leading-relaxed whitespace-pre-line">
+                {cur.description}
+              </p>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Controls */}
+          <div className="flex items-center justify-between gap-3 mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goPrev}
+              disabled={active === 0}
+              className="gap-1.5"
+            >
+              <Prev className="w-4 h-4" />
+              {dir === "rtl" ? "قبلی" : "Prev"}
+            </Button>
+
+            <div className="flex items-center gap-1.5">
+              {steps.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setActive(i)}
+                  aria-label={`Go to step ${i + 1}`}
+                  className={`h-2 rounded-full transition-all ${
+                    i === active ? "w-6 bg-gradient-warm" : "w-2 bg-foreground/20 hover:bg-foreground/40"
+                  }`}
+                />
+              ))}
+            </div>
+
+            <Button
+              size="sm"
+              onClick={goNext}
+              disabled={active === steps.length - 1}
+              className="gap-1.5 bg-gradient-warm hover:opacity-90"
+            >
+              {dir === "rtl" ? "بعدی" : "Next"}
+              <Next className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </div>
@@ -185,7 +223,6 @@ const renderMedia = (s: ScrollyStep) => {
 const toEmbedUrl = (url: string): string | null => {
   try {
     const u = new URL(url);
-    // YouTube
     if (u.hostname.includes("youtube.com")) {
       const v = u.searchParams.get("v");
       if (v) return `https://www.youtube.com/embed/${v}`;
@@ -193,7 +230,6 @@ const toEmbedUrl = (url: string): string | null => {
     if (u.hostname === "youtu.be") {
       return `https://www.youtube.com/embed${u.pathname}`;
     }
-    // Vimeo
     if (u.hostname.includes("vimeo.com")) {
       const id = u.pathname.split("/").filter(Boolean)[0];
       if (id) return `https://player.vimeo.com/video/${id}`;
