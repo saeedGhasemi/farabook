@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Search, ShoppingBag, Check, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,9 +35,11 @@ interface Book {
 const Store = () => {
   const { t, lang } = useI18n();
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [books, setBooks] = useState<Book[]>([]);
   const [owned, setOwned] = useState<Set<string>>(new Set());
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(searchParams.get("q") ?? "");
+  const cat = searchParams.get("cat");
   const [confirmDelete, setConfirmDelete] = useState<Book | null>(null);
 
   const reload = () => {
@@ -77,11 +79,25 @@ const Store = () => {
   };
 
   const filtered = books.filter((b) => {
+    if (cat && b.category !== cat) return false;
     const s = q.trim().toLowerCase();
     if (!s) return true;
     return [b.title, b.title_en, b.author, b.publisher, b.category]
       .filter(Boolean).some((x) => String(x).toLowerCase().includes(s));
   });
+
+  const updateQ = (v: string) => {
+    setQ(v);
+    const next = new URLSearchParams(searchParams);
+    if (v.trim()) next.set("q", v.trim()); else next.delete("q");
+    setSearchParams(next, { replace: true });
+  };
+
+  const clearCat = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("cat");
+    setSearchParams(next, { replace: true });
+  };
 
   return (
     <main className="container py-10 md:py-16 min-h-[calc(100vh-4rem)]">
@@ -91,11 +107,19 @@ const Store = () => {
           <Search className="absolute top-1/2 -translate-y-1/2 start-3 w-4 h-4 text-muted-foreground" />
           <Input
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => updateQ(e.target.value)}
             placeholder={t("search_ph")}
             className="ps-10 h-12 glass"
           />
         </div>
+        {cat && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="secondary" className="gap-2 py-1.5 px-3">
+              {cat}
+              <button onClick={clearCat} className="text-muted-foreground hover:text-foreground" aria-label="Clear filter">×</button>
+            </Badge>
+          </div>
+        )}
       </motion.div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BookOpen, Library, Store, LogIn, LogOut, Languages, Palette } from "lucide-react";
+import { BookOpen, Library, Store, LogIn, LogOut, Languages, Palette, Wand2, Briefcase } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme, type Theme } from "@/lib/theme";
@@ -23,8 +23,10 @@ export const Navbar = () => {
 
   const links = [
     { to: "/", label: t("nav_home"), icon: BookOpen },
-    { to: "/library", label: t("nav_library"), icon: Library },
     { to: "/store", label: t("nav_store"), icon: Store },
+    { to: "/library", label: t("nav_library"), icon: Library },
+    { to: "/upload", label: t("nav_builder"), icon: Wand2 },
+    { to: "/publisher/me", label: t("nav_publisher"), icon: Briefcase },
   ];
 
   const handleSignOut = async () => {
@@ -56,12 +58,12 @@ export const Navbar = () => {
                   <motion.div
                     whileHover={{ y: -2 }}
                     whileTap={{ y: 0 }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                    className={`flex items-center gap-2 px-3 lg:px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                       active ? "bg-primary text-primary-foreground shadow-soft" : "text-foreground/70 hover:text-foreground hover:bg-secondary/50"
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
-                    {label}
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="hidden lg:inline">{label}</span>
                   </motion.div>
                 </Link>
               );
