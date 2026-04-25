@@ -2,8 +2,8 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 
 // Self-hosted fonts (no dependency on fonts.googleapis.com — works in Iran)
-import "@fontsource-variable/vazirmatn";
-import "@fontsource-variable/inter";
+import "@fontsource-variable/vazirmatn/index.css";
+import "@fontsource-variable/inter/index.css";
 import "@fontsource/crimson-pro/400.css";
 import "@fontsource/crimson-pro/500.css";
 import "@fontsource/crimson-pro/600.css";
