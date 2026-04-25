@@ -267,16 +267,19 @@ const Reader = () => {
 
   const speak = () => {
     if (!pageText) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(pageText);
-    u.lang = lang === "fa" ? "fa-IR" : "en-US";
-    u.rate = voiceSpeed;
-    u.onend = () => setIsSpeaking(false);
-    u.onerror = () => setIsSpeaking(false);
-    speechSynthesis.speak(u);
     setIsSpeaking(true);
+    speakSmart({
+      text: pageText,
+      rate: voiceSpeed,
+      fallbackLang: lang,
+      onEnd: () => setIsSpeaking(false),
+      onError: () => {
+        setIsSpeaking(false);
+        toast.error(lang === "fa" ? "پخش صدا با خطا روبرو شد" : "Voice playback failed");
+      },
+    });
   };
-  const stopSpeak = () => { speechSynthesis.cancel(); setIsSpeaking(false); };
+  const stopSpeak = () => { stopSpeakSmart(); setIsSpeaking(false); };
 
   // Selection-based highlighting — always active, no toolbar toggle needed
   useEffect(() => {
