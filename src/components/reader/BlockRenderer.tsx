@@ -433,11 +433,17 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
           <div className="book-table-wrap">
             <table className="book-table">
               <thead>
-                <tr>{block.headers.map((h, i) => <th key={i}>{h}</th>)}</tr>
+                <tr>{block.headers.map((h, i) => <th key={i}>{renderWithHighlights(h, savedHighlights, onHighlightClick)}</th>)}</tr>
               </thead>
               <tbody>
                 {block.rows.map((row, r) => (
-                  <tr key={r}>{row.map((cell, c) => <td key={c}>{cell}</td>)}</tr>
+                  <tr key={r}>
+                    {row.map((cell, c) => (
+                      <td key={c} className="book-table-cell">
+                        {renderWithHighlights(cell, savedHighlights, onHighlightClick)}
+                      </td>
+                    ))}
+                  </tr>
                 ))}
               </tbody>
             </table>
