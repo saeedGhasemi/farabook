@@ -42,7 +42,7 @@ export const Timeline = ({ title, steps }: Props) => {
   return (
     <figure className="my-8 select-none">
       {title && (
-        <header className="flex items-center gap-2 mb-4">
+        <header dir={headerDir} className="flex items-center gap-2 mb-4">
           <Clock className="w-4 h-4 text-accent" />
           <h4 className="font-display font-bold text-base text-foreground/90">{title}</h4>
         </header>
