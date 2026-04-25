@@ -359,6 +359,11 @@ const Reader = () => {
     if (!term) return [];
     return book.pages.flatMap((page, pIndex) => {
       const pageBlocks = page.blocks ?? (page.content ? [{ type: "paragraph", text: page.content } as Block] : []);
+      const firstMedia = pageBlocks.map((candidate, candidateIndex) => {
+        const src = candidate.type === "image" ? candidate.src : candidate.type === "gallery" ? candidate.images[0] : candidate.type === "slideshow" ? candidate.images[0]?.src : undefined;
+        const caption = candidate.type === "image" ? candidate.caption : candidate.type === "gallery" ? candidate.caption : candidate.type === "slideshow" ? candidate.images[0]?.caption : undefined;
+        return src ? { src, caption, key: `book-block-${pIndex}-${candidateIndex}` } : null;
+      }).find(Boolean);
       return pageBlocks.flatMap((block, bIndex) => {
         const text = block.type === "paragraph" || block.type === "heading" || block.type === "highlight" || block.type === "callout"
           ? block.text
@@ -373,14 +378,15 @@ const Reader = () => {
           : "";
         if (!`${page.title} ${text}`.toLowerCase().includes(term)) return [];
         const mediaSrc = block.type === "image" ? block.src : block.type === "gallery" ? block.images[0] : block.type === "slideshow" ? block.images[0]?.src : undefined;
+        const blockMediaKey = mediaSrc ? `book-block-${pIndex}-${bIndex}` : undefined;
         return [{
           pageIndex: pIndex,
           blockIndex: bIndex,
           title: page.title || `${t("page")} ${pIndex + 1}`,
           excerpt: text || page.title,
-          mediaSrc,
+          mediaSrc: mediaSrc || firstMedia?.src,
           mediaCaption: block.type === "image" ? block.caption : block.type === "gallery" ? block.caption : block.type === "slideshow" ? block.images[0]?.caption : undefined,
-          mediaKey: mediaSrc ? `book-block-${pIndex}-${bIndex}` : undefined,
+          mediaKey: blockMediaKey || firstMedia?.key,
         }];
       });
     }).slice(0, 30);
