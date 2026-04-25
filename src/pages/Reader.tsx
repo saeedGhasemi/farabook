@@ -631,9 +631,18 @@ const Reader = () => {
         mode={aiMode}
         loading={aiLoading}
         content={aiContent}
+        timeline={timelineData}
         onClose={() => setAiOpen(false)}
         onRegenerate={regenerateAI}
         onSaveAsNote={saveAiAsNote}
+      />
+
+      {/* Chat with book */}
+      <ChatPanel
+        open={chatOpen}
+        bookId={id ?? ""}
+        bookTitle={book?.title}
+        onClose={() => setChatOpen(false)}
       />
 
       {/* Highlights panel */}
