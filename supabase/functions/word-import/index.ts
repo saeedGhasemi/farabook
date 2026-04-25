@@ -305,6 +305,8 @@ Deno.serve(async (req) => {
           cover_url,
           price: 0,
           pages,
+          publisher_id: u.user.id,
+          status: "draft",
         })
         .select("id, title")
         .single();

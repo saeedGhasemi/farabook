@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, ShoppingBag, Check, Pencil, Trash2 } from "lucide-react";
+import { Search, ShoppingBag, Check, Pencil, Trash2, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { resolveBookMedia } from "@/lib/book-media";
+import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
 
 const resolveCover = (s: string | null) => resolveBookMedia(s);
 
@@ -41,6 +42,7 @@ const Store = () => {
   const [q, setQ] = useState(searchParams.get("q") ?? "");
   const cat = searchParams.get("cat");
   const [confirmDelete, setConfirmDelete] = useState<Book | null>(null);
+  const [previewBook, setPreviewBook] = useState<Book | null>(null);
 
   const reload = () => {
     supabase.from("books").select("*").order("created_at", { ascending: false })
@@ -182,23 +184,34 @@ const Store = () => {
                   <span className="font-semibold text-primary">
                     {book.price === 0 ? t("free") : `${book.price.toLocaleString()} ${t("toman")}`}
                   </span>
-                  {isOwner ? (
-                    <Link to={`/edit/${book.id}`}>
-                      <Button size="sm" variant="outline" className="gap-1.5">
-                        <Pencil className="w-3.5 h-3.5" /> {lang === "fa" ? "ویرایش" : "Edit"}
-                      </Button>
-                    </Link>
-                  ) : isOwned ? (
-                    <Link to={`/read/${book.id}`}>
-                      <Button size="sm" variant="outline" className="gap-1.5">
-                        <Check className="w-3.5 h-3.5" /> {t("read")}
-                      </Button>
-                    </Link>
-                  ) : (
-                    <Button size="sm" onClick={() => handleAdd(book)} className="gap-1.5 bg-gradient-warm hover:opacity-90">
-                      <ShoppingBag className="w-3.5 h-3.5" /> {t("buy")}
+                  <div className="flex gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setPreviewBook(book)}
+                      className="gap-1.5"
+                      title={lang === "fa" ? "پیش‌نمایش" : "Preview"}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
                     </Button>
-                  )}
+                    {isOwner ? (
+                      <Link to={`/edit/${book.id}`}>
+                        <Button size="sm" variant="outline" className="gap-1.5">
+                          <Pencil className="w-3.5 h-3.5" /> {lang === "fa" ? "ویرایش" : "Edit"}
+                        </Button>
+                      </Link>
+                    ) : isOwned ? (
+                      <Link to={`/read/${book.id}`}>
+                        <Button size="sm" variant="outline" className="gap-1.5">
+                          <Check className="w-3.5 h-3.5" /> {t("read")}
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Button size="sm" onClick={() => handleAdd(book)} className="gap-1.5 bg-gradient-warm hover:opacity-90">
+                        <ShoppingBag className="w-3.5 h-3.5" /> {t("buy")}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -226,6 +239,16 @@ const Store = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BookPreviewDialog
+        book={previewBook}
+        open={!!previewBook}
+        onOpenChange={(o) => !o && setPreviewBook(null)}
+        isOwned={previewBook ? owned.has(previewBook.id) : false}
+        isOwner={!!user && !!previewBook && previewBook.publisher_id === user.id}
+        canBuy={!!user && !!previewBook && !owned.has(previewBook.id) && previewBook.publisher_id !== user.id}
+        onBuy={() => { if (previewBook) { handleAdd(previewBook); setPreviewBook(null); } }}
+      />
     </main>
   );
 };
