@@ -35,7 +35,7 @@ const ambientOpts = [
 
 export const FloatingMenu = ({
   onAi, onSpeak, onStopSpeak, isSpeaking, onOpenSearch,
-  onOpenSettings, onOpenChapters, onOpenHighlights, highlightCount,
+  onOpenSettings, onOpenChapters, onOpenHighlights, onOpenChat, highlightCount,
   dark, onToggleDark, ambient, onAmbient,
 }: Props) => {
   const { t, lang } = useI18n();
