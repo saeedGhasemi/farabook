@@ -370,24 +370,24 @@
   .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
   .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
 
-  /* === Aggressive suppression of native browser selection menus on mobile.
-     Used on the reading article. Children with .allow-select can still be selected. ===*/
+  /* === Suppress native iOS/Android callout (Copy/Share popup) ===
+     Selection itself MUST stay enabled so users can highlight. We only kill
+     the OS-level callout & tap highlight, never user-select. */
   .no-native-callout {
     -webkit-touch-callout: none !important;
     -webkit-tap-highlight-color: transparent;
-    -webkit-user-select: none;
-    user-select: none;
   }
   .no-native-callout * {
     -webkit-touch-callout: none !important;
   }
-  /* When in highlight mode, allow text selection only on selectable surfaces */
-  .hl-mode .selectable,
-  .hl-mode .selectable * {
+  /* In highlight mode, force selection ON for the article body */
+  .hl-mode,
+  .hl-mode * {
     -webkit-user-select: text !important;
     user-select: text !important;
     -webkit-touch-callout: none !important;
   }
+  .hl-mode { cursor: text; }
   /* Hide the native context menu by killing pointer events on selection range
      handles isn't possible — but we can intercept contextmenu in JS (Reader.tsx). */
 }

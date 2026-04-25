@@ -41,8 +41,9 @@ export const AiPanel = ({ open, mode, loading, content, onClose }: Props) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 40, scale: 0.96 }}
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className={`fixed z-50 inset-x-4 md:inset-x-auto md:${dir === "rtl" ? "right-1/2 md:translate-x-1/2" : "left-1/2 md:-translate-x-1/2"} bottom-24 md:bottom-28 md:w-[min(560px,90vw)] glass-strong rounded-3xl p-6 shadow-book border border-accent/20`}
-            style={{ maxHeight: "70vh", overflowY: "auto" }}
+            className="fixed z-50 left-1/2 -translate-x-1/2 bottom-24 md:bottom-28 w-[calc(100vw-1.5rem)] sm:w-[min(560px,90vw)] glass-strong rounded-3xl p-5 sm:p-6 shadow-book border border-accent/20 overflow-y-auto"
+            style={{ maxHeight: "min(70vh, calc(100dvh - 8rem))" }}
+            dir={dir}
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">

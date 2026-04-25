@@ -2,41 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Info, Sparkles, Quote as QuoteIcon, ChevronLeft, ChevronRight, Play, Pause, Plus, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import tehranImg from "@/assets/scene-tehran.jpg";
-import princeImg from "@/assets/scene-prince.jpg";
-import desertImg from "@/assets/scene-desert.jpg";
-import farmImg from "@/assets/scene-farm.jpg";
-import heroImg from "@/assets/hero-book.jpg";
-import medHeart from "@/assets/med-heart.jpg";
-import medBrain from "@/assets/med-brain.jpg";
-import medCell from "@/assets/med-cell.jpg";
-import medDna from "@/assets/med-dna.jpg";
-import medSkeleton from "@/assets/med-skeleton.jpg";
-import medLungs from "@/assets/med-lungs.jpg";
-import medNeuron from "@/assets/med-neuron.jpg";
-import medBlood from "@/assets/med-blood.jpg";
-import medCoverAnatomy from "@/assets/med-cover-anatomy.jpg";
-import medCoverNeuro from "@/assets/med-cover-neuro.jpg";
+import { resolveBookMedia } from "@/lib/book-media";
 
-const imageMap: Record<string, string> = {
-  tehran: tehranImg,
-  prince: princeImg,
-  desert: desertImg,
-  farm: farmImg,
-  hero: heroImg,
-  "med-heart": medHeart,
-  "med-brain": medBrain,
-  "med-cell": medCell,
-  "med-dna": medDna,
-  "med-skeleton": medSkeleton,
-  "med-lungs": medLungs,
-  "med-neuron": medNeuron,
-  "med-blood": medBlood,
-  "med-cover-anatomy": medCoverAnatomy,
-  "med-cover-neuro": medCoverNeuro,
-};
-
-const resolveImg = (src: string) => imageMap[src] || src;
+const resolveImg = (src: string) => resolveBookMedia(src);
 
 export interface Hotspot {
   x: number; // 0-100 percent
