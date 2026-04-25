@@ -113,104 +113,91 @@ const InteractiveImage = ({
     window.addEventListener("open-book-media", open as EventListener);
     return () => window.removeEventListener("open-book-media", open as EventListener);
   }, [mediaKey]);
+  const figureRef = useRef<HTMLElement | null>(null);
+  // When opened externally (search result), scroll to the figure
+  useEffect(() => {
+    if (zoomed && figureRef.current) {
+      figureRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [zoomed]);
+
   return (
-    <>
-      <figure className="my-6 group">
-        <div className="relative overflow-hidden rounded-2xl book-shadow">
-          <button
-            type="button"
-            onClick={() => setZoomed(true)}
-            className="block w-full cursor-zoom-in"
-            aria-label={caption || "zoom"}
-          >
-            <img
-              src={resolveImg(src)}
-              alt={caption || ""}
-              loading="lazy"
-              width={1280}
-              height={768}
-              className="w-full h-auto transition-transform duration-700 group-hover:scale-[1.02]"
-            />
-          </button>
+    <figure ref={figureRef} className="my-6 group">
+      <div className="relative overflow-hidden rounded-2xl book-shadow bg-foreground/5">
+        <button
+          type="button"
+          onClick={() => setZoomed((v) => !v)}
+          className={`block w-full ${zoomed ? "cursor-zoom-out" : "cursor-zoom-in"}`}
+          aria-label={zoomed ? "close" : caption || "zoom"}
+        >
+          <motion.img
+            layout
+            src={resolveImg(src)}
+            alt={caption || ""}
+            loading="lazy"
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+            className={`w-full h-auto transition-transform duration-300 ${
+              zoomed
+                ? "object-contain max-h-[80vh] mx-auto"
+                : "group-hover:scale-[1.02]"
+            }`}
+          />
+        </button>
+
+        {!zoomed && (
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/40 via-transparent to-transparent pointer-events-none" />
-
-          {hotspots?.map((h, i) => (
-            <Popover key={i}>
-              <PopoverTrigger asChild>
-                <button
-                  className="absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 group/dot"
-                  style={{ left: `${h.x}%`, top: `${h.y}%` }}
-                  aria-label={h.label}
-                >
-                  <span className="absolute inset-0 rounded-full bg-accent/40 animate-ping" />
-                  <span className="absolute inset-1 rounded-full bg-gradient-warm shadow-glow flex items-center justify-center text-primary-foreground">
-                    <Plus className="w-4 h-4" />
-                  </span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="glass-strong border-accent/30 w-72 p-4">
-                <div className="flex items-start gap-2">
-                  <Sparkles className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-display font-bold text-sm mb-1">{h.label}</h4>
-                    <p className="text-sm text-foreground/80 leading-relaxed">{h.description}</p>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          ))}
-
-          {hotspots && hotspots.length > 0 && (
-            <div className="absolute bottom-3 start-3 glass rounded-full px-3 py-1 text-xs flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-accent" />
-              <span>{hotspots.length} نکتهٔ تعاملی</span>
-            </div>
-          )}
-        </div>
-        {caption && (
-          <figcaption className="book-figcaption">
-            {figureNumber && <span className="figcap-label">{figureNumber}</span>}
-            {caption}
-          </figcaption>
         )}
-      </figure>
 
-      {/* Lightbox */}
-      <AnimatePresence>
         {zoomed && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+          <button
             onClick={() => setZoomed(false)}
-            className="fixed inset-0 z-[80] bg-foreground/85 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
+            className="absolute top-3 end-3 w-9 h-9 rounded-full glass-strong flex items-center justify-center shadow-soft"
+            aria-label="close"
           >
-            <button
-              onClick={() => setZoomed(false)}
-              className="absolute top-4 end-4 w-10 h-10 rounded-full glass-strong flex items-center justify-center"
-              aria-label="close"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <motion.img
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              src={resolveImg(src)}
-              alt={caption || ""}
-              className="max-w-[95vw] max-h-[90vh] object-contain rounded-2xl shadow-book"
-              onClick={(e) => e.stopPropagation()}
-            />
-            {caption && (
-              <p className="absolute bottom-6 inset-x-0 text-center text-background/90 text-sm px-6 max-w-3xl mx-auto">
-                {caption}
-              </p>
-            )}
-          </motion.div>
+            <X className="w-4 h-4" />
+          </button>
         )}
-      </AnimatePresence>
-    </>
+
+        {hotspots?.map((h, i) => (
+          <Popover key={i}>
+            <PopoverTrigger asChild>
+              <button
+                className="absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 group/dot"
+                style={{ left: `${h.x}%`, top: `${h.y}%` }}
+                aria-label={h.label}
+              >
+                <span className="absolute inset-0 rounded-full bg-accent/40 animate-ping" />
+                <span className="absolute inset-1 rounded-full bg-gradient-warm shadow-glow flex items-center justify-center text-primary-foreground">
+                  <Plus className="w-4 h-4" />
+                </span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="glass-strong border-accent/30 w-72 p-4">
+              <div className="flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-display font-bold text-sm mb-1">{h.label}</h4>
+                  <p className="text-sm text-foreground/80 leading-relaxed">{h.description}</p>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        ))}
+
+        {hotspots && hotspots.length > 0 && !zoomed && (
+          <div className="absolute bottom-3 start-3 glass rounded-full px-3 py-1 text-xs flex items-center gap-1.5">
+            <Sparkles className="w-3 h-3 text-accent" />
+            <span>{hotspots.length} نکتهٔ تعاملی</span>
+          </div>
+        )}
+      </div>
+      {caption && (
+        <figcaption className="book-figcaption">
+          {figureNumber && <span className="figcap-label">{figureNumber}</span>}
+          {caption}
+        </figcaption>
+      )}
+    </figure>
   );
 };
 

@@ -24,7 +24,7 @@ const titles: Record<Mode, { fa: string; en: string; icon: React.ComponentType<{
 };
 
 export const AiPanel = ({ open, mode, loading, content, onClose, onRegenerate, onSaveAsNote }: Props) => {
-  const { lang, dir } = useI18n();
+  const { lang } = useI18n();
   if (!mode) return null;
   const { icon: Icon } = titles[mode];
   const title = titles[mode][lang];
@@ -51,15 +51,14 @@ export const AiPanel = ({ open, mode, loading, content, onClose, onRegenerate, o
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 440, opacity: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed top-0 bottom-0 right-0 z-50 w-full sm:w-[460px] glass-strong shadow-book border-l border-glass-border flex flex-col"
-            dir={dir}
+            className="fixed top-0 bottom-0 right-0 z-50 w-full sm:w-[440px] max-w-full glass-strong shadow-book border-l border-glass-border flex flex-col"
           >
             <header className="flex items-center justify-between p-5 border-b border-border/40">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-warm flex items-center justify-center text-primary-foreground shadow-glow">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-gradient-warm flex items-center justify-center text-primary-foreground shadow-glow shrink-0">
                   <Icon className="w-5 h-5" />
                 </div>
-                <h3 className="text-lg font-display font-bold">{title}</h3>
+                <h3 className="text-lg font-display font-bold truncate">{title}</h3>
               </div>
               <button
                 onClick={onClose}
@@ -95,7 +94,10 @@ export const AiPanel = ({ open, mode, loading, content, onClose, onRegenerate, o
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.4 }}
                 >
-                  <MindMap text={content} />
+                  <MindMap
+                    text={content}
+                    onSaveNode={onSaveAsNote ? (label, note) => onSaveAsNote(`[${title}: ${label}]\n${note}`) : undefined}
+                  />
                   <details className="mt-4">
                     <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
                       {lang === "fa" ? "نمایش متنی" : "Show as text"}
