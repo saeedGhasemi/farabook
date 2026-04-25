@@ -4,6 +4,7 @@ import { Info, Sparkles, Quote as QuoteIcon, ChevronLeft, ChevronRight, Play, Pa
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { resolveBookMedia } from "@/lib/book-media";
 import { Timeline, type TimelineStep } from "./Timeline";
+import { Scrollytelling, type ScrollyStep } from "./Scrollytelling";
 
 const resolveImg = (src: string) => resolveBookMedia(src);
 
