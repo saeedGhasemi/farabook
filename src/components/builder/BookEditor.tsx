@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import {
   Plus, Trash2, Image as ImageIcon, Video, Layers, Type, ArrowUp,
   ArrowDown, FileText, Quote as QuoteIcon, Lightbulb, GalleryHorizontal,
-  ListOrdered, Map as MapIcon, Save, Loader2, EyeOff,
+  ListOrdered, Map as MapIcon, Save, Loader2, EyeOff, Rocket,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -1224,10 +1224,21 @@ export const BookEditor = ({ initial, onCreated }: Props) => {
               <Button
                 size="sm"
                 onClick={() => persistDraft(true)}
-                className="bg-gradient-warm hover:opacity-90"
+                variant="outline"
               >
                 <Save className="w-3.5 h-3.5 me-1.5" />
                 {lang === "fa" ? "ذخیره" : "Save"}
+              </Button>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  await persistDraft(false);
+                  if (initial?.id) nav(`/publish/${initial.id}`);
+                }}
+                className="bg-gradient-warm hover:opacity-90"
+              >
+                <Rocket className="w-3.5 h-3.5 me-1.5" />
+                {lang === "fa" ? "انتشار…" : "Publish…"}
               </Button>
             </div>
           </div>
