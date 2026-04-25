@@ -206,18 +206,31 @@ const InteractiveImage = ({
 };
 
 const Slideshow = ({
-  images, autoplay = false, interval = 4000,
+  images, autoplay = true, interval = 4500,
 }: { images: { src: string; caption?: string }[]; autoplay?: boolean; interval?: number }) => {
   const [i, setI] = useState(0);
   const [playing, setPlaying] = useState(autoplay);
+  const [lightbox, setLightbox] = useState(false);
   const timer = useRef<number | null>(null);
   const total = images.length;
 
   useEffect(() => {
-    if (!playing || total < 2) return;
+    if (!playing || total < 2 || lightbox) return;
     timer.current = window.setTimeout(() => setI((p) => (p + 1) % total), interval);
     return () => { if (timer.current) window.clearTimeout(timer.current); };
-  }, [i, playing, interval, total]);
+  }, [i, playing, interval, total, lightbox]);
+
+  // Keyboard navigation in lightbox
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(false);
+      if (e.key === "ArrowRight") setI((p) => (p + 1) % total);
+      if (e.key === "ArrowLeft") setI((p) => (p - 1 + total) % total);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox, total]);
 
   const go = (d: 1 | -1) => setI((p) => (p + d + total) % total);
   const cur = images[i];
@@ -226,17 +239,24 @@ const Slideshow = ({
     <figure className="my-6">
       <div className="relative overflow-hidden rounded-2xl book-shadow bg-foreground/5 aspect-[16/10]">
         <AnimatePresence mode="wait">
-          <motion.img
+          <motion.button
+            type="button"
             key={i}
-            src={resolveImg(cur.src)}
-            alt={cur.caption || ""}
-            loading="lazy"
+            onClick={() => setLightbox(true)}
             initial={{ opacity: 0, scale: 1.05 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
+            className="absolute inset-0 w-full h-full cursor-zoom-in"
+            aria-label="zoom"
+          >
+            <img
+              src={resolveImg(cur.src)}
+              alt={cur.caption || ""}
+              loading="lazy"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          </motion.button>
         </AnimatePresence>
 
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-foreground/10 to-transparent pointer-events-none" />
@@ -248,7 +268,7 @@ const Slideshow = ({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="absolute bottom-0 inset-x-0 p-5 text-background"
+            className="absolute bottom-0 inset-x-0 p-5 text-background pointer-events-none"
           >
             <p className="font-display text-base md:text-lg leading-snug text-balance drop-shadow">
               {cur.caption}
@@ -258,14 +278,14 @@ const Slideshow = ({
 
         {/* Controls */}
         <button
-          onClick={() => go(-1)}
+          onClick={(e) => { e.stopPropagation(); go(-1); }}
           className="absolute start-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full glass-strong flex items-center justify-center hover:bg-accent/30 transition-colors"
           aria-label="previous"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
         <button
-          onClick={() => go(1)}
+          onClick={(e) => { e.stopPropagation(); go(1); }}
           className="absolute end-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full glass-strong flex items-center justify-center hover:bg-accent/30 transition-colors"
           aria-label="next"
         >
@@ -274,7 +294,7 @@ const Slideshow = ({
 
         {/* Play / pause */}
         <button
-          onClick={() => setPlaying((v) => !v)}
+          onClick={(e) => { e.stopPropagation(); setPlaying((v) => !v); }}
           className="absolute top-3 end-3 w-9 h-9 rounded-full glass-strong flex items-center justify-center hover:bg-accent/30 transition-colors"
           aria-label={playing ? "pause" : "play"}
         >
@@ -286,7 +306,7 @@ const Slideshow = ({
           {images.map((_, idx) => (
             <button
               key={idx}
-              onClick={() => setI(idx)}
+              onClick={(e) => { e.stopPropagation(); setI(idx); }}
               className={`pointer-events-auto h-1.5 rounded-full transition-all ${
                 idx === i ? "w-6 bg-accent" : "w-1.5 bg-background/50 hover:bg-background/80"
               }`}
@@ -295,9 +315,86 @@ const Slideshow = ({
           ))}
         </div>
       </div>
+
+      {/* Thumbnails strip */}
+      {total > 1 && (
+        <div className="mt-3 flex gap-2 overflow-x-auto scrollbar-thin pb-1">
+          {images.map((img, idx) => (
+            <button
+              key={idx}
+              onClick={() => setI(idx)}
+              className={`shrink-0 w-20 h-14 rounded-lg overflow-hidden border-2 transition-all ${
+                idx === i
+                  ? "border-accent shadow-glow scale-105"
+                  : "border-transparent opacity-60 hover:opacity-100"
+              }`}
+              aria-label={`thumbnail ${idx + 1}`}
+            >
+              <img
+                src={resolveImg(img.src)}
+                alt=""
+                loading="lazy"
+                className="w-full h-full object-cover"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+
       <figcaption className="mt-2 text-xs text-muted-foreground text-center tabular-nums">
         {i + 1} / {total}
       </figcaption>
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {lightbox && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setLightbox(false)}
+          >
+            <button
+              onClick={(e) => { e.stopPropagation(); setLightbox(false); }}
+              className="absolute top-4 end-4 w-10 h-10 rounded-full glass-strong flex items-center justify-center"
+              aria-label="close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); go(-1); }}
+              className="absolute start-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full glass-strong flex items-center justify-center"
+              aria-label="previous"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); go(1); }}
+              className="absolute end-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full glass-strong flex items-center justify-center"
+              aria-label="next"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+            <motion.img
+              key={i}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              src={resolveImg(cur.src)}
+              alt={cur.caption || ""}
+              onClick={(e) => e.stopPropagation()}
+              className="max-w-full max-h-full object-contain rounded-lg"
+            />
+            {cur.caption && (
+              <div className="absolute bottom-6 inset-x-0 px-6 text-center pointer-events-none">
+                <p className="inline-block max-w-2xl text-background bg-black/60 backdrop-blur-md px-4 py-2 rounded-lg text-sm md:text-base">
+                  {cur.caption}
+                </p>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </figure>
   );
 };
