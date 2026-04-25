@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, Loader2, Menu, Highlighter as HlIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Menu, Highlighter as HlIcon, X, Search, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { BlockRenderer, type Block } from "@/components/reader/BlockRenderer";
 import { FloatingMenu } from "@/components/reader/FloatingMenu";
 import { AiPanel } from "@/components/reader/AiPanel";
 import { ChapterSidebar } from "@/components/reader/ChapterSidebar";
 import { HighlightsPanel, type HighlightItem } from "@/components/reader/HighlightsPanel";
+import { resolveBookMedia } from "@/lib/book-media";
 
 interface Page {
   title: string;
@@ -35,6 +36,16 @@ const ambientSrc: Record<string, string> = {
 };
 
 type AiMode = "summary" | "quiz" | "mindmap" | "explain";
+
+interface SearchResult {
+  pageIndex: number;
+  blockIndex: number;
+  title: string;
+  excerpt: string;
+  mediaSrc?: string;
+  mediaKey?: string;
+  mediaCaption?: string;
+}
 
 const Reader = () => {
   const { id } = useParams();
