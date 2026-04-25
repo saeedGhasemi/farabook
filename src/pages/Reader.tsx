@@ -346,6 +346,55 @@ const Reader = () => {
     : []);
 
   const chapters = book.pages.map((p, i) => ({ index: i, title: p.title }));
+  const panelSide = dir === "rtl" ? "left-0" : "right-0";
+  const panelInitialX = dir === "rtl" ? -440 : 440;
+  const allOverlaysOpen = chaptersOpen || searchOpen || settingsOpen || highlightsOpen || aiOpen;
+  const goToPageNumber = () => {
+    const next = Math.min(total, Math.max(1, Number(jumpValue) || 1)) - 1;
+    goTo(next);
+  };
+  const searchResults: SearchResult[] = useMemo(() => {
+    if (!book) return [];
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return [];
+    return book.pages.flatMap((page, pIndex) => {
+      const pageBlocks = page.blocks ?? (page.content ? [{ type: "paragraph", text: page.content } as Block] : []);
+      return pageBlocks.flatMap((block, bIndex) => {
+        const text = block.type === "paragraph" || block.type === "heading" || block.type === "highlight" || block.type === "callout"
+          ? block.text
+          : block.type === "quote"
+          ? block.text
+          : block.type === "image"
+          ? block.caption || ""
+          : block.type === "gallery"
+          ? block.caption || ""
+          : block.type === "slideshow"
+          ? block.images.map((img) => img.caption || "").join(" ")
+          : "";
+        if (!`${page.title} ${text}`.toLowerCase().includes(term)) return [];
+        const mediaSrc = block.type === "image" ? block.src : block.type === "gallery" ? block.images[0] : block.type === "slideshow" ? block.images[0]?.src : undefined;
+        return [{
+          pageIndex: pIndex,
+          blockIndex: bIndex,
+          title: page.title || `${t("page")} ${pIndex + 1}`,
+          excerpt: text || page.title,
+          mediaSrc,
+          mediaCaption: block.type === "image" ? block.caption : block.type === "gallery" ? block.caption : block.type === "slideshow" ? block.images[0]?.caption : undefined,
+          mediaKey: mediaSrc ? `book-block-${pIndex}-${bIndex}` : undefined,
+        }];
+      });
+    }).slice(0, 30);
+  }, [book, searchTerm, t]);
+  const openSearchResult = (result: SearchResult) => {
+    goTo(result.pageIndex);
+    setSearchOpen(false);
+    if (result.mediaKey) {
+      window.setTimeout(() => {
+        document.getElementById(result.mediaKey || "")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        window.dispatchEvent(new CustomEvent("open-book-media", { detail: { key: result.mediaKey } }));
+      }, 700);
+    }
+  };
 
   return (
     <main className={`min-h-[calc(100vh-4rem)] relative transition-colors duration-700 ${dark ? "bg-background" : "bg-gradient-hero"}`}>
