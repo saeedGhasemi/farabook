@@ -18,11 +18,13 @@ export type Block =
   | { type: "paragraph"; text: string }
   | { type: "quote"; text: string; author?: string }
   | { type: "highlight"; text: string }
-  | { type: "image"; src: string; caption?: string; hotspots?: Hotspot[] }
+  | { type: "image"; src: string; caption?: string; figureNumber?: string; hotspots?: Hotspot[] }
   | { type: "gallery"; images: string[]; caption?: string }
   | { type: "slideshow"; images: { src: string; caption?: string }[]; autoplay?: boolean; interval?: number }
   | { type: "video"; src: string; poster?: string; caption?: string }
-  | { type: "callout"; icon?: "info" | "sparkle"; text: string };
+  | { type: "callout"; icon?: "info" | "sparkle"; text: string }
+  | { type: "table"; caption?: string; tableNumber?: string; headers: string[]; rows: string[][] }
+  | { type: "references"; items: { id?: string; text: string; url?: string }[] };
 
 interface SavedHL { id?: string; text: string; color: string }
 
