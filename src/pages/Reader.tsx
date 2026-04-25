@@ -587,8 +587,8 @@ const Reader = () => {
       <AnimatePresence>
         {chaptersOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setChaptersOpen(false)} className="fixed inset-0 bg-foreground/30 backdrop-blur-md z-40" />
-            <motion.aside initial={{ x: panelInitialX, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: panelInitialX, opacity: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className={`fixed top-0 bottom-0 ${panelSide} z-50 w-full sm:w-[440px] glass-strong shadow-book border-s border-glass-border flex flex-col`}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setChaptersOpen(false)} className="fixed inset-0 backdrop-blur-md z-40" />
+            <motion.aside initial={{ x: 440, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 440, opacity: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className="fixed top-0 bottom-0 right-0 z-50 w-full sm:w-[440px] glass-strong shadow-book border-l border-glass-border flex flex-col">
               <ChapterSidebar chapters={chapters} current={pageIdx} variant="drawer" onSelect={(i) => { goTo(i); setChaptersOpen(false); }} onClose={() => setChaptersOpen(false)} />
             </motion.aside>
           </>
@@ -598,8 +598,8 @@ const Reader = () => {
       <AnimatePresence>
         {searchOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSearchOpen(false)} className="fixed inset-0 bg-foreground/30 backdrop-blur-md z-40" />
-            <motion.aside initial={{ x: panelInitialX, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: panelInitialX, opacity: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className={`fixed top-0 bottom-0 ${panelSide} z-50 w-full sm:w-[440px] glass-strong shadow-book border-s border-glass-border flex flex-col`}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSearchOpen(false)} className="fixed inset-0 backdrop-blur-md z-40" />
+            <motion.aside initial={{ x: 440, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 440, opacity: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className="fixed top-0 bottom-0 right-0 z-50 w-full sm:w-[440px] glass-strong shadow-book border-l border-glass-border flex flex-col">
               <header className="flex items-center justify-between p-5 border-b border-border/40">
                 <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-gradient-warm flex items-center justify-center text-primary-foreground shadow-glow"><Search className="w-5 h-5" /></div><h3 className="font-display font-bold">{lang === "fa" ? "جستجوی قوی" : "Power search"}</h3></div>
                 <button onClick={() => setSearchOpen(false)} className="w-9 h-9 rounded-full hover:bg-foreground/10 flex items-center justify-center" aria-label="close"><X className="w-4 h-4" /></button>
@@ -623,8 +623,8 @@ const Reader = () => {
       <AnimatePresence>
         {settingsOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSettingsOpen(false)} className="fixed inset-0 bg-foreground/30 backdrop-blur-md z-40" />
-            <motion.aside initial={{ x: -panelInitialX, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -panelInitialX, opacity: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className={`fixed top-0 bottom-0 ${dir === "rtl" ? "right-0" : "left-0"} z-50 w-full sm:w-[440px] glass-strong shadow-book border-s border-glass-border flex flex-col`}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSettingsOpen(false)} className="fixed inset-0 backdrop-blur-md z-40" />
+            <motion.aside initial={{ x: -440, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -440, opacity: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className="fixed top-0 bottom-0 left-0 z-50 w-full sm:w-[440px] glass-strong shadow-book border-r border-glass-border flex flex-col">
               <header className="flex items-center justify-between p-5 border-b border-border/40"><h3 className="font-display font-bold">{t("settings")}</h3><button onClick={() => setSettingsOpen(false)} className="w-9 h-9 rounded-full hover:bg-foreground/10 flex items-center justify-center" aria-label="close"><X className="w-4 h-4" /></button></header>
               <div className="space-y-8 p-5 overflow-y-auto scrollbar-thin">
                 <div className="space-y-3"><div className="flex justify-between text-sm"><span className="font-medium">{t("font_size")}</span><span className="text-muted-foreground tabular-nums">{fontSize}px</span></div><Slider value={[fontSize]} onValueChange={(v) => setFontSize(v[0])} min={14} max={32} step={1} /></div>
