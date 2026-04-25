@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 import { resolveBookMedia } from "@/lib/book-media";
 
 interface Row {
@@ -23,6 +28,8 @@ interface Row {
     author: string;
     cover_url: string | null;
     category: string | null;
+    publisher_id: string | null;
+    status: string;
   } | null;
 }
 
@@ -31,6 +38,7 @@ const Library = () => {
   const { user, loading } = useAuth();
   const nav = useNavigate();
   const [rows, setRows] = useState<Row[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState<Row["books"] | null>(null);
 
   useEffect(() => {
     if (!loading && !user) nav("/auth");
@@ -39,10 +47,19 @@ const Library = () => {
   useEffect(() => {
     if (!user) return;
     supabase.from("user_books")
-      .select("id, status, progress, current_page, acquired_via, books(id, title, title_en, author, cover_url, category)")
+      .select("id, status, progress, current_page, acquired_via, books(id, title, title_en, author, cover_url, category, publisher_id, status)")
       .eq("user_id", user.id)
       .then(({ data }) => setRows((data as unknown as Row[]) ?? []));
   }, [user]);
+
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    const { error } = await supabase.from("books").delete().eq("id", confirmDelete.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(lang === "fa" ? "کتاب حذف شد" : "Book deleted");
+    setRows((prev) => prev.filter((r) => r.books?.id !== confirmDelete.id));
+    setConfirmDelete(null);
+  };
 
   const statusLabel = (s: string) =>
     s === "reading" ? t("status_reading") : s === "finished" ? t("status_finished") : t("status_unread");
