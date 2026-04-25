@@ -4,12 +4,12 @@ import {
   Sparkles, BrainCircuit, ListChecks, Lightbulb,
   Volume2, VolumeX, Settings2, Sun, Moon, Search,
   CloudRain, Trees, Coffee, Stars, VolumeOff, Menu, BookmarkCheck,
-  ChevronUp, ChevronDown,
+  ChevronUp, ChevronDown, Clock, MessageSquare,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
 interface Props {
-  onAi: (mode: "summary" | "quiz" | "mindmap" | "explain") => void;
+  onAi: (mode: "summary" | "quiz" | "mindmap" | "explain" | "timeline") => void;
   onSpeak: () => void;
   onStopSpeak: () => void;
   isSpeaking: boolean;
@@ -17,6 +17,7 @@ interface Props {
   onOpenSettings: () => void;
   onOpenChapters: () => void;
   onOpenHighlights: () => void;
+  onOpenChat: () => void;
   highlightCount: number;
   dark: boolean;
   onToggleDark: () => void;
