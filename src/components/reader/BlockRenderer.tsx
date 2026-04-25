@@ -37,20 +37,50 @@ interface Props {
   onHighlightClick?: (hl: SavedHL) => void;
 }
 
+/* Strip massive inline citation blobs that some Word imports leave behind:
+   "(Author, 2024)https://dummy-citation.com/citation?d=...."  → keep the
+   "(Author, 2024)" plus a small superscript ref pill. */
+const cleanInlineRefs = (text: string): React.ReactNode => {
+  // Match either dummy-citation links or any bare URL stuck to text
+  const re = /(https?:\/\/[^\s)]+)/g;
+  const parts = text.split(re);
+  let refIdx = 0;
+  return parts.map((p, i) => {
+    if (i % 2 === 1) {
+      // it's a URL — replace with compact ref pill
+      refIdx += 1;
+      const isDummy = p.includes("dummy-citation");
+      return (
+        <a
+          key={i}
+          href={isDummy ? undefined : p}
+          target="_blank"
+          rel="noreferrer"
+          className="ref-cite"
+          onClick={isDummy ? (e) => e.preventDefault() : undefined}
+        >
+          ↗
+        </a>
+      );
+    }
+    return <span key={i}>{p}</span>;
+  });
+};
+
 /* Render text with inline colored highlight spans — clickable & vivid */
 const renderWithHighlights = (
   text: string,
   hls?: SavedHL[],
   onClick?: (hl: SavedHL) => void,
 ): React.ReactNode => {
-  if (!hls || hls.length === 0) return text;
+  if (!hls || hls.length === 0) return cleanInlineRefs(text);
   const sorted = [...hls].sort((a, b) => b.text.length - a.text.length);
   const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(`(${sorted.map((h) => escape(h.text)).join("|")})`, "g");
   const parts = text.split(pattern);
   return parts.map((p, i) => {
     const match = sorted.find((h) => h.text === p);
-    if (!match) return <span key={i}>{p}</span>;
+    if (!match) return <span key={i}>{cleanInlineRefs(p)}</span>;
     const color = match.color || "yellow";
     return (
       <mark
