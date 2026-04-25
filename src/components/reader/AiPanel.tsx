@@ -1,16 +1,18 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sparkles, ListChecks, BrainCircuit, Lightbulb, Loader2, BookmarkPlus } from "lucide-react";
+import { X, Sparkles, ListChecks, BrainCircuit, Lightbulb, Loader2, BookmarkPlus, Clock } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { MindMap } from "./MindMap";
 import { QuizCard } from "./QuizCard";
+import { Timeline, type TimelineStep } from "./Timeline";
 
-type Mode = "summary" | "quiz" | "mindmap" | "explain";
+type Mode = "summary" | "quiz" | "mindmap" | "explain" | "timeline";
 
 interface Props {
   open: boolean;
   mode: Mode | null;
   loading: boolean;
   content: string;
+  timeline?: { title?: string; steps: TimelineStep[] } | null;
   onClose: () => void;
   onRegenerate?: () => void;
   onSaveAsNote?: (text: string) => void;
@@ -21,16 +23,25 @@ const titles: Record<Mode, { fa: string; en: string; icon: React.ComponentType<{
   quiz: { fa: "آزمون مفهومی", en: "Conceptual Quiz", icon: ListChecks },
   mindmap: { fa: "نقشهٔ ذهنی", en: "Mind Map", icon: BrainCircuit },
   explain: { fa: "توضیح ساده", en: "Simple Explanation", icon: Lightbulb },
+  timeline: { fa: "تایم‌لاین تعاملی", en: "Interactive Timeline", icon: Clock },
 };
 
-export const AiPanel = ({ open, mode, loading, content, onClose, onRegenerate, onSaveAsNote }: Props) => {
+export const AiPanel = ({ open, mode, loading, content, timeline, onClose, onRegenerate, onSaveAsNote }: Props) => {
   const { lang } = useI18n();
   if (!mode) return null;
   const { icon: Icon } = titles[mode];
   const title = titles[mode][lang];
 
-  const canSave = !loading && content && (mode === "mindmap" || mode === "summary" || mode === "explain");
+  const canSave = !loading && (
+    (mode === "mindmap" || mode === "summary" || mode === "explain") && !!content
+    || (mode === "timeline" && !!timeline?.steps?.length)
+  );
   const buildNote = () => {
+    if (mode === "timeline" && timeline?.steps?.length) {
+      const header = `[${title}${timeline.title ? `: ${timeline.title}` : ""}]\n`;
+      const body = timeline.steps.map((s, i) => `${i + 1}. ${s.marker} — ${s.title}\n${s.description}`).join("\n\n");
+      return header + body;
+    }
     const header = `[${title}]\n`;
     return header + content;
   };
@@ -106,6 +117,16 @@ export const AiPanel = ({ open, mode, loading, content, onClose, onRegenerate, o
                       {content}
                     </pre>
                   </details>
+                </motion.div>
+              ) : mode === "timeline" ? (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
+                  {timeline?.steps?.length ? (
+                    <Timeline title={timeline.title} steps={timeline.steps} />
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-6 text-center">
+                      {content || (lang === "fa" ? "تایم‌لاینی استخراج نشد." : "No timeline extracted.")}
+                    </p>
+                  )}
                 </motion.div>
               ) : (
                 <motion.div

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Info, Sparkles, Quote as QuoteIcon, ChevronLeft, ChevronRight, Play, Pause, Plus, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { resolveBookMedia } from "@/lib/book-media";
+import { Timeline, type TimelineStep } from "./Timeline";
 
 const resolveImg = (src: string) => resolveBookMedia(src);
 
@@ -24,7 +25,8 @@ export type Block =
   | { type: "video"; src: string; poster?: string; caption?: string }
   | { type: "callout"; icon?: "info" | "sparkle"; text: string }
   | { type: "table"; caption?: string; tableNumber?: string; headers: string[]; rows: string[][] }
-  | { type: "references"; items: { id?: string; text: string; url?: string }[] };
+  | { type: "references"; items: { id?: string; text: string; url?: string }[] }
+  | { type: "timeline"; title?: string; steps: TimelineStep[] };
 
 interface SavedHL { id?: string; text: string; color: string }
 
@@ -477,6 +479,13 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
         </motion.aside>
       );
     }
+
+    case "timeline":
+      return (
+        <motion.div {...fade} id={blockId}>
+          <Timeline title={block.title} steps={block.steps} />
+        </motion.div>
+      );
 
     default:
       return null;

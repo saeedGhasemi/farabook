@@ -4,12 +4,12 @@ import {
   Sparkles, BrainCircuit, ListChecks, Lightbulb,
   Volume2, VolumeX, Settings2, Sun, Moon, Search,
   CloudRain, Trees, Coffee, Stars, VolumeOff, Menu, BookmarkCheck,
-  ChevronUp, ChevronDown,
+  ChevronUp, ChevronDown, Clock, MessageSquare,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
 interface Props {
-  onAi: (mode: "summary" | "quiz" | "mindmap" | "explain") => void;
+  onAi: (mode: "summary" | "quiz" | "mindmap" | "explain" | "timeline") => void;
   onSpeak: () => void;
   onStopSpeak: () => void;
   isSpeaking: boolean;
@@ -17,6 +17,7 @@ interface Props {
   onOpenSettings: () => void;
   onOpenChapters: () => void;
   onOpenHighlights: () => void;
+  onOpenChat: () => void;
   highlightCount: number;
   dark: boolean;
   onToggleDark: () => void;
@@ -34,7 +35,7 @@ const ambientOpts = [
 
 export const FloatingMenu = ({
   onAi, onSpeak, onStopSpeak, isSpeaking, onOpenSearch,
-  onOpenSettings, onOpenChapters, onOpenHighlights, highlightCount,
+  onOpenSettings, onOpenChapters, onOpenHighlights, onOpenChat, highlightCount,
   dark, onToggleDark, ambient, onAmbient,
 }: Props) => {
   const { t, lang } = useI18n();
@@ -54,6 +55,7 @@ export const FloatingMenu = ({
     { id: "quiz", icon: ListChecks, label: t("ai_quiz"), mode: "quiz" as const },
     { id: "mindmap", icon: BrainCircuit, label: t("ai_mindmap"), mode: "mindmap" as const },
     { id: "explain", icon: Lightbulb, label: t("ai_explain"), mode: "explain" as const },
+    { id: "timeline", icon: Clock, label: lang === "fa" ? "تایم‌لاین" : "Timeline", mode: "timeline" as const },
   ];
 
   const Item = ({
@@ -193,6 +195,7 @@ export const FloatingMenu = ({
               <Item icon={Menu} label={lang === "fa" ? "فصل‌ها" : "Chapters"} onClick={onOpenChapters} />
               <Item icon={Search} label={lang === "fa" ? "جستجو" : "Search"} onClick={onOpenSearch} />
               <Item icon={Sparkles} label={lang === "fa" ? "هوش" : "AI"} onClick={() => setAiOpen((v) => !v)} active={aiOpen} />
+              <Item icon={MessageSquare} label={lang === "fa" ? "گفتگو" : "Chat"} onClick={onOpenChat} />
               <Item
                 icon={isSpeaking ? VolumeX : Volume2}
                 label={isSpeaking ? t("stop") : t("listen")}

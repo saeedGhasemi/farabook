@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { BlockRenderer, type Block } from "@/components/reader/BlockRenderer";
 import { FloatingMenu } from "@/components/reader/FloatingMenu";
 import { AiPanel } from "@/components/reader/AiPanel";
+import { ChatPanel } from "@/components/reader/ChatPanel";
 import { ChapterSidebar } from "@/components/reader/ChapterSidebar";
 import { HighlightsPanel, type HighlightItem } from "@/components/reader/HighlightsPanel";
 import { resolveBookMedia } from "@/lib/book-media";
@@ -36,7 +37,7 @@ const ambientSrc: Record<string, string> = {
   night: "https://cdn.pixabay.com/audio/2022/10/30/audio_347111d662.mp3",
 };
 
-type AiMode = "summary" | "quiz" | "mindmap" | "explain";
+type AiMode = "summary" | "quiz" | "mindmap" | "explain" | "timeline";
 
 interface SearchResult {
   pageIndex: number;
@@ -77,6 +78,8 @@ const Reader = () => {
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
   const [savePopover, setSavePopover] = useState<{ x: number; y: number; text: string } | null>(null);
   const [jumpValue, setJumpValue] = useState("1");
+  const [chatOpen, setChatOpen] = useState(false);
+  const [timelineData, setTimelineData] = useState<{ title?: string; steps: Array<{ marker: string; title: string; description: string }> } | null>(null);
 
   const [userBookId, setUserBookId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -227,6 +230,33 @@ const Reader = () => {
 
   const runAI = async (mode: AiMode) => {
     if (!pageText) return;
+
+    // Timeline → structured output, render as preview + offer to insert as note
+    if (mode === "timeline") {
+      setTimelineData(null);
+      setAiMode("timeline");
+      setAiOpen(true);
+      setAiLoading(true);
+      setAiContent("");
+      try {
+        const { data, error } = await supabase.functions.invoke("book-ai", {
+          body: { text: pageText, mode: "timeline", lang },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        const tl = data?.timeline ?? { steps: [] };
+        setTimelineData(tl);
+        if (!tl.steps?.length) {
+          setAiContent(lang === "fa"
+            ? "این متن قابل تبدیل به تایم‌لاین نیست."
+            : "This text isn't timeline-shaped.");
+        }
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "AI error");
+      } finally { setAiLoading(false); }
+      return;
+    }
+
     setAiMode(mode); setAiOpen(true); setAiLoading(true); setAiContent("");
     try {
       const { data, error } = await supabase.functions.invoke("book-ai", {
@@ -380,7 +410,7 @@ const Reader = () => {
   const ltrChars = (sampleText.match(/[A-Za-z]/g) || []).length;
   const bookDir: "rtl" | "ltr" = rtlChars >= ltrChars ? "rtl" : "ltr";
   // Chapter & search drawers always slide from the RIGHT edge of the screen
-  const allOverlaysOpen = chaptersOpen || searchOpen || settingsOpen || highlightsOpen || aiOpen;
+  const allOverlaysOpen = chaptersOpen || searchOpen || settingsOpen || highlightsOpen || aiOpen || chatOpen;
   const goToPageNumber = () => {
     const next = Math.min(total, Math.max(1, Number(jumpValue) || 1)) - 1;
     goTo(next);
@@ -587,6 +617,7 @@ const Reader = () => {
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenChapters={() => setChaptersOpen(true)}
         onOpenHighlights={() => setHighlightsOpen(true)}
+        onOpenChat={() => setChatOpen(true)}
         highlightCount={highlights.length}
         dark={dark}
         onToggleDark={() => setDark(!dark)}
@@ -600,9 +631,18 @@ const Reader = () => {
         mode={aiMode}
         loading={aiLoading}
         content={aiContent}
+        timeline={timelineData}
         onClose={() => setAiOpen(false)}
         onRegenerate={regenerateAI}
         onSaveAsNote={saveAiAsNote}
+      />
+
+      {/* Chat with book */}
+      <ChatPanel
+        open={chatOpen}
+        bookId={id ?? ""}
+        bookTitle={book?.title}
+        onClose={() => setChatOpen(false)}
       />
 
       {/* Highlights panel */}
