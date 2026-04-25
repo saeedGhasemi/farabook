@@ -480,6 +480,13 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
       );
     }
 
+    case "timeline":
+      return (
+        <motion.div {...fade} id={blockId}>
+          <Timeline title={block.title} steps={block.steps} />
+        </motion.div>
+      );
+
     default:
       return null;
   }
