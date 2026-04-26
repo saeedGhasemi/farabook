@@ -410,6 +410,7 @@ export type Database = {
           credits: number
           display_name: string | null
           id: string
+          is_active: boolean
           updated_at: string
           website: string | null
         }
@@ -422,6 +423,7 @@ export type Database = {
           credits?: number
           display_name?: string | null
           id: string
+          is_active?: boolean
           updated_at?: string
           website?: string | null
         }
@@ -434,6 +436,7 @@ export type Database = {
           credits?: number
           display_name?: string | null
           id?: string
+          is_active?: boolean
           updated_at?: string
           website?: string | null
         }
@@ -606,6 +609,7 @@ export type Database = {
     }
     Functions: {
       accept_editor_request: { Args: { _request_id: string }; Returns: string }
+      admin_purge_user: { Args: { _user_id: string }; Returns: undefined }
       can_edit_book: {
         Args: { _book_id: string; _user_id: string }
         Returns: boolean
