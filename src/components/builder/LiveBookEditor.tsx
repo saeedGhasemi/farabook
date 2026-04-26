@@ -1475,27 +1475,68 @@ const Inspector = ({
     case "slideshow":
       return (
         <div className="space-y-2">
-          <Input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={async (e) => {
-              const files = Array.from(e.target.files || []);
-              const uploaded: { src: string; caption?: string }[] = [];
-              for (const f of files) {
-                const url = await uploadFile(f, "slides");
-                if (url) uploaded.push({ src: url, caption: "" });
-              }
-              onUpdate({ images: [...block.images, ...uploaded] } as any);
-              e.target.value = "";
-            }}
-            className="text-xs h-9"
-          />
-          {block.images.length > 0 && (
+          <Label className="text-xs">{fa ? "افزودن تصاویر اسلاید" : "Add slide images"}</Label>
+          <div className="relative">
+            <Input
+              type="file"
+              accept="image/*"
+              multiple
+              disabled={uploading}
+              onChange={async (e) => {
+                const files = Array.from(e.target.files || []);
+                e.target.value = "";
+                if (!files.length) return;
+                setUploading(true);
+                let ok = 0;
+                let current = block.images;
+                for (const f of files) {
+                  const url = await uploadFile(f, "slides");
+                  if (url) {
+                    ok++;
+                    current = [...current, { src: url, caption: "" }];
+                    onUpdate({ images: current } as any);
+                  }
+                }
+                setUploading(false);
+                if (ok > 0) toast.success(fa ? `${ok} تصویر افزوده شد` : `${ok} image(s) added`);
+                else toast.error(fa ? "آپلود ناموفق" : "Upload failed");
+              }}
+              className="text-xs h-9"
+            />
+            {uploading && (
+              <div className="absolute end-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {fa ? "آپلود…" : "Uploading…"}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder={fa ? "یا چسباندن لینک تصویر" : "Or paste image URL"}
+              className="text-xs h-8"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const v = (e.target as HTMLInputElement).value.trim();
+                  if (v) {
+                    onUpdate({ images: [...block.images, { src: v, caption: "" }] } as any);
+                    (e.target as HTMLInputElement).value = "";
+                  }
+                }
+              }}
+            />
+          </div>
+
+          {block.images.length > 0 ? (
             <div className="space-y-1.5">
               {block.images.map((img, idx) => (
                 <div key={idx} className="flex gap-2 items-center bg-foreground/5 rounded-md p-1.5">
-                  <img src={img.src} alt="" className="w-12 h-12 object-cover rounded shrink-0" />
+                  <img
+                    src={img.src}
+                    alt=""
+                    className="w-12 h-12 object-cover rounded shrink-0 bg-background"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0.3"; }}
+                  />
                   <Input
                     value={img.caption || ""}
                     placeholder={fa ? "زیرنویس" : "Caption"}
@@ -1507,13 +1548,19 @@ const Inspector = ({
                   <button
                     onClick={() => onUpdate({ images: block.images.filter((_, k) => k !== idx) } as any)}
                     className="p-1 rounded hover:bg-destructive/10 text-destructive"
+                    aria-label="remove"
                   >
                     <X className="w-3 h-3" />
                   </button>
                 </div>
               ))}
             </div>
+          ) : (
+            <p className="text-[11px] text-muted-foreground">
+              {fa ? "هنوز اسلایدی اضافه نشده." : "No slides yet."}
+            </p>
           )}
+
           <div className="flex gap-3 text-xs text-muted-foreground pt-1">
             <label className="flex items-center gap-1.5">
               <input
