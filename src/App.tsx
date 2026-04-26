@@ -15,6 +15,9 @@ import Upload from "./pages/Upload";
 import Edit from "./pages/Edit";
 import Publish from "./pages/Publish";
 import Publisher from "./pages/Publisher";
+import PublisherSettings from "./pages/PublisherSettings";
+import Admin from "./pages/Admin";
+import Credits from "./pages/Credits";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
