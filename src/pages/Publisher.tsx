@@ -410,6 +410,76 @@ const Publisher = () => {
         canBuy={false}
         onBuy={() => {}}
       />
+
+      {/* Sales detail dialog */}
+      <Dialog open={!!salesDetailFor} onOpenChange={(o) => !o && setSalesDetailFor(null)}>
+        <DialogContent className="max-w-lg glass-strong">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-accent" />
+              {lang === "fa" ? "گزارش فروش و سهم‌بندی" : "Sales & revenue breakdown"}
+            </DialogTitle>
+            <DialogDescription className="truncate">{salesDetailFor?.title}</DialogDescription>
+          </DialogHeader>
+          {salesDetailFor && (() => {
+            const s = salesStats[salesDetailFor.id];
+            if (!s || s.count === 0) {
+              return (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  {lang === "fa" ? "هنوز فروشی ثبت نشده است." : "No sales recorded yet."}
+                </p>
+              );
+            }
+            const grouped = new Map<string, { name?: string; role: string; amount: number }>();
+            s.distributed.forEach((d) => {
+              const k = `${d.user_id}-${d.role}`;
+              const existing = grouped.get(k);
+              if (existing) existing.amount += d.amount;
+              else grouped.set(k, { name: d.name, role: d.role, amount: d.amount });
+            });
+            const fmt = (n: number) => n.toLocaleString(lang === "fa" ? "fa-IR" : undefined);
+            const roleLabel = (r: string) =>
+              r === "publisher" ? (lang === "fa" ? "ناشر (شما)" : "Publisher (you)")
+              : r === "author" ? (lang === "fa" ? "نویسنده" : "Author")
+              : r === "editor" ? (lang === "fa" ? "ادیتور" : "Editor")
+              : r;
+            return (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-xl border bg-background/40 p-3">
+                    <div className="text-2xl font-display font-bold">{fmt(s.count)}</div>
+                    <div className="text-[10px] text-muted-foreground mt-1">{lang === "fa" ? "تعداد فروش" : "Sales"}</div>
+                  </div>
+                  <div className="rounded-xl border bg-background/40 p-3">
+                    <div className="text-2xl font-display font-bold">{fmt(s.gross)}</div>
+                    <div className="text-[10px] text-muted-foreground mt-1">{lang === "fa" ? "مجموع درآمد" : "Gross"}</div>
+                  </div>
+                  <div className="rounded-xl border bg-accent/10 p-3">
+                    <div className="text-2xl font-display font-bold text-accent">{fmt(s.toMe)}</div>
+                    <div className="text-[10px] text-muted-foreground mt-1">{lang === "fa" ? "سهم شما" : "Your share"}</div>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">
+                    {lang === "fa" ? "توزیع درآمد" : "Distribution"}
+                  </h4>
+                  <div className="space-y-1.5">
+                    {Array.from(grouped.values()).map((d, i) => (
+                      <div key={i} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border bg-background/30">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{d.name || (lang === "fa" ? "ناشناس" : "Unknown")}</div>
+                          <div className="text-[10px] text-muted-foreground">{roleLabel(d.role)}</div>
+                        </div>
+                        <div className="font-mono text-sm text-accent">{fmt(d.amount)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 };
