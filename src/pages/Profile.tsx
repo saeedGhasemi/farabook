@@ -295,6 +295,8 @@ const Profile = () => {
           </p>
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
     </motion.div>
   );
 };
