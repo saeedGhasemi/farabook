@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { CreditsBadge } from "@/components/CreditsBadge";
 
 export const Navbar = () => {
   const { t, lang, setLang, dir } = useI18n();
@@ -92,6 +93,7 @@ export const Navbar = () => {
           </nav>
 
           <div className="flex items-center gap-2">
+            <CreditsBadge />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-1.5" title={lang === "fa" ? "تم" : "Theme"}>

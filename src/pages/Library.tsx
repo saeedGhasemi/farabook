@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { resolveBookMedia } from "@/lib/book-media";
+import { bookCreditCost } from "@/lib/purchase";
 
 interface Row {
   id: string;
@@ -30,6 +31,7 @@ interface Row {
     category: string | null;
     publisher_id: string | null;
     status: string;
+    price: number;
   } | null;
 }
 
@@ -47,7 +49,7 @@ const Library = () => {
   useEffect(() => {
     if (!user) return;
     supabase.from("user_books")
-      .select("id, status, progress, current_page, acquired_via, books(id, title, title_en, author, cover_url, category, publisher_id, status)")
+      .select("id, status, progress, current_page, acquired_via, books(id, title, title_en, author, cover_url, category, publisher_id, status, price)")
       .eq("user_id", user.id)
       .then(({ data }) => setRows((data as unknown as Row[]) ?? []));
   }, [user]);
@@ -119,7 +121,16 @@ const Library = () => {
                       <h3 className="font-display font-bold leading-tight line-clamp-2">{title}</h3>
                       <p className="text-xs text-muted-foreground mt-1">{r.books.author}</p>
                     </div>
-                    <Badge variant="outline" className="w-fit text-xs">{statusLabel(r.status)}</Badge>
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge variant="outline" className="text-xs">{statusLabel(r.status)}</Badge>
+                      <span className="text-xs font-semibold text-primary">
+                        {r.books.price === 0
+                          ? (lang === "fa" ? "رایگان" : "Free")
+                          : (lang === "fa"
+                              ? `${bookCreditCost(r.books.price).toLocaleString("fa-IR")} اعتبار`
+                              : `${bookCreditCost(r.books.price).toLocaleString()} cr`)}
+                      </span>
+                    </div>
                     <div className="mt-auto">
                       <Progress value={r.progress} className="h-1.5" />
                       <p className="text-xs text-muted-foreground mt-1">{Math.round(r.progress)}%</p>
