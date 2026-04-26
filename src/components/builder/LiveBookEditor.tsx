@@ -858,6 +858,11 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
                     block={selectedBlock}
                     onUpdate={(patch) => updateBlock(activePageIdx, selectedBlockIdx, patch)}
                     onReplace={(next) => replaceBlock(activePageIdx, selectedBlockIdx, next)}
+                    onSplit={
+                      selectedBlockIdx > 0 || activePage.blocks.length > 1
+                        ? () => splitToNewChapter(activePageIdx, selectedBlockIdx)
+                        : undefined
+                    }
                     uploadFile={uploadToBucket}
                     lang={lang}
                   />
