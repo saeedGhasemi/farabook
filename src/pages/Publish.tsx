@@ -57,6 +57,8 @@ const Publish = () => {
   const [book, setBook] = useState<BookRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [estimatedFee, setEstimatedFee] = useState(0);
+  const [estimatedFactor, setEstimatedFactor] = useState(1);
   const { credits } = useCredits();
 
   // Form
