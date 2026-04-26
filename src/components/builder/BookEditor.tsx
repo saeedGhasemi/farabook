@@ -27,7 +27,7 @@ export type BlockDraft =
   | { kind: "heading"; text: string }
   | { kind: "paragraph"; text: string }
   | { kind: "quote"; text: string; author?: string }
-  | { kind: "callout"; icon?: "info" | "sparkle"; text: string }
+  | { kind: "callout"; icon?: "info" | "sparkle" | "tip" | "warning" | "success" | "danger" | "note" | "question" | "quote"; text: string }
   | {
       kind: "slideshow";
       images: { src: string; caption?: string }[];
