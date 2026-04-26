@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     if (created?.user) {
       userId = created.user.id;
     } else {
-      // already exists -> look it up
+      // already exists -> look it up and RESET password to seed value
       const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
       const found = list?.users.find((x) => x.email === u.email);
       userId = found?.id ?? null;
@@ -42,6 +42,12 @@ Deno.serve(async (req) => {
         results.push({ email: u.email, error: cErr?.message || "not found" });
         continue;
       }
+      // Force-reset password & confirm email so seed creds always work
+      await admin.auth.admin.updateUserById(userId, {
+        password: u.password,
+        email_confirm: true,
+        user_metadata: { display_name: u.display_name },
+      });
     }
 
     // assign roles
