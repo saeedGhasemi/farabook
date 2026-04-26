@@ -1834,6 +1834,65 @@ const Inspector = ({
             <EyeOff className="w-3 h-3" />
             {fa ? "زیرنویس مخفی (با هاور نمایش)" : "Hide caption (reveal on hover)"}
           </label>
+
+          {/* Convert this single image into a slideshow by adding more */}
+          {block.src && (
+            <div className="pt-3 mt-2 border-t border-border space-y-1.5">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {fa ? "تبدیل به اسلایدشو" : "Convert to slideshow"}
+              </Label>
+              <p className="text-[10px] text-muted-foreground">
+                {fa
+                  ? "چند تصویر دیگر اضافه کنید تا این تصویر بخشی از یک اسلایدشو شود."
+                  : "Add more images to turn this into a slideshow."}
+              </p>
+              <Input
+                type="file"
+                accept="image/*"
+                multiple
+                disabled={uploading}
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files || []);
+                  e.target.value = "";
+                  if (!files.length) return;
+                  setUploading(true);
+                  const slides: { src: string; caption?: string }[] = [
+                    { src: block.src, caption: block.caption },
+                  ];
+                  let ok = 0;
+                  for (const f of files) {
+                    const url = await uploadFile(f, "slides");
+                    if (url) { slides.push({ src: url, caption: "" }); ok++; }
+                  }
+                  setUploading(false);
+                  if (ok === 0) {
+                    toast.error(fa ? "آپلود ناموفق بود" : "Upload failed");
+                    return;
+                  }
+                  onReplace({
+                    kind: "slideshow",
+                    images: slides,
+                    autoplay: true,
+                    hideCaption: block.hideCaption,
+                  } as any);
+                  toast.success(
+                    fa ? `به اسلایدشو تبدیل شد (${slides.length} تصویر)` : `Converted to slideshow (${slides.length} images)`,
+                  );
+                }}
+                className="text-xs h-9"
+              />
+            </div>
+          )}
+
+          {/* Hotspots — clickable info markers on the image */}
+          {block.src && (
+            <HotspotEditor
+              src={block.src}
+              hotspots={block.hotspots || []}
+              onChange={(next) => onUpdate({ hotspots: next } as any)}
+              lang={lang}
+            />
+          )}
         </div>
       );
 
