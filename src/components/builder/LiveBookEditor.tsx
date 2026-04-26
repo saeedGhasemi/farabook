@@ -165,6 +165,7 @@ interface InitialBook {
   cover_url: string | null;
   pages: PageDraft[];
   typography_preset?: string | null;
+  author_user_id?: string | null;
 }
 
 interface Props {
@@ -223,6 +224,10 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
   /* ---------- state ---------- */
   const [title, setTitle] = useState(initial?.title ?? "");
   const [author, setAuthor] = useState(initial?.author ?? "");
+  const [authorUserId, setAuthorUserId] = useState<string | null>(initial?.author_user_id ?? null);
+  const [authorIsMe, setAuthorIsMe] = useState<boolean>(
+    initial?.author_user_id ? initial.author_user_id === user?.id : false,
+  );
   const [description, setDescription] = useState(initial?.description ?? "");
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverUrl, setCoverUrl] = useState<string>(initial?.cover_url || "");
@@ -622,6 +627,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
           .update({
             title: title || initial.title,
             author: author || initial.author,
+            author_user_id: authorIsMe ? (user?.id ?? null) : authorUserId,
             description: description || null,
             cover_url: cover,
             pages: dbPages,
@@ -638,7 +644,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
         setSavingDraft(false);
       }
     },
-    [isEdit, initial, user, pages, title, author, description, coverFile, coverUrl, typography, lang, uploadToBucket],
+    [isEdit, initial, user, pages, title, author, authorUserId, authorIsMe, description, coverFile, coverUrl, typography, lang, uploadToBucket],
   );
 
   useEffect(() => {
@@ -681,6 +687,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
           price: 0,
           pages: dbPages,
           publisher_id: user.id,
+          author_user_id: authorIsMe ? user.id : authorUserId,
           status: "draft",
           typography_preset: typography,
         })
@@ -849,6 +856,65 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
                   onChange={(e) => { setDescription(e.target.value); markDirty(); }}
                   className="mt-1 text-sm"
                 />
+              </div>
+              <div className="md:col-span-2 rounded-lg border border-border p-3 bg-background/40">
+                <Label className="text-xs flex items-center gap-2">
+                  {lang === "fa" ? "نویسنده در سامانه" : "Author in system"}
+                </Label>
+                <p className="text-[11px] text-muted-foreground mt-0.5 mb-2">
+                  {lang === "fa"
+                    ? "اگر نویسنده کاربر ثبت‌شده باشد، در زمان انتشار می‌توانید سهم درآمد به او اختصاص دهید."
+                    : "If the author is a registered user, you can assign a revenue share to them when publishing."}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={authorIsMe}
+                      onChange={(e) => {
+                        const v = e.target.checked;
+                        setAuthorIsMe(v);
+                        if (v) setAuthorUserId(user?.id ?? null);
+                        else setAuthorUserId(null);
+                        markDirty();
+                      }}
+                    />
+                    {lang === "fa" ? "خودم نویسنده‌ام" : "I am the author"}
+                  </label>
+                  {!authorIsMe && (
+                    <>
+                      <Input
+                        value={authorUserId || ""}
+                        onChange={(e) => { setAuthorUserId(e.target.value || null); markDirty(); }}
+                        placeholder={lang === "fa" ? "شناسه (UUID) نویسنده" : "Author user UUID"}
+                        className="h-8 text-xs font-mono flex-1 min-w-[200px]"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                        onClick={async () => {
+                          const email = window.prompt(lang === "fa" ? "ایمیل نویسنده:" : "Author email:");
+                          if (!email) return;
+                          const { data, error } = await (supabase.rpc as any)("find_user_by_email", { _email: email });
+                          if (error) return toast.error(error.message);
+                          if (!data) return toast.error(lang === "fa" ? "کاربر یافت نشد" : "User not found");
+                          setAuthorUserId(data);
+                          markDirty();
+                          toast.success(lang === "fa" ? "نویسنده پیدا شد" : "Author found");
+                        }}
+                      >
+                        {lang === "fa" ? "جستجو با ایمیل" : "Find by email"}
+                      </Button>
+                    </>
+                  )}
+                  {authorUserId && (
+                    <span className="text-[10px] text-accent font-mono">
+                      ✓ {authorUserId.slice(0, 8)}…
+                    </span>
+                  )}
+                </div>
               </div>
               <div>
                 <Label className="text-xs">{lang === "fa" ? "جلد" : "Cover"}</Label>

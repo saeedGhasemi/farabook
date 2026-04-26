@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import {
   Shield, Users, CreditCard, BookCheck, UserPlus, Trash2, Loader2, Check, X,
   AlertCircle, Power, PowerOff, Plus, Minus, ArrowUpDown, ArrowUp, ArrowDown, Save, Pencil,
+  Banknote,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { RoleGuard } from "@/components/RoleGuard";
 import { UserDetailDialog } from "@/components/admin/UserDetailDialog";
+import { AdminTreasuryPanel } from "@/components/admin/AdminTreasuryPanel";
 import type { AppRole } from "@/hooks/useRoles";
 
 const ALL_ROLES: AppRole[] = ["super_admin", "admin", "moderator", "reviewer", "publisher", "editor", "user"];
@@ -490,7 +492,14 @@ const AdminInner = () => {
           <TabsTrigger value="books" className="gap-2">
             <BookCheck className="w-4 h-4" /> کتاب‌ها ({bookCounts.pending_review} در انتظار)
           </TabsTrigger>
+          <TabsTrigger value="treasury" className="gap-2">
+            <Banknote className="w-4 h-4" /> صندوق درآمد
+          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="treasury" className="mt-4">
+          <AdminTreasuryPanel />
+        </TabsContent>
 
         <TabsContent value="users" className="mt-4">
           <Card className="glass">

@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { UserEarnings } from "@/components/profile/UserEarnings";
 import { toast } from "sonner";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -167,6 +169,15 @@ const Profile = () => {
         </div>
       </div>
 
+      <Tabs defaultValue="info" dir="rtl">
+        <TabsList className="glass">
+          <TabsTrigger value="info">اطلاعات من</TabsTrigger>
+          <TabsTrigger value="earnings">درآمد و هزینه</TabsTrigger>
+        </TabsList>
+        <TabsContent value="earnings" className="mt-4">
+          {user && <UserEarnings userId={user.id} />}
+        </TabsContent>
+        <TabsContent value="info" className="mt-4">
       <Card className="glass">
         <CardHeader>
           <CardTitle>اطلاعات من</CardTitle>
@@ -284,6 +295,8 @@ const Profile = () => {
           </p>
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
     </motion.div>
   );
 };

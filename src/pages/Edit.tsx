@@ -32,7 +32,7 @@ const Edit = () => {
     (async () => {
       const { data, error } = await supabase
         .from("books")
-        .select("id, title, author, description, cover_url, pages, publisher_id, status, typography_preset")
+        .select("id, title, author, description, cover_url, pages, publisher_id, status, typography_preset, author_user_id")
         .eq("id", id)
         .maybeSingle();
       if (error || !data) {
@@ -66,6 +66,7 @@ const Edit = () => {
         cover_url: data.cover_url,
         pages: draftsFromDbPages(data.pages as any[]),
         typography_preset: data.typography_preset,
+        author_user_id: (data as any).author_user_id ?? null,
       });
       setLoading(false);
     })();
