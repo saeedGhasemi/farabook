@@ -817,7 +817,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
               className="bg-gradient-warm hover:opacity-90 h-8"
             >
               <Rocket className="w-3.5 h-3.5 me-1" />
-              <span className="hidden md:inline">{lang === "fa" ? "انتشار" : "Publish"}</span>
+              <span className="hidden md:inline">{lang === "fa" ? "قیمت، سهام و انتشار" : "Price, shares & publish"}</span>
             </Button>
           </>
         ) : (
