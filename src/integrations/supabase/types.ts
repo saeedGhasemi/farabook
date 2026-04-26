@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      book_comments: {
+        Row: {
+          body: string
+          book_id: string
+          created_at: string
+          edited: boolean
+          id: string
+          parent_id: string | null
+          rating: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          book_id: string
+          created_at?: string
+          edited?: boolean
+          id?: string
+          parent_id?: string | null
+          rating?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          book_id?: string
+          created_at?: string
+          edited?: boolean
+          id?: string
+          parent_id?: string | null
+          rating?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_comments_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "book_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "book_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       book_editors: {
         Row: {
           book_id: string
@@ -352,24 +403,39 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          bio: string | null
+          contact_email: string | null
+          contact_phone: string | null
           created_at: string
           credits: number
           display_name: string | null
           id: string
+          updated_at: string
+          website: string | null
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           credits?: number
           display_name?: string | null
           id: string
+          updated_at?: string
+          website?: string | null
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           credits?: number
           display_name?: string | null
           id?: string
+          updated_at?: string
+          website?: string | null
         }
         Relationships: []
       }

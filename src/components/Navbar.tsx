@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Library, Store, LogIn, LogOut, Languages, Palette, Wand2, Briefcase, Menu, X, Shield, Coins, Mail } from "lucide-react";
+import { BookOpen, Library, Store, LogIn, LogOut, Languages, Palette, Wand2, Briefcase, Menu, X, Shield, Coins, Mail, User as UserIcon } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoles } from "@/hooks/useRoles";
 import { useTheme, type Theme } from "@/lib/theme";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export const Navbar = () => {
   const { t, lang, setLang, dir } = useI18n();
@@ -18,9 +19,19 @@ export const Navbar = () => {
   const loc = useLocation();
   const nav = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profile, setProfile] = useState<{ display_name: string | null; avatar_url: string | null } | null>(null);
 
   // Close mobile menu on route change
   useEffect(() => { setMobileOpen(false); }, [loc.pathname]);
+
+  // Load profile name/avatar for header
+  useEffect(() => {
+    if (!user) { setProfile(null); return; }
+    let cancelled = false;
+    supabase.from("profiles").select("display_name, avatar_url").eq("id", user.id).maybeSingle()
+      .then(({ data }) => { if (!cancelled) setProfile(data as any); });
+    return () => { cancelled = true; };
+  }, [user]);
 
   const themes: { value: Theme; label: string; swatch: string }[] = [
     { value: "silver", label: lang === "fa" ? "نقره‌ای" : "Silver", swatch: "linear-gradient(135deg,#c8d0db,#8a96a8)" },
@@ -109,10 +120,41 @@ export const Navbar = () => {
               {lang === "fa" ? "EN" : "فا"}
             </Button>
             {user ? (
-              <Button variant="outline" size="sm" onClick={handleSignOut} className="gap-1.5">
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">{t("nav_signout")}</span>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-2 px-2">
+                    <Avatar className="w-7 h-7">
+                      {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
+                      <AvatarFallback className="text-xs bg-gradient-warm text-primary-foreground">
+                        {(profile?.display_name || user.email || "?").slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="hidden sm:inline max-w-[120px] truncate text-sm">
+                      {profile?.display_name || user.email?.split("@")[0]}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="glass-strong w-56">
+                  <DropdownMenuLabel className="truncate">
+                    {profile?.display_name || user.email?.split("@")[0]}
+                    <div className="text-xs text-muted-foreground font-normal truncate">{user.email}</div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => nav("/profile")} className="gap-2 cursor-pointer">
+                    <UserIcon className="w-4 h-4" /> پروفایل من
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => nav("/library")} className="gap-2 cursor-pointer">
+                    <Library className="w-4 h-4" /> کتابخانهٔ من
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => nav("/credits")} className="gap-2 cursor-pointer">
+                    <Coins className="w-4 h-4" /> اعتبار
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-destructive">
+                    <LogOut className="w-4 h-4" /> {t("nav_signout")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <Button size="sm" onClick={() => nav("/auth")} className="gap-1.5 bg-gradient-warm hover:opacity-90">
                 <LogIn className="w-4 h-4" />
