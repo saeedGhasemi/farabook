@@ -280,6 +280,21 @@ const Store = () => {
         canBuy={!!user && !!previewBook && !owned.has(previewBook.id) && previewBook.publisher_id !== user.id}
         onBuy={() => { if (previewBook) { requestBuy(previewBook); setPreviewBook(null); } }}
       />
+
+      <ConfirmTransactionDialog
+        open={!!confirmBuy}
+        onOpenChange={(o) => !o && setConfirmBuy(null)}
+        title={lang === "fa" ? "خرید کتاب" : "Purchase book"}
+        description={confirmBuy ? (
+          lang === "fa"
+            ? `می‌خواهید «${lang === "en" && confirmBuy.title_en ? confirmBuy.title_en : confirmBuy.title}» را به قفسه خود اضافه کنید؟`
+            : `Add “${confirmBuy.title_en || confirmBuy.title}” to your library?`
+        ) : null}
+        currentBalance={credits}
+        cost={confirmBuy ? bookCreditCost(confirmBuy.price) : 0}
+        lang={lang}
+        onConfirm={() => confirmBuy && performBuy(confirmBuy)}
+      />
     </main>
   );
 };
