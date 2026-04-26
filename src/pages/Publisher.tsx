@@ -281,6 +281,15 @@ const Publisher = () => {
                             <Pencil className="w-3.5 h-3.5" /> {lang === "fa" ? "ویرایش" : "Edit"}
                           </Button>
                         </Link>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() => setPreviewBook(book)}
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          {lang === "fa" ? "پیش‌نمایش" : "Preview"}
+                        </Button>
                         {isDraft && (
                           <Link to={`/publish/${book.id}`}>
                             <Button size="sm" className="gap-1.5 bg-gradient-warm">
