@@ -93,6 +93,7 @@ const blockToDraft = (b: any): BlockDraft | null => {
         src: b.src || "",
         caption: b.caption || "",
         hideCaption: !!b.hideCaption,
+        hotspots: Array.isArray(b.hotspots) ? b.hotspots : [],
       };
     case "gallery":
       return {
