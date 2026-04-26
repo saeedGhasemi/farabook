@@ -97,8 +97,8 @@ export const NotificationsBell = () => {
                     >
                       <div className={cn(
                         "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                        n.type === "revenue_received" ? "bg-emerald-500/15 text-emerald-500"
-                          : n.type === "purchase_success" ? "bg-blue-500/15 text-blue-500"
+                        n.type === "revenue_received" ? "bg-primary/15 text-primary"
+                          : n.type === "purchase_success" ? "bg-secondary text-secondary-foreground"
                           : "bg-accent/15 text-accent",
                       )}>
                         <Icon className="w-4 h-4" />
