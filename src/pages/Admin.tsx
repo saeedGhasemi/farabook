@@ -496,12 +496,26 @@ const AdminInner = () => {
           <Card className="glass">
             <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
               <CardTitle>مدیریت کاربران و نقش‌ها</CardTitle>
-              <Input
-                placeholder="جستجو نام یا شناسه…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="max-w-xs"
-              />
+              <div className="flex items-center gap-2 flex-wrap">
+                <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as any)}>
+                  <SelectTrigger className="h-9 w-40"><SelectValue placeholder="فیلتر نقش" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">همه نقش‌ها</SelectItem>
+                    {ALL_ROLES.map((r) => (
+                      <SelectItem key={r} value={r}>{ROLE_LABEL[r]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="جستجو نام، ایمیل، نام کاربری…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="max-w-xs"
+                />
+                <Button size="sm" onClick={() => setCreateOpen(true)} className="gap-1">
+                  <UserPlus className="w-4 h-4" /> کاربر جدید
+                </Button>
+              </div>
             </CardHeader>
             <CardContent dir="rtl">
               {(() => {
