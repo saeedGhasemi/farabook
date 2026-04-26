@@ -247,6 +247,29 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
   const [dirty, setDirty] = useState(false);
   const skipFirstSave = useRef(true);
 
+  /* ---------- undo / redo history ---------- */
+  // We keep snapshots of the `pages` array. New snapshots are pushed when
+  // markDirty() is called (debounced). undo/redo restore from the stack
+  // and set `suppressHistory` so the resulting setPages doesn't snapshot
+  // itself. Cap at 50 entries to keep memory bounded.
+  const HISTORY_LIMIT = 50;
+  const undoStack = useRef<PageDraft[][]>([]);
+  const redoStack = useRef<PageDraft[][]>([]);
+  const lastSnapshotAt = useRef<number>(0);
+  const suppressHistory = useRef(false);
+  const [historyTick, setHistoryTick] = useState(0); // forces re-render so undo/redo buttons reflect availability
+
+  const snapshotNow = useCallback((current: PageDraft[]) => {
+    const last = undoStack.current[undoStack.current.length - 1];
+    // Skip if identical to the very last snapshot
+    if (last && JSON.stringify(last) === JSON.stringify(current)) return;
+    undoStack.current.push(current);
+    if (undoStack.current.length > HISTORY_LIMIT) undoStack.current.shift();
+    redoStack.current = []; // any new mutation invalidates redo
+    lastSnapshotAt.current = Date.now();
+    setHistoryTick((t) => t + 1);
+  }, []);
+
   // Clamp activePageIdx if pages shrink
   useEffect(() => {
     if (activePageIdx >= pages.length) setActivePageIdx(Math.max(0, pages.length - 1));
@@ -257,7 +280,81 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
     selectedBlockIdx !== null ? activePage?.blocks[selectedBlockIdx] : null;
 
   /* ---------- mutators ---------- */
-  const markDirty = () => setDirty(true);
+  // markDirty is also our history snapshot point. Debounce rapid
+  // typing into one snapshot per ~400ms burst; standalone mutations
+  // (insert, delete, split…) snapshot immediately if no recent change.
+  const markDirty = () => {
+    setDirty(true);
+    if (suppressHistory.current) return;
+    const now = Date.now();
+    const since = now - lastSnapshotAt.current;
+    if (since > 400) snapshotNow(pages);
+    else {
+      // Still update timestamp so a later edit eventually snapshots
+      lastSnapshotAt.current = now;
+    }
+  };
+
+  // Final-snapshot helper: forces a snapshot of the latest pages on blur
+  // or before an undo, so partial typing isn't lost.
+  const flushHistory = useCallback(() => {
+    if (suppressHistory.current) return;
+    snapshotNow(pages);
+  }, [pages, snapshotNow]);
+
+  const undo = useCallback(() => {
+    flushHistory();
+    const stack = undoStack.current;
+    if (stack.length < 2) return; // need at least previous state
+    const current = stack.pop()!;          // discard current
+    const prev = stack[stack.length - 1];  // peek previous
+    redoStack.current.push(current);
+    suppressHistory.current = true;
+    setPages(prev);
+    setSelectedBlockIdx(null);
+    setDirty(true);
+    setHistoryTick((t) => t + 1);
+    setTimeout(() => { suppressHistory.current = false; }, 0);
+  }, [flushHistory]);
+
+  const redo = useCallback(() => {
+    const next = redoStack.current.pop();
+    if (!next) return;
+    undoStack.current.push(next);
+    suppressHistory.current = true;
+    setPages(next);
+    setSelectedBlockIdx(null);
+    setDirty(true);
+    setHistoryTick((t) => t + 1);
+    setTimeout(() => { suppressHistory.current = false; }, 0);
+  }, []);
+
+  const canUndo = undoStack.current.length > 1;
+  const canRedo = redoStack.current.length > 0;
+  // historyTick is intentionally read so the lint pass keeps it as a dep
+  void historyTick;
+
+  // Seed the history with the initial state once
+  useEffect(() => {
+    if (undoStack.current.length === 0) {
+      undoStack.current.push(pages);
+      lastSnapshotAt.current = Date.now();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Global keyboard shortcuts: Ctrl/Cmd+Z = undo, Ctrl+Shift+Z / Ctrl+Y = redo
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const meta = e.ctrlKey || e.metaKey;
+      if (!meta) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); redo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
 
   const updatePage = (pi: number, patch: Partial<PageDraft>) => {
     setPages((ps) => ps.map((p, i) => (i === pi ? { ...p, ...patch } : p)));
