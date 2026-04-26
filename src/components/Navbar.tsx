@@ -64,13 +64,13 @@ export const Navbar = () => {
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className="sticky top-0 z-50 w-full"
     >
-      <div className="glass-strong border-b border-border/40">
-        <div className="container flex h-16 items-center justify-between gap-4">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-warm flex items-center justify-center shadow-glow group-hover:scale-110 transition-transform">
+      <div className="glass-strong border-b border-border/40 overflow-x-clip">
+        <div className="container flex h-16 items-center justify-between gap-2 sm:gap-4 max-w-full">
+          <Link to="/" className="flex items-center gap-2 group shrink-0 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-warm flex items-center justify-center shadow-glow group-hover:scale-110 transition-transform shrink-0">
               <BookOpen className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-display font-bold gold-text">{t("brand")}</span>
+            <span className="text-lg sm:text-xl font-display font-bold gold-text truncate">{t("brand")}</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
@@ -93,7 +93,7 @@ export const Navbar = () => {
             })}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <NotificationsBell />
             <CreditsBadge />
             <DropdownMenu>
