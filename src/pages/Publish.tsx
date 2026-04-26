@@ -40,6 +40,8 @@ interface BookRow {
   status: string;
   ai_summary: string | null;
   ai_audio_url: string | null;
+  author_user_id: string | null;
+  first_published_paid: boolean;
 }
 
 const Publish = () => {
