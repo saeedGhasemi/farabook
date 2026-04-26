@@ -644,7 +644,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
         setSavingDraft(false);
       }
     },
-    [isEdit, initial, user, pages, title, author, description, coverFile, coverUrl, typography, lang, uploadToBucket],
+    [isEdit, initial, user, pages, title, author, authorUserId, authorIsMe, description, coverFile, coverUrl, typography, lang, uploadToBucket],
   );
 
   useEffect(() => {
