@@ -492,7 +492,14 @@ const AdminInner = () => {
           <TabsTrigger value="books" className="gap-2">
             <BookCheck className="w-4 h-4" /> کتاب‌ها ({bookCounts.pending_review} در انتظار)
           </TabsTrigger>
+          <TabsTrigger value="treasury" className="gap-2">
+            <Banknote className="w-4 h-4" /> صندوق درآمد
+          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="treasury" className="mt-4">
+          <AdminTreasuryPanel />
+        </TabsContent>
 
         <TabsContent value="users" className="mt-4">
           <Card className="glass">
