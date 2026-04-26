@@ -467,7 +467,7 @@ const Publish = () => {
               : "Set the author/editor percentages and click Save. Whatever remains is the publisher's share. The platform fee is already reserved."}
           </p>
           {price === 0 && (
-            <div className="text-[11px] rounded-md border border-emerald-500/30 bg-emerald-500/5 px-2 py-1.5 text-emerald-700 dark:text-emerald-300">
+            <div className="text-[11px] rounded-md border border-accent/30 bg-accent/5 px-2 py-1.5 text-accent">
               {lang === "fa"
                 ? "این کتاب رایگان است؛ نیازی به سهم‌بندی نیست."
                 : "This book is free — no revenue split needed."}
