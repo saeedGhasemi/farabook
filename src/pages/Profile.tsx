@@ -23,8 +23,32 @@ const ROLE_LABEL: Record<string, string> = {
   user: "کاربر",
 };
 
+// Iranian national ID checksum
+const isValidIranNationalId = (raw: string): boolean => {
+  const s = (raw || "").replace(/\D/g, "");
+  if (s.length !== 10) return false;
+  if (/^(\d)\1{9}$/.test(s)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(s[i], 10) * (10 - i);
+  const c = parseInt(s[9], 10);
+  const r = sum % 11;
+  return r < 2 ? c === r : c === 11 - r;
+};
+
 const profileSchema = z.object({
   display_name: z.string().trim().min(1, "نام نمایشی لازم است").max(80),
+  username: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9_.\-]{3,32}$/, "نام کاربری: ۳ تا ۳۲ کاراکتر، فقط حروف لاتین/عدد/._-")
+    .optional()
+    .or(z.literal("")),
+  national_id: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || isValidIranNationalId(v), "کد ملی نامعتبر است")
+    .optional()
+    .or(z.literal("")),
   bio: z.string().trim().max(500).optional().or(z.literal("")),
   avatar_url: z.string().trim().url("آدرس نامعتبر").max(500).optional().or(z.literal("")),
   contact_email: z.string().trim().email("ایمیل نامعتبر").max(255).optional().or(z.literal("")),
@@ -39,6 +63,8 @@ const Profile = () => {
 
   const [form, setForm] = useState({
     display_name: "",
+    username: "",
+    national_id: "",
     bio: "",
     avatar_url: "",
     contact_email: "",
@@ -65,6 +91,8 @@ const Profile = () => {
       if (p) {
         setForm({
           display_name: p.display_name || "",
+          username: (p as any).username || "",
+          national_id: (p as any).national_id || "",
           bio: (p as any).bio || "",
           avatar_url: p.avatar_url || "",
           contact_email: (p as any).contact_email || "",
@@ -88,6 +116,8 @@ const Profile = () => {
     const payload = {
       id: user.id,
       display_name: parsed.data.display_name,
+      username: parsed.data.username || null,
+      national_id: parsed.data.national_id || null,
       bio: parsed.data.bio || null,
       avatar_url: parsed.data.avatar_url || null,
       contact_email: parsed.data.contact_email || null,
@@ -175,6 +205,28 @@ const Profile = () => {
             </div>
           </div>
 
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm">نام کاربری (یکتا)</label>
+              <Input
+                value={form.username}
+                placeholder="مثلاً ali_ahmadi"
+                maxLength={32}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm">کد ملی (۱۰ رقمی)</label>
+              <Input
+                value={form.national_id}
+                placeholder="۰۰۱۲۳۴۵۶۷۸"
+                inputMode="numeric"
+                maxLength={10}
+                onChange={(e) => setForm({ ...form, national_id: e.target.value.replace(/\D/g, "") })}
+              />
+            </div>
+          </div>
+
           <div>
             <label className="text-sm">دربارهٔ من</label>
             <Textarea
@@ -190,6 +242,14 @@ const Profile = () => {
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm">ایمیل تماس</label>
+              <Input
+                type="email"
+                value={form.contact_email}
+                onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm">شماره تماس</label>
               <Input
                 type="email"
                 value={form.contact_email}

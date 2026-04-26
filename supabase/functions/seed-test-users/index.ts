@@ -14,9 +14,10 @@ Deno.serve(async (req) => {
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
   const seedUsers = [
-    { email: "user1@test.com", password: "Test1234!", display_name: "کاربر تست ۱", roles: ["user"] },
-    { email: "user2@test.com", password: "Test1234!", display_name: "کاربر تست ۲", roles: ["user"] },
-    { email: "publisher1@test.com", password: "Test1234!", display_name: "ناشر تست", roles: ["user", "publisher"], trustedPublisher: true },
+    { email: "user1@test.com", password: "Test1234!", display_name: "کاربر تست ۱", roles: ["user"], credits: 100 },
+    { email: "user2@test.com", password: "Test1234!", display_name: "کاربر تست ۲", roles: ["user"], credits: 50 },
+    { email: "publisher1@test.com", password: "Test1234!", display_name: "ناشر تست", roles: ["user", "publisher"], trustedPublisher: true, credits: 200 },
+    { email: "editor1@test.com", password: "Test1234!", display_name: "ادیتور تست", roles: ["user", "editor"], credits: 30 },
   ];
 
   const results: any[] = [];
@@ -70,12 +71,20 @@ Deno.serve(async (req) => {
         );
     }
 
-    // give starter credits
-    await admin.from("credit_transactions").insert({
-      user_id: userId,
-      amount: 100,
-      reason: "seed_starter_credits",
-    });
+    // give starter credits (idempotent: skip if already seeded)
+    const { data: existingTx } = await admin
+      .from("credit_transactions")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("reason", "seed_starter_credits")
+      .limit(1);
+    if (!existingTx || existingTx.length === 0) {
+      await admin.from("credit_transactions").insert({
+        user_id: userId,
+        amount: u.credits ?? 100,
+        reason: "seed_starter_credits",
+      });
+    }
 
     results.push({ email: u.email, password: u.password, id: userId, roles: u.roles });
   }

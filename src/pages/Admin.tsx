@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Shield, Users, CreditCard, BookCheck, UserPlus, Trash2, Loader2, Check, X, AlertCircle, Power, PowerOff, Plus, Minus } from "lucide-react";
+import {
+  Shield, Users, CreditCard, BookCheck, UserPlus, Trash2, Loader2, Check, X,
+  AlertCircle, Power, PowerOff, Plus, Minus, ArrowUpDown, ArrowUp, ArrowDown, Save, Pencil,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { RoleGuard } from "@/components/RoleGuard";
 import { UserDetailDialog } from "@/components/admin/UserDetailDialog";
@@ -29,11 +35,18 @@ const ROLE_LABEL: Record<AppRole, string> = {
 
 interface UserRow {
   id: string;
+  email: string | null;
   display_name: string | null;
+  username: string | null;
+  national_id: string | null;
   roles: AppRole[];
   credits: number;
   is_active: boolean;
+  created_at: string;
 }
+
+type SortKey = "display_name" | "email" | "username" | "national_id" | "credits" | "created_at";
+type SortDir = "asc" | "desc";
 
 const AdminInner = () => {
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -43,44 +56,44 @@ const AdminInner = () => {
   const [bookFilter, setBookFilter] = useState<"pending_review" | "approved" | "rejected" | "all">("pending_review");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<AppRole | "all">("all");
+  const [sortKey, setSortKey] = useState<SortKey>("created_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkRole, setBulkRole] = useState<AppRole | "">("");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<{ display_name: string; username: string; national_id: string }>({
+    display_name: "", username: "", national_id: "",
+  });
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    email: "", password: "", display_name: "", role: "user" as AppRole, credits: 0,
+  });
 
   const load = async () => {
     setLoading(true);
-    const [{ data: profiles }, { data: roles }, { data: tx }, { data: cReq }, { data: pReq }, { data: books }] =
-      await Promise.all([
-        supabase.from("profiles").select("id, display_name, is_active"),
-        supabase.from("user_roles").select("user_id, role"),
-        supabase.from("credit_transactions").select("user_id, amount"),
-        supabase.from("credit_purchase_requests").select("*").order("created_at", { ascending: false }),
-        supabase.from("publisher_upgrade_requests").select("*").order("created_at", { ascending: false }),
-        supabase
-          .from("books")
-          .select("id, title, author, publisher_id, status, review_status, reject_reason, reviewed_at, created_at")
-          .order("created_at", { ascending: false }),
-      ]);
-
-    const roleMap = new Map<string, AppRole[]>();
-    ((roles as any[]) || []).forEach((r) => {
-      const arr = roleMap.get(r.user_id) || [];
-      arr.push(r.role as AppRole);
-      roleMap.set(r.user_id, arr);
-    });
-
-    const credMap = new Map<string, number>();
-    ((tx as any[]) || []).forEach((r) => {
-      credMap.set(r.user_id, (credMap.get(r.user_id) || 0) + Number(r.amount || 0));
-    });
+    const [usersRes, { data: cReq }, { data: pReq }, { data: books }] = await Promise.all([
+      (supabase.rpc as any)("admin_list_users"),
+      supabase.from("credit_purchase_requests").select("*").order("created_at", { ascending: false }),
+      supabase.from("publisher_upgrade_requests").select("*").order("created_at", { ascending: false }),
+      supabase
+        .from("books")
+        .select("id, title, author, publisher_id, status, review_status, reject_reason, reviewed_at, created_at")
+        .order("created_at", { ascending: false }),
+    ]);
 
     setUsers(
-      ((profiles as any[]) || []).map((p) => ({
-        id: p.id,
-        display_name: p.display_name,
-        roles: roleMap.get(p.id) || [],
-        credits: credMap.get(p.id) || 0,
-        is_active: p.is_active !== false,
+      ((usersRes?.data as any[]) || []).map((u) => ({
+        id: u.id,
+        email: u.email,
+        display_name: u.display_name,
+        username: u.username,
+        national_id: u.national_id,
+        roles: (u.roles || []) as AppRole[],
+        credits: Number(u.credits || 0),
+        is_active: u.is_active !== false,
+        created_at: u.created_at,
       })),
     );
     setCredReqs((cReq as any[]) || []);
@@ -220,10 +233,9 @@ const AdminInner = () => {
   const giveCredits = async (userId: string) => {
     const amt = Number(window.prompt("مقدار اعتبار (مثبت یا منفی):") || "0");
     if (!amt) return;
-    const { error } = await supabase.from("credit_transactions").insert({
-      user_id: userId,
-      amount: amt,
-      reason: amt > 0 ? "admin_grant" : "admin_deduct",
+    const reason = window.prompt("دلیل:") || (amt > 0 ? "admin_grant" : "admin_deduct");
+    const { error } = await (supabase.rpc as any)("admin_adjust_credits", {
+      _user_id: userId, _amount: amt, _reason: reason,
     });
     if (error) toast.error(error.message);
     else {
@@ -231,6 +243,99 @@ const AdminInner = () => {
       load();
     }
   };
+
+  // ===== Inline row actions =====
+  const startEdit = (u: UserRow) => {
+    setEditId(u.id);
+    setEditDraft({
+      display_name: u.display_name || "",
+      username: u.username || "",
+      national_id: u.national_id || "",
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditId(null);
+  };
+
+  const saveEdit = async (id: string) => {
+    const payload: any = {
+      display_name: editDraft.display_name.trim() || null,
+      username: editDraft.username.trim() || null,
+      national_id: editDraft.national_id.replace(/\D/g, "") || null,
+    };
+    const { error } = await supabase.from("profiles").update(payload).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("ذخیره شد");
+    setEditId(null);
+    load();
+  };
+
+  const toggleActive = async (u: UserRow) => {
+    const next = !u.is_active;
+    const { error } = await supabase.from("profiles").update({ is_active: next }).eq("id", u.id);
+    if (error) return toast.error(error.message);
+    toast.success(next ? "کاربر فعال شد" : "کاربر غیرفعال شد");
+    load();
+  };
+
+  const inlineGrantRole = async (uid: string, role: AppRole) => {
+    const { error } = await (supabase.rpc as any)("admin_set_role", {
+      _user_id: uid, _role: role, _grant: true,
+    });
+    if (error) toast.error(error.message);
+    else { toast.success(`نقش ${ROLE_LABEL[role]} اعطا شد`); load(); }
+  };
+
+  const inlineRevokeRole = async (uid: string, role: AppRole) => {
+    if (role === "user") return toast.error("نقش کاربر عادی قابل حذف نیست");
+    const { error } = await (supabase.rpc as any)("admin_set_role", {
+      _user_id: uid, _role: role, _grant: false,
+    });
+    if (error) toast.error(error.message);
+    else { toast.success(`نقش ${ROLE_LABEL[role]} لغو شد`); load(); }
+  };
+
+  const createUser = async () => {
+    const { email, password, display_name, role, credits } = createForm;
+    if (!email || password.length < 6) return toast.error("ایمیل و گذرواژه (حداقل ۶ کاراکتر) لازم است");
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/admin-create-user`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({
+        email, password, display_name,
+        roles: ["user", role].filter((v, i, a) => a.indexOf(v) === i),
+        credits: Number(credits) || 0,
+      }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return toast.error(json.error || "خطا در ساخت کاربر");
+    toast.success(`کاربر ${json.email} ساخته شد`);
+    setCreateOpen(false);
+    setCreateForm({ email: "", password: "", display_name: "", role: "user", credits: 0 });
+    load();
+  };
+
+  const toggleSort = (k: SortKey) => {
+    if (sortKey === k) setSortDir(sortDir === "asc" ? "desc" : "asc");
+    else { setSortKey(k); setSortDir("asc"); }
+  };
+
+  const SortHeader = ({ k, children }: { k: SortKey; children: React.ReactNode }) => (
+    <button
+      onClick={() => toggleSort(k)}
+      className="inline-flex items-center gap-1 hover:text-foreground"
+      type="button"
+    >
+      {children}
+      {sortKey === k ? (sortDir === "asc" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)
+        : <ArrowUpDown className="w-3 h-3 opacity-50" />}
+    </button>
+  );
 
   // ===== Bulk actions =====
   const selectedArr = useMemo(() => Array.from(selectedIds), [selectedIds]);
