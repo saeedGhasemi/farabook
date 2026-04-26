@@ -1354,6 +1354,19 @@ const InlineTextBlock = ({
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const [hasSelection, setHasSelection] = useState(false);
 
+  // When this block becomes the selected one (e.g. after Enter splits a
+  // paragraph or the user clicks it) auto-focus the cursor at the end so
+  // typing continues seamlessly — Word-like.
+  useEffect(() => {
+    if (!isSelected) return;
+    const ta = taRef.current;
+    if (!ta) return;
+    if (document.activeElement === ta) return;
+    ta.focus();
+    const len = ta.value.length;
+    try { ta.setSelectionRange(len, len); } catch { /* ignore */ }
+  }, [isSelected]);
+
   const placeholders: Record<string, string> = {
     paragraph: lang === "fa"
       ? "بنویسید…  (/ منوی بلوک‌ها  •  # عنوان  •  > نقل قول  •  Ctrl+B/I/U)"
