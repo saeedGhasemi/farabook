@@ -155,7 +155,7 @@ const Publisher = () => {
     setConfirmDelete(null);
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <main className="container py-20 flex justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-accent" />
