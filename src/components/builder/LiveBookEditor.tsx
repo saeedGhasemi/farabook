@@ -857,6 +857,65 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
                   className="mt-1 text-sm"
                 />
               </div>
+              <div className="md:col-span-2 rounded-lg border border-border p-3 bg-background/40">
+                <Label className="text-xs flex items-center gap-2">
+                  {lang === "fa" ? "نویسنده در سامانه" : "Author in system"}
+                </Label>
+                <p className="text-[11px] text-muted-foreground mt-0.5 mb-2">
+                  {lang === "fa"
+                    ? "اگر نویسنده کاربر ثبت‌شده باشد، در زمان انتشار می‌توانید سهم درآمد به او اختصاص دهید."
+                    : "If the author is a registered user, you can assign a revenue share to them when publishing."}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={authorIsMe}
+                      onChange={(e) => {
+                        const v = e.target.checked;
+                        setAuthorIsMe(v);
+                        if (v) setAuthorUserId(user?.id ?? null);
+                        else setAuthorUserId(null);
+                        markDirty();
+                      }}
+                    />
+                    {lang === "fa" ? "خودم نویسنده‌ام" : "I am the author"}
+                  </label>
+                  {!authorIsMe && (
+                    <>
+                      <Input
+                        value={authorUserId || ""}
+                        onChange={(e) => { setAuthorUserId(e.target.value || null); markDirty(); }}
+                        placeholder={lang === "fa" ? "شناسه (UUID) نویسنده" : "Author user UUID"}
+                        className="h-8 text-xs font-mono flex-1 min-w-[200px]"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                        onClick={async () => {
+                          const email = window.prompt(lang === "fa" ? "ایمیل نویسنده:" : "Author email:");
+                          if (!email) return;
+                          const { data, error } = await (supabase.rpc as any)("find_user_by_email", { _email: email });
+                          if (error) return toast.error(error.message);
+                          if (!data) return toast.error(lang === "fa" ? "کاربر یافت نشد" : "User not found");
+                          setAuthorUserId(data);
+                          markDirty();
+                          toast.success(lang === "fa" ? "نویسنده پیدا شد" : "Author found");
+                        }}
+                      >
+                        {lang === "fa" ? "جستجو با ایمیل" : "Find by email"}
+                      </Button>
+                    </>
+                  )}
+                  {authorUserId && (
+                    <span className="text-[10px] text-accent font-mono">
+                      ✓ {authorUserId.slice(0, 8)}…
+                    </span>
+                  )}
+                </div>
+              </div>
               <div>
                 <Label className="text-xs">{lang === "fa" ? "جلد" : "Cover"}</Label>
                 <div className="mt-1 flex items-center gap-2">
