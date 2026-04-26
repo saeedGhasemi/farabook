@@ -416,30 +416,75 @@ const AdminInner = () => {
 
         <TabsContent value="books" className="mt-4">
           <Card className="glass">
-            <CardHeader>
-              <CardTitle>کتاب‌های در انتظار بررسی</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between gap-4 flex-wrap">
+              <CardTitle>مدیریت کتاب‌ها</CardTitle>
+              <div className="flex gap-1 flex-wrap">
+                {([
+                  ["pending_review", "در انتظار", bookCounts.pending_review],
+                  ["approved", "تأیید شده", bookCounts.approved],
+                  ["rejected", "رد شده", bookCounts.rejected],
+                  ["all", "همه", bookCounts.all],
+                ] as const).map(([key, label, count]) => (
+                  <Button
+                    key={key}
+                    size="sm"
+                    variant={bookFilter === key ? "default" : "outline"}
+                    onClick={() => setBookFilter(key as typeof bookFilter)}
+                    className="gap-1"
+                  >
+                    {label} <Badge variant="secondary" className="ms-1">{count}</Badge>
+                  </Button>
+                ))}
+              </div>
             </CardHeader>
             <CardContent>
-              {pendingBooks.length === 0 ? (
-                <p className="text-muted-foreground text-sm">کتابی منتظر بررسی نیست.</p>
+              {filteredBooks.length === 0 ? (
+                <p className="text-muted-foreground text-sm">موردی در این فیلتر نیست.</p>
               ) : (
                 <div className="space-y-2">
-                  {pendingBooks.map((b) => (
-                    <div key={b.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                      <div>
-                        <div className="font-medium">{b.title}</div>
-                        <div className="text-xs text-muted-foreground">{b.author}</div>
+                  {filteredBooks.map((b) => {
+                    const status = (b.review_status || "approved") as string;
+                    return (
+                      <div key={b.id} className="p-3 rounded-lg border bg-card">
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                          <div className="min-w-0">
+                            <div className="font-medium flex items-center gap-2">
+                              {b.title}
+                              <Badge
+                                variant={
+                                  status === "approved" ? "default" : status === "rejected" ? "destructive" : "secondary"
+                                }
+                              >
+                                {status === "pending_review" ? "در انتظار" : status === "approved" ? "تأیید شده" : "رد شده"}
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {b.author} • ناشر: {b.publisher_id?.slice(0, 8) || "—"}…
+                              {b.reviewed_at && ` • بررسی: ${new Date(b.reviewed_at).toLocaleDateString("fa-IR")}`}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            {status !== "approved" && (
+                              <Button size="sm" onClick={() => approveBook(b, false)} className="gap-1">
+                                <Check className="w-3.5 h-3.5" /> تأیید
+                              </Button>
+                            )}
+                            {status !== "rejected" && (
+                              <Button size="sm" variant="outline" onClick={() => rejectBook(b)} className="gap-1">
+                                <X className="w-3.5 h-3.5" /> رد
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        {status === "rejected" && b.reject_reason && (
+                          <div className="mt-2 flex items-start gap-2 p-2 rounded-md bg-destructive/10 text-destructive text-xs">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            <span><strong>دلیل رد:</strong> {b.reject_reason}</span>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={() => approveBook(b, false)} className="gap-1">
-                          <Check className="w-3.5 h-3.5" /> تأیید
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => rejectBook(b)} className="gap-1">
-                          <X className="w-3.5 h-3.5" /> رد
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
