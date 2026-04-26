@@ -239,7 +239,7 @@ const Store = () => {
                         </Button>
                       </Link>
                     ) : (
-                      <Button size="sm" onClick={() => handleAdd(book)} className="gap-1.5 bg-gradient-warm hover:opacity-90">
+                      <Button size="sm" onClick={() => requestBuy(book)} className="gap-1.5 bg-gradient-warm hover:opacity-90">
                         <ShoppingBag className="w-3.5 h-3.5" /> {t("buy")}
                       </Button>
                     )}
@@ -279,7 +279,7 @@ const Store = () => {
         isOwned={previewBook ? owned.has(previewBook.id) : false}
         isOwner={!!user && !!previewBook && previewBook.publisher_id === user.id}
         canBuy={!!user && !!previewBook && !owned.has(previewBook.id) && previewBook.publisher_id !== user.id}
-        onBuy={() => { if (previewBook) { handleAdd(previewBook); setPreviewBook(null); } }}
+        onBuy={() => { if (previewBook) { requestBuy(previewBook); setPreviewBook(null); } }}
       />
     </main>
   );
