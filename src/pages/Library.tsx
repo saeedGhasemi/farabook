@@ -48,10 +48,31 @@ const Library = () => {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("user_books")
-      .select("id, status, progress, current_page, acquired_via, books(id, title, title_en, author, cover_url, category, publisher_id, status, price)")
-      .eq("user_id", user.id)
-      .then(({ data }) => setRows((data as unknown as Row[]) ?? []));
+    (async () => {
+      // 1) Books explicitly in the user's library
+      const { data: ub } = await supabase.from("user_books")
+        .select("id, status, progress, current_page, acquired_via, books(id, title, title_en, author, cover_url, category, publisher_id, status, price)")
+        .eq("user_id", user.id);
+      const ownedRows = ((ub as unknown as Row[]) ?? []).filter((r) => r.books);
+
+      // 2) Books the user published — auto-included as virtual library entries
+      const ownedBookIds = new Set(ownedRows.map((r) => r.books?.id));
+      const { data: pub } = await supabase.from("books")
+        .select("id, title, title_en, author, cover_url, category, publisher_id, status, price")
+        .eq("publisher_id", user.id);
+      const virtualRows: Row[] = ((pub as any[]) ?? [])
+        .filter((b) => !ownedBookIds.has(b.id))
+        .map((b) => ({
+          id: `pub-${b.id}`,
+          status: "unread",
+          progress: 0,
+          current_page: 0,
+          acquired_via: "publisher",
+          books: b,
+        }));
+
+      setRows([...ownedRows, ...virtualRows]);
+    })();
   }, [user]);
 
   const handleDelete = async () => {
