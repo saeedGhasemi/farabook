@@ -20,6 +20,8 @@ import { speakSmart, stopSpeak } from "@/lib/tts";
 import { RevenueShareEditor } from "@/components/publish/RevenueShareEditor";
 import { estimateComplexity, showInsufficientCreditsToast } from "@/lib/credit-guard";
 import { pulseCredits, requestCreditsRefresh } from "@/lib/credits-bus";
+import { ConfirmTransactionDialog } from "@/components/ConfirmTransactionDialog";
+import { useCredits } from "@/hooks/useCredits";
 
 interface BookRow {
   id: string;
