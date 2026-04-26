@@ -1531,7 +1531,13 @@ const InlineTextBlock = ({
         if (firstLine === "## ") { onReplace({ kind: "heading", text: "" } as any); return; }
         if (firstLine === "### ") { onReplace({ kind: "heading", text: "" } as any); return; }
         if (firstLine === "> ") { onReplace({ kind: "quote", text: "" } as any); return; }
-        if (firstLine === "!! ") { onReplace({ kind: "callout", icon: "info", text: "" } as any); return; }
+        if (firstLine === "!! ")  { onReplace({ kind: "callout", icon: "info",     text: "" } as any); return; }
+        if (firstLine === "?? ")  { onReplace({ kind: "callout", icon: "question", text: "" } as any); return; }
+        if (firstLine === "** ")  { onReplace({ kind: "callout", icon: "tip",      text: "" } as any); return; }
+        if (firstLine === "!w ")  { onReplace({ kind: "callout", icon: "warning",  text: "" } as any); return; }
+        if (firstLine === "!d ")  { onReplace({ kind: "callout", icon: "danger",   text: "" } as any); return; }
+        if (firstLine === "!s ")  { onReplace({ kind: "callout", icon: "success",  text: "" } as any); return; }
+        if (firstLine === "!n ")  { onReplace({ kind: "callout", icon: "note",     text: "" } as any); return; }
       }
     }
     onUpdate({ text: val } as any);
