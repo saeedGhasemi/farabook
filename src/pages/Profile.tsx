@@ -205,6 +205,28 @@ const Profile = () => {
             </div>
           </div>
 
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm">نام کاربری (یکتا)</label>
+              <Input
+                value={form.username}
+                placeholder="مثلاً ali_ahmadi"
+                maxLength={32}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm">کد ملی (۱۰ رقمی)</label>
+              <Input
+                value={form.national_id}
+                placeholder="۰۰۱۲۳۴۵۶۷۸"
+                inputMode="numeric"
+                maxLength={10}
+                onChange={(e) => setForm({ ...form, national_id: e.target.value.replace(/\D/g, "") })}
+              />
+            </div>
+          </div>
+
           <div>
             <label className="text-sm">دربارهٔ من</label>
             <Textarea
@@ -220,6 +242,14 @@ const Profile = () => {
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm">ایمیل تماس</label>
+              <Input
+                type="email"
+                value={form.contact_email}
+                onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm">شماره تماس</label>
               <Input
                 type="email"
                 value={form.contact_email}
