@@ -252,6 +252,59 @@ export type Database = {
         }
         Relationships: []
       }
+      editor_access_requests: {
+        Row: {
+          book_id: string
+          can_publish: boolean
+          created_at: string
+          editor_email: string
+          editor_user_id: string | null
+          id: string
+          message: string | null
+          publisher_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          book_id: string
+          can_publish?: boolean
+          created_at?: string
+          editor_email: string
+          editor_user_id?: string | null
+          id?: string
+          message?: string | null
+          publisher_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          book_id?: string
+          can_publish?: boolean
+          created_at?: string
+          editor_email?: string
+          editor_user_id?: string | null
+          id?: string
+          message?: string | null
+          publisher_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "editor_access_requests_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       highlights: {
         Row: {
           book_id: string
@@ -486,10 +539,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_editor_request: { Args: { _request_id: string }; Returns: string }
       can_edit_book: {
         Args: { _book_id: string; _user_id: string }
         Returns: boolean
       }
+      find_user_by_email: { Args: { _email: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
