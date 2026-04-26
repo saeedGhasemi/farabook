@@ -246,11 +246,11 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
 
             <Separator className="my-4" />
             <BookComments bookId={book.id} />
-          </ScrollArea>
+          </div>
         )}
 
         {/* Footer actions */}
-        <div className="flex items-center justify-end gap-2 pt-4 border-t mt-2">
+        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t shrink-0">
           {isOwned ? (
             <Link to={`/read/${book.id}`}>
               <Button className="gap-1.5"><Check className="w-3.5 h-3.5" /> {fa ? "مطالعه" : "Read"}</Button>
