@@ -224,6 +224,10 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
   /* ---------- state ---------- */
   const [title, setTitle] = useState(initial?.title ?? "");
   const [author, setAuthor] = useState(initial?.author ?? "");
+  const [authorUserId, setAuthorUserId] = useState<string | null>(initial?.author_user_id ?? null);
+  const [authorIsMe, setAuthorIsMe] = useState<boolean>(
+    initial?.author_user_id ? initial.author_user_id === user?.id : false,
+  );
   const [description, setDescription] = useState(initial?.description ?? "");
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverUrl, setCoverUrl] = useState<string>(initial?.cover_url || "");
