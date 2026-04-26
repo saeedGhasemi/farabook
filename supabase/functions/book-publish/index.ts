@@ -123,8 +123,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const lang = body.metadata.language || book.language || "fa";
+    const bookText = extractText(book.pages as any[]);
+    const detectedLang = detectLang(bookText);
+    const lang = body.metadata.language || book.language || detectedLang;
     const fa = lang === "fa";
+    console.log("book-publish lang:", { metadata: body.metadata.language, book: book.language, detected: detectedLang, final: lang });
 
     // ---- 1. AI Summary -------------------------------------------------
     let aiSummary: string | null = null;
