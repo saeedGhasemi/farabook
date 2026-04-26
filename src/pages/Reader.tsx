@@ -517,16 +517,15 @@ const Reader = () => {
 
           {/* Page */}
           <div className="relative">
-            <AnimatePresence mode="wait" custom={flipDir}>
+            <AnimatePresence mode="wait">
               <motion.article
                 ref={articleRef}
                 key={pageIdx}
-                custom={flipDir}
                 dir={bookDir}
-                initial={{ opacity: 0, y: 40, scale: 0.96, filter: "blur(8px)" }}
-                animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -30, scale: 0.98, filter: "blur(6px)" }}
-                transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
                 className={`paper-card rounded-3xl p-6 md:p-12 min-h-[60vh] book-shadow relative overflow-hidden no-native-callout typo-${book.typography_preset || "editorial"}`}
               >
                 <div className="absolute top-0 inset-x-0 h-1 bg-gradient-gold opacity-50" />
@@ -564,6 +563,25 @@ const Reader = () => {
                 </div>
               </motion.article>
             </AnimatePresence>
+
+            {/* Floating side arrows — always reachable without scrolling */}
+            <button
+              onClick={goPrev}
+              disabled={pageIdx === 0}
+              aria-label={t("prev")}
+              className="fixed top-1/2 start-3 -translate-y-1/2 z-30 w-11 h-11 rounded-full glass-strong shadow-elegant flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:scale-110 transition-transform"
+            >
+              <Prev className="w-5 h-5" />
+            </button>
+            <button
+              onClick={goNext}
+              disabled={pageIdx >= total - 1}
+              aria-label={t("next")}
+              className="fixed top-1/2 end-3 -translate-y-1/2 z-30 w-11 h-11 rounded-full glass-strong shadow-elegant flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:scale-110 transition-transform"
+            >
+              <Next className="w-5 h-5" />
+            </button>
+
 
             {/* Bottom navigation */}
             <div className="mt-8 flex items-center justify-between gap-3 pb-32">

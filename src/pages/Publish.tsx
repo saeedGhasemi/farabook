@@ -20,6 +20,8 @@ import { speakSmart, stopSpeak } from "@/lib/tts";
 import { RevenueShareEditor } from "@/components/publish/RevenueShareEditor";
 import { estimateComplexity, showInsufficientCreditsToast } from "@/lib/credit-guard";
 import { pulseCredits, requestCreditsRefresh } from "@/lib/credits-bus";
+import { ConfirmTransactionDialog } from "@/components/ConfirmTransactionDialog";
+import { useCredits } from "@/hooks/useCredits";
 
 interface BookRow {
   id: string;
@@ -54,6 +56,8 @@ const Publish = () => {
   const [loading, setLoading] = useState(true);
   const [book, setBook] = useState<BookRow | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const { credits } = useCredits();
 
   // Form
   const [title, setTitle] = useState("");

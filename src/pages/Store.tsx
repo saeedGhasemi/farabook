@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Search, ShoppingBag, Check, Eye, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,8 @@ import { toast } from "sonner";
 import { resolveBookMedia } from "@/lib/book-media";
 import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
 import { bookCreditCost, purchaseBookWithCredits } from "@/lib/purchase";
+import { ConfirmTransactionDialog } from "@/components/ConfirmTransactionDialog";
+import { useCredits } from "@/hooks/useCredits";
 
 const resolveCover = (s: string | null) => resolveBookMedia(s);
 
@@ -37,6 +39,8 @@ interface Book {
 const Store = () => {
   const { t, lang } = useI18n();
   const { user } = useAuth();
+  const nav = useNavigate();
+  const { credits } = useCredits();
   const [searchParams, setSearchParams] = useSearchParams();
   const [books, setBooks] = useState<Book[]>([]);
   const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
@@ -45,6 +49,7 @@ const Store = () => {
   const cat = searchParams.get("cat");
   const [confirmDelete, setConfirmDelete] = useState<Book | null>(null);
   const [previewBook, setPreviewBook] = useState<Book | null>(null);
+  const [confirmBuy, setConfirmBuy] = useState<Book | null>(null);
 
   const reload = () => {
     supabase.from("books")
@@ -85,12 +90,19 @@ const Store = () => {
     setConfirmDelete(null);
   };
 
-  const handleAdd = async (book: Book) => {
-    if (!user) { toast.error(t("nav_signin")); return; }
+  const requestBuy = (book: Book) => {
+    if (!user) { toast.error(t("nav_signin")); nav("/auth"); return; }
+    setConfirmBuy(book);
+  };
+
+  const performBuy = async (book: Book) => {
+    setConfirmBuy(null);
     const res = await purchaseBookWithCredits({
       bookId: book.id,
       bookTitle: lang === "en" && book.title_en ? book.title_en : book.title,
+      bookPrice: book.price,
       lang,
+      navigate: (to) => nav(to),
     });
     if (res?.ok) setOwned((prev) => new Set(prev).add(book.id));
   };
@@ -226,7 +238,7 @@ const Store = () => {
                         </Button>
                       </Link>
                     ) : (
-                      <Button size="sm" onClick={() => handleAdd(book)} className="gap-1.5 bg-gradient-warm hover:opacity-90">
+                      <Button size="sm" onClick={() => requestBuy(book)} className="gap-1.5 bg-gradient-warm hover:opacity-90">
                         <ShoppingBag className="w-3.5 h-3.5" /> {t("buy")}
                       </Button>
                     )}
@@ -266,7 +278,22 @@ const Store = () => {
         isOwned={previewBook ? owned.has(previewBook.id) : false}
         isOwner={!!user && !!previewBook && previewBook.publisher_id === user.id}
         canBuy={!!user && !!previewBook && !owned.has(previewBook.id) && previewBook.publisher_id !== user.id}
-        onBuy={() => { if (previewBook) { handleAdd(previewBook); setPreviewBook(null); } }}
+        onBuy={() => { if (previewBook) { requestBuy(previewBook); setPreviewBook(null); } }}
+      />
+
+      <ConfirmTransactionDialog
+        open={!!confirmBuy}
+        onOpenChange={(o) => !o && setConfirmBuy(null)}
+        title={lang === "fa" ? "خرید کتاب" : "Purchase book"}
+        description={confirmBuy ? (
+          lang === "fa"
+            ? `می‌خواهید «${confirmBuy.title}» را به قفسه خود اضافه کنید؟`
+            : `Add “${confirmBuy.title_en || confirmBuy.title}” to your library?`
+        ) : null}
+        currentBalance={credits}
+        cost={confirmBuy ? bookCreditCost(confirmBuy.price) : 0}
+        lang={lang}
+        onConfirm={() => confirmBuy && performBuy(confirmBuy)}
       />
     </main>
   );
