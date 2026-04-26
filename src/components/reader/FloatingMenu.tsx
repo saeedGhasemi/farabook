@@ -43,12 +43,7 @@ export const FloatingMenu = ({
   const [ambOpen, setAmbOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  // Auto-collapse after 8s of inactivity
-  useEffect(() => {
-    if (collapsed) return;
-    const t = window.setTimeout(() => setCollapsed(true), 12000);
-    return () => window.clearTimeout(t);
-  }, [collapsed, aiOpen, ambOpen]);
+  // Toolbar stays open by default; only the user can collapse/expand it.
 
   const aiActions = [
     { id: "summary", icon: Sparkles, label: t("ai_summary"), mode: "summary" as const },
