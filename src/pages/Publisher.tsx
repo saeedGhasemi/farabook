@@ -73,21 +73,22 @@ const Publisher = () => {
 
     (async () => {
       setLoading(true);
-      const [{ data: bookList }, { data: prof }] = await Promise.all([
+      const [{ data: bookList }, { data: prof }, { data: sf }] = await Promise.all([
         supabase
           .from("books")
           .select("*")
           .eq("publisher_id", targetId)
           .order("created_at", { ascending: false }),
         supabase.from("profiles").select("id, display_name, avatar_url").eq("id", targetId).maybeSingle(),
+        supabase.from("publisher_profiles").select("display_name, bio, banner_url, logo_url, theme, is_trusted").eq("user_id", targetId).maybeSingle(),
       ]);
       if (cancelled) return;
 
       const list = (bookList as Book[]) ?? [];
-      // For public storefront, hide drafts
       const visible = isMe ? list : list.filter((b) => b.status === "published");
       setBooks(visible);
       setProfile((prof as PublisherProfile) ?? null);
+      setStorefront((sf as PublisherStorefront) ?? null);
 
       // Reader counts via user_books
       if (visible.length) {
