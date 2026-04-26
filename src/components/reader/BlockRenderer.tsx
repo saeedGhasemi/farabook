@@ -685,14 +685,26 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
       );
 
     case "callout": {
-      const Icon = block.icon === "sparkle" ? Sparkles : Info;
+      const variants: Record<string, { Icon: any; cls: string; iconCls: string; label?: string }> = {
+        info:     { Icon: Info,         cls: "bg-accent/10 border-accent/30",            iconCls: "text-accent" },
+        sparkle:  { Icon: Sparkles,     cls: "bg-primary/10 border-primary/30",          iconCls: "text-primary" },
+        tip:      { Icon: Lightbulb,    cls: "bg-[hsl(var(--hl-yellow)/0.18)] border-[hsl(var(--hl-yellow)/0.45)]", iconCls: "text-[hsl(var(--hl-yellow))]" },
+        warning:  { Icon: AlertTriangle,cls: "bg-[hsl(var(--hl-yellow)/0.22)] border-[hsl(var(--hl-yellow)/0.55)]", iconCls: "text-[hsl(var(--hl-yellow))]" },
+        success:  { Icon: CheckCircle2, cls: "bg-[hsl(var(--hl-green)/0.18)] border-[hsl(var(--hl-green)/0.45)]",  iconCls: "text-[hsl(var(--hl-green))]" },
+        danger:   { Icon: ShieldAlert,  cls: "bg-destructive/10 border-destructive/30",  iconCls: "text-destructive" },
+        note:     { Icon: Pencil,       cls: "bg-muted/60 border-border",                iconCls: "text-muted-foreground" },
+        question: { Icon: HelpCircle,   cls: "bg-[hsl(var(--hl-blue)/0.18)] border-[hsl(var(--hl-blue)/0.45)]",   iconCls: "text-[hsl(var(--hl-blue))]" },
+        quote:    { Icon: QuoteIcon,    cls: "bg-[hsl(var(--hl-pink)/0.15)] border-[hsl(var(--hl-pink)/0.4)]",    iconCls: "text-[hsl(var(--hl-pink))]" },
+      };
+      const v = variants[block.icon || "info"] || variants.info;
+      const Icon = v.Icon;
       return (
         <motion.aside
           {...fade}
-          className="my-6 flex gap-3 p-4 rounded-xl glass border border-accent/30"
+          className={`my-6 flex gap-3 p-4 rounded-xl glass border ${v.cls}`}
         >
-          <Icon className="w-5 h-5 text-accent shrink-0 mt-0.5" />
-          <p className="text-sm text-foreground/85 leading-relaxed">{block.text}</p>
+          <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${v.iconCls}`} />
+          <p className="text-sm text-foreground/85 leading-relaxed">{renderInlineMarkdown(block.text, `cb-${index}`)}</p>
         </motion.aside>
       );
     }
