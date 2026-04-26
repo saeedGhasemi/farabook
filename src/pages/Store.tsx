@@ -287,7 +287,7 @@ const Store = () => {
         title={lang === "fa" ? "خرید کتاب" : "Purchase book"}
         description={confirmBuy ? (
           lang === "fa"
-            ? `می‌خواهید «${lang === "en" && confirmBuy.title_en ? confirmBuy.title_en : confirmBuy.title}» را به قفسه خود اضافه کنید؟`
+            ? `می‌خواهید «${confirmBuy.title}» را به قفسه خود اضافه کنید؟`
             : `Add “${confirmBuy.title_en || confirmBuy.title}” to your library?`
         ) : null}
         currentBalance={credits}
