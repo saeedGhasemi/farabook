@@ -296,7 +296,14 @@ const Slideshow = ({
   }, [lightbox, total]);
 
   const go = (d: 1 | -1) => setI((p) => (p + d + total) % total);
-  const cur = images[i];
+  if (!total) {
+    return (
+      <figure className="my-6 rounded-2xl border border-dashed border-border bg-foreground/5 aspect-[16/10] flex items-center justify-center text-sm text-muted-foreground">
+        No slides yet
+      </figure>
+    );
+  }
+  const cur = images[Math.min(i, total - 1)];
 
   return (
     <figure className="my-6">
