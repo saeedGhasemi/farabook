@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, ShoppingBag, Check, Pencil, Trash2, Eye } from "lucide-react";
+import { Search, ShoppingBag, Check, Eye, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,6 +38,7 @@ const Store = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [books, setBooks] = useState<Book[]>([]);
+  const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
   const [owned, setOwned] = useState<Set<string>>(new Set());
   const [q, setQ] = useState(searchParams.get("q") ?? "");
   const cat = searchParams.get("cat");
@@ -49,6 +50,19 @@ const Store = () => {
       .select("id, title, title_en, author, publisher, publisher_id, status, category, cover_url, description, price, ambient_theme")
       .order("created_at", { ascending: false })
       .then(({ data }) => setBooks((data as Book[]) ?? []));
+    supabase.from("book_comments").select("book_id, rating")
+      .then(({ data }) => {
+        const map: Record<string, { sum: number; count: number }> = {};
+        ((data as any[]) || []).forEach((r) => {
+          if (r.rating == null) return;
+          if (!map[r.book_id]) map[r.book_id] = { sum: 0, count: 0 };
+          map[r.book_id].sum += Number(r.rating);
+          map[r.book_id].count += 1;
+        });
+        const out: Record<string, { avg: number; count: number }> = {};
+        Object.keys(map).forEach((k) => { out[k] = { avg: map[k].sum / map[k].count, count: map[k].count }; });
+        setRatings(out);
+      });
   };
 
   useEffect(() => {
