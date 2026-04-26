@@ -687,6 +687,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
           price: 0,
           pages: dbPages,
           publisher_id: user.id,
+          author_user_id: authorIsMe ? user.id : authorUserId,
           status: "draft",
           typography_preset: typography,
         })
