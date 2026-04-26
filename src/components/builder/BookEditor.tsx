@@ -40,6 +40,7 @@ export type BlockDraft =
       src: string;
       caption?: string;
       hideCaption?: boolean;
+      hotspots?: { x: number; y: number; label: string; description: string }[];
     }
   | { kind: "video"; src: string; caption?: string }
   | {
