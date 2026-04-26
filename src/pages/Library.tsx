@@ -121,7 +121,16 @@ const Library = () => {
                       <h3 className="font-display font-bold leading-tight line-clamp-2">{title}</h3>
                       <p className="text-xs text-muted-foreground mt-1">{r.books.author}</p>
                     </div>
-                    <Badge variant="outline" className="w-fit text-xs">{statusLabel(r.status)}</Badge>
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge variant="outline" className="text-xs">{statusLabel(r.status)}</Badge>
+                      <span className="text-xs font-semibold text-primary">
+                        {r.books.price === 0
+                          ? (lang === "fa" ? "رایگان" : "Free")
+                          : (lang === "fa"
+                              ? `${bookCreditCost(r.books.price).toLocaleString("fa-IR")} اعتبار`
+                              : `${bookCreditCost(r.books.price).toLocaleString()} cr`)}
+                      </span>
+                    </div>
                     <div className="mt-auto">
                       <Progress value={r.progress} className="h-1.5" />
                       <p className="text-xs text-muted-foreground mt-1">{Math.round(r.progress)}%</p>
