@@ -528,6 +528,13 @@ const AdminInner = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <UserDetailDialog
+        userId={selectedUserId}
+        open={!!selectedUserId}
+        onOpenChange={(v) => !v && setSelectedUserId(null)}
+        onChanged={load}
+      />
     </motion.div>
   );
 };
