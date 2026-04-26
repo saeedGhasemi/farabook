@@ -627,6 +627,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
           .update({
             title: title || initial.title,
             author: author || initial.author,
+            author_user_id: authorIsMe ? (user?.id ?? null) : authorUserId,
             description: description || null,
             cover_url: cover,
             pages: dbPages,
