@@ -1659,10 +1659,22 @@ const InlineTextBlock = ({
 
   // ---------- CALLOUT ----------
   if (block.kind === "callout") {
+    const variantStyles: Record<string, { cls: string; symbol: string }> = {
+      info:     { cls: "bg-accent/10 border-accent/30",                                         symbol: "ℹ️" },
+      sparkle:  { cls: "bg-primary/10 border-primary/30",                                       symbol: "✨" },
+      tip:      { cls: "bg-[hsl(var(--hl-yellow)/0.18)] border-[hsl(var(--hl-yellow)/0.45)]",   symbol: "💡" },
+      warning:  { cls: "bg-[hsl(var(--hl-yellow)/0.22)] border-[hsl(var(--hl-yellow)/0.55)]",   symbol: "⚠️" },
+      success:  { cls: "bg-[hsl(var(--hl-green)/0.18)] border-[hsl(var(--hl-green)/0.45)]",     symbol: "✅" },
+      danger:   { cls: "bg-destructive/10 border-destructive/30",                               symbol: "⛔" },
+      note:     { cls: "bg-muted/60 border-border",                                             symbol: "📝" },
+      question: { cls: "bg-[hsl(var(--hl-blue)/0.18)] border-[hsl(var(--hl-blue)/0.45)]",       symbol: "❓" },
+      quote:    { cls: "bg-[hsl(var(--hl-pink)/0.15)] border-[hsl(var(--hl-pink)/0.4)]",        symbol: "❝" },
+    };
+    const v = variantStyles[block.icon || "info"] || variantStyles.info;
     return (
-      <div className={`relative my-4 p-4 rounded-xl flex gap-3 ${block.icon === "sparkle" ? "bg-accent/10 border border-accent/30" : "bg-primary/5 border border-primary/20"}`}>
+      <div className={`relative my-4 p-4 rounded-xl flex gap-3 border ${v.cls}`}>
         {showToolbar && <FloatingFormatToolbar onFormat={formatHandler} lang={lang} />}
-        <div className="text-xl shrink-0">{block.icon === "sparkle" ? "✨" : "💡"}</div>
+        <div className="text-xl shrink-0 leading-none">{v.symbol}</div>
         <textarea
           ref={taRef}
           value={block.text}
