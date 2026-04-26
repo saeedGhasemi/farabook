@@ -258,7 +258,7 @@ const AdminInner = () => {
     setEditId(null);
   };
 
-  const saveEdit = async (id: string) => {
+  const saveEdit = async (id: string, originalEmail: string | null) => {
     const payload: any = {
       display_name: editDraft.display_name.trim() || null,
       username: editDraft.username.trim() || null,
@@ -266,9 +266,36 @@ const AdminInner = () => {
     };
     const { error } = await supabase.from("profiles").update(payload).eq("id", id);
     if (error) return toast.error(error.message);
+
+    // Update email via edge function if changed
+    const newEmail = (editDraft as any).email?.trim();
+    if (newEmail && newEmail !== originalEmail) {
+      const ok = await callAdminUpdateUser(id, { email: newEmail, confirm_email: true });
+      if (!ok) return;
+    }
+
     toast.success("ذخیره شد");
     setEditId(null);
     load();
+  };
+
+  const callAdminUpdateUser = async (userId: string, updates: Record<string, unknown>) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/admin-update-user`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ user_id: userId, ...updates }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) { toast.error(json.error || "خطا"); return false; }
+    return true;
+  };
+
+  const resetPassword = async (u: UserRow) => {
+    const pwd = window.prompt(`گذرواژه جدید برای ${u.email || u.display_name} (حداقل ۶ کاراکتر):`);
+    if (!pwd || pwd.length < 6) return;
+    const ok = await callAdminUpdateUser(u.id, { password: pwd });
+    if (ok) toast.success("گذرواژه تغییر کرد");
   };
 
   const toggleActive = async (u: UserRow) => {
