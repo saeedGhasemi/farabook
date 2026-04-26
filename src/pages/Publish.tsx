@@ -506,7 +506,7 @@ const Publish = () => {
                 : "After publishing, the book becomes visible in the store."}
             </p>
             <Button
-              onClick={handlePublish}
+              onClick={openPublishConfirm}
               disabled={busy}
               className="bg-gradient-warm hover:opacity-90 gap-2"
             >
@@ -519,6 +519,26 @@ const Publish = () => {
           </div>
         </div>
       </div>
+
+      <ConfirmTransactionDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={lang === "fa" ? "تأیید انتشار کتاب" : "Confirm publication"}
+        description={
+          book.first_published_paid
+            ? (lang === "fa"
+                ? "این کتاب قبلاً منتشر شده و هزینه‌ای کسر نمی‌شود؛ فقط به‌روزرسانی انجام می‌شود."
+                : "Already paid; only metadata will be updated.")
+            : (lang === "fa"
+                ? `هزینه انتشار با توجه به حجم/پیچیدگی کتاب، با ضریب ${estimatedFactor}× محاسبه شده است.`
+                : `Publish fee calculated using a complexity factor of ${estimatedFactor}×.`)
+        }
+        currentBalance={credits}
+        cost={estimatedFee}
+        lang={lang}
+        confirmLabel={lang === "fa" ? "تأیید و انتشار" : "Confirm & publish"}
+        onConfirm={handlePublish}
+      />
     </main>
   );
 };
