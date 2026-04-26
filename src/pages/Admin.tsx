@@ -438,7 +438,7 @@ const AdminInner = () => {
                           <TableRow>
                             <TableHead className="text-right w-10">
                               <Checkbox
-                                checked={allChecked || (someChecked && "indeterminate")}
+                                checked={allChecked ? true : someChecked ? "indeterminate" : false}
                                 onCheckedChange={(c) => toggleAll(!!c)}
                                 aria-label="انتخاب همه"
                               />
