@@ -80,28 +80,22 @@ const Edit = () => {
   }
 
   return (
-    <main className="container py-8 md:py-12 min-h-[calc(100vh-4rem)] max-w-4xl">
+    <main className="min-h-[calc(100vh-4rem)]">
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
+        initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-6 flex items-center justify-between gap-3"
+        className="container max-w-none px-3 md:px-4 pt-3 pb-1 flex items-center gap-3"
       >
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => nav(-1)}>
-            <Back className="w-4 h-4 me-1.5" />
-            {lang === "fa" ? "بازگشت" : "Back"}
-          </Button>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-display font-bold flex items-center gap-2">
-              <Pencil className="w-5 h-5 text-accent" />
-              {lang === "fa" ? "ویرایش کتاب" : "Edit Book"}
-            </h1>
-            <p className="text-xs text-muted-foreground mt-1">
-              {lang === "fa"
-                ? "ذخیره خودکار هر چند ثانیه یک‌بار اجرا می‌شود."
-                : "Autosaves every few seconds."}
-            </p>
-          </div>
+        <Button variant="ghost" size="sm" onClick={() => nav(-1)} className="h-8">
+          <Back className="w-4 h-4 me-1.5" />
+          {lang === "fa" ? "بازگشت" : "Back"}
+        </Button>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Pencil className="w-4 h-4 text-accent" />
+          <span>{lang === "fa" ? "ویرایش زنده" : "Live editing"}</span>
+          <span className="text-[11px] hidden md:inline">
+            · {lang === "fa" ? "ذخیره خودکار فعال" : "Autosaving"}
+          </span>
         </div>
       </motion.div>
 
