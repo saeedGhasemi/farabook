@@ -72,14 +72,17 @@ const PublisherSettings = () => {
   };
 
   useEffect(() => {
-    if (!authLoading && !rolesLoading) {
-      if (!user) return nav("/auth");
-      if (!isPublisher && !isAdmin) {
-        toast.error("نیاز به دسترسی ناشر دارید");
-        return nav("/credits");
-      }
-      load();
+    if (authLoading || rolesLoading) return;
+    if (!user) {
+      nav("/auth");
+      return;
     }
+    if (!isPublisher && !isAdmin) {
+      toast.error("نیاز به دسترسی ناشر دارید");
+      nav("/credits");
+      return;
+    }
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isPublisher, isAdmin, authLoading, rolesLoading]);
 
