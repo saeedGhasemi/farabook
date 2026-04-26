@@ -1665,7 +1665,7 @@ const InlineTextBlock = ({
   if (block.kind === "heading") {
     return (
       <div className="relative">
-        {showToolbar && <FloatingFormatToolbar onFormat={formatHandler} lang={lang} />}
+        {toolbarEl}
         <textarea
           ref={taRef}
           value={block.text}
@@ -1687,7 +1687,7 @@ const InlineTextBlock = ({
   if (block.kind === "quote") {
     return (
       <div className="relative my-4 px-4 md:px-6 py-3 border-s-4 border-accent bg-foreground/[0.03] rounded-r-xl">
-        {showToolbar && <FloatingFormatToolbar onFormat={formatHandler} lang={lang} />}
+        {toolbarEl}
         <textarea
           ref={taRef}
           value={block.text}
@@ -1727,7 +1727,7 @@ const InlineTextBlock = ({
     const v = variantStyles[block.icon || "info"] || variantStyles.info;
     return (
       <div className={`relative my-4 p-4 rounded-xl flex gap-3 border ${v.cls}`}>
-        {showToolbar && <FloatingFormatToolbar onFormat={formatHandler} lang={lang} />}
+        {toolbarEl}
         <div className="text-xl shrink-0 leading-none">{v.symbol}</div>
         <textarea
           ref={taRef}
@@ -1750,7 +1750,7 @@ const InlineTextBlock = ({
   if (block.kind !== "paragraph") return null;
   return (
     <div className="relative">
-      {showToolbar && <FloatingFormatToolbar onFormat={formatHandler} lang={lang} />}
+      {toolbarEl}
       <textarea
         ref={taRef}
         value={block.text}
