@@ -17,6 +17,7 @@ import {
   ChevronDown, FileText, Quote as QuoteIcon, Lightbulb, GalleryHorizontal,
   ListOrdered, Save, Loader2, EyeOff, Rocket, Eye, X, Copy,
   PanelLeft, PanelRight, Sparkles, GripVertical, FileImage, Scissors,
+  Undo2, Redo2, Images, MapPin,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
