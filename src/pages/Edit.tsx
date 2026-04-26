@@ -35,7 +35,7 @@ const Edit = () => {
     (async () => {
       const { data, error } = await supabase
         .from("books")
-        .select("id, title, author, description, cover_url, pages, publisher_id, status, typography_preset, author_user_id")
+        .select("id, title, author, description, cover_url, pages, publisher_id, status, typography_preset, author_user_id, category, price")
         .eq("id", id)
         .maybeSingle();
       if (error || !data) {
