@@ -370,84 +370,134 @@ const AdminInner = () => {
                 className="max-w-xs"
               />
             </CardHeader>
-            <CardContent>
+            <CardContent dir="rtl">
               {(() => {
                 const filtered = users.filter((u) => {
                   if (!search.trim()) return true;
                   const q = search.toLowerCase();
                   return (u.display_name || "").toLowerCase().includes(q) || u.id.toLowerCase().includes(q);
                 });
+                const allChecked = filtered.length > 0 && filtered.every((u) => selectedIds.has(u.id));
+                const someChecked = filtered.some((u) => selectedIds.has(u.id));
+                const toggleAll = (checked: boolean) => {
+                  setSelectedIds((prev) => {
+                    const n = new Set(prev);
+                    if (checked) filtered.forEach((u) => n.add(u.id));
+                    else filtered.forEach((u) => n.delete(u.id));
+                    return n;
+                  });
+                };
                 return (
                   <>
-                    {/* Mobile: cards */}
-                    <div className="md:hidden space-y-2">
-                      {filtered.map((u) => (
-                        <button
-                          key={u.id}
-                          onClick={() => setSelectedUserId(u.id)}
-                          className="w-full text-right p-3 rounded-lg border bg-card hover:bg-accent/30 transition"
-                        >
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <div className="font-medium truncate">{u.display_name || "—"}</div>
-                            <Badge variant="outline" className="shrink-0">
-                              {u.credits.toLocaleString("fa-IR")}
-                            </Badge>
-                          </div>
-                          <div className="text-xs text-muted-foreground font-mono mb-2">{u.id.slice(0, 8)}…</div>
-                          <div className="flex flex-wrap gap-1">
-                            {u.roles.length === 0 && <span className="text-xs text-muted-foreground">بدون نقش</span>}
-                            {u.roles.map((r) => (
-                              <Badge key={r} variant={r === "super_admin" ? "default" : "secondary"} className="text-[10px]">
-                                {ROLE_LABEL[r]}
-                              </Badge>
-                            ))}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
+                    {/* Bulk actions toolbar */}
+                    {selectedArr.length > 0 && (
+                      <div className="mb-3 p-3 rounded-lg border bg-accent/30 flex flex-wrap items-center gap-2 text-sm">
+                        <span className="font-medium">
+                          {selectedArr.length.toLocaleString("fa-IR")} کاربر انتخاب‌شده
+                        </span>
+                        <div className="h-4 w-px bg-border mx-1" />
+                        <Button size="sm" variant="outline" onClick={() => bulkSetActive(true)} className="gap-1">
+                          <Power className="w-3.5 h-3.5" /> فعال‌سازی
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => bulkSetActive(false)} className="gap-1">
+                          <PowerOff className="w-3.5 h-3.5" /> غیرفعال‌سازی
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={bulkAdjustCredits} className="gap-1">
+                          <CreditCard className="w-3.5 h-3.5" /> تنظیم اعتبار گروهی
+                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Select value={bulkRole} onValueChange={(v) => setBulkRole(v as AppRole)}>
+                            <SelectTrigger className="h-8 w-36"><SelectValue placeholder="انتخاب نقش…" /></SelectTrigger>
+                            <SelectContent>
+                              {ALL_ROLES.map((r) => (
+                                <SelectItem key={r} value={r}>{ROLE_LABEL[r]}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button size="sm" variant="outline" onClick={bulkGrantRole} disabled={!bulkRole} className="gap-1">
+                            <Plus className="w-3.5 h-3.5" /> اعطا
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={bulkRevokeRole} disabled={!bulkRole} className="gap-1">
+                            <Minus className="w-3.5 h-3.5" /> لغو
+                          </Button>
+                        </div>
+                        <div className="flex-1" />
+                        <Button size="sm" variant="destructive" onClick={bulkDelete} className="gap-1">
+                          <Trash2 className="w-3.5 h-3.5" /> حذف کامل
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                          پاک‌کردن انتخاب
+                        </Button>
+                      </div>
+                    )}
 
-                    {/* Desktop: table */}
-                    <div className="hidden md:block">
+                    {/* Single responsive table for both mobile and desktop */}
+                    <div className="w-full overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>کاربر</TableHead>
-                            <TableHead>نقش‌ها</TableHead>
-                            <TableHead>اعتبار</TableHead>
-                            <TableHead className="w-32">عملیات</TableHead>
+                            <TableHead className="text-right w-10">
+                              <Checkbox
+                                checked={allChecked || (someChecked && "indeterminate")}
+                                onCheckedChange={(c) => toggleAll(!!c)}
+                                aria-label="انتخاب همه"
+                              />
+                            </TableHead>
+                            <TableHead className="text-right">کاربر</TableHead>
+                            <TableHead className="text-right">نقش‌ها</TableHead>
+                            <TableHead className="text-right whitespace-nowrap">اعتبار</TableHead>
+                            <TableHead className="text-right whitespace-nowrap">وضعیت</TableHead>
+                            <TableHead className="text-right whitespace-nowrap w-28">عملیات</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filtered.map((u) => (
-                            <TableRow
-                              key={u.id}
-                              className="cursor-pointer hover:bg-accent/20"
-                              onClick={() => setSelectedUserId(u.id)}
-                            >
-                              <TableCell>
-                                <div className="font-medium">{u.display_name || "—"}</div>
-                                <div className="text-xs text-muted-foreground font-mono">{u.id.slice(0, 8)}…</div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap gap-1">
-                                  {u.roles.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
-                                  {u.roles.map((r) => (
-                                    <Badge key={r} variant={r === "super_admin" ? "default" : "secondary"} className="text-[10px]">
-                                      {ROLE_LABEL[r]}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline">{u.credits.toLocaleString("fa-IR")}</Badge>
-                              </TableCell>
-                              <TableCell onClick={(e) => e.stopPropagation()}>
-                                <Button size="sm" variant="outline" onClick={() => setSelectedUserId(u.id)}>
-                                  جزئیات
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {filtered.map((u) => {
+                            const checked = selectedIds.has(u.id);
+                            return (
+                              <TableRow
+                                key={u.id}
+                                data-state={checked ? "selected" : undefined}
+                                className={`hover:bg-accent/20 ${u.is_active ? "" : "opacity-60"}`}
+                              >
+                                <TableCell onClick={(e) => e.stopPropagation()}>
+                                  <Checkbox
+                                    checked={checked}
+                                    onCheckedChange={(c) => toggleOne(u.id, !!c)}
+                                    aria-label="انتخاب کاربر"
+                                  />
+                                </TableCell>
+                                <TableCell className="cursor-pointer" onClick={() => setSelectedUserId(u.id)}>
+                                  <div className="font-medium truncate max-w-[200px]">{u.display_name || "—"}</div>
+                                  <div className="text-xs text-muted-foreground font-mono">{u.id.slice(0, 8)}…</div>
+                                </TableCell>
+                                <TableCell className="cursor-pointer" onClick={() => setSelectedUserId(u.id)}>
+                                  <div className="flex flex-wrap gap-1">
+                                    {u.roles.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                                    {u.roles.map((r) => (
+                                      <Badge key={r} variant={r === "super_admin" ? "default" : "secondary"} className="text-[10px]">
+                                        {ROLE_LABEL[r]}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setSelectedUserId(u.id)}>
+                                  <Badge variant="outline">{u.credits.toLocaleString("fa-IR")}</Badge>
+                                </TableCell>
+                                <TableCell className="whitespace-nowrap">
+                                  {u.is_active ? (
+                                    <Badge variant="secondary" className="text-[10px]">فعال</Badge>
+                                  ) : (
+                                    <Badge variant="destructive" className="text-[10px]">غیرفعال</Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell onClick={(e) => e.stopPropagation()} className="whitespace-nowrap">
+                                  <Button size="sm" variant="outline" onClick={() => setSelectedUserId(u.id)}>
+                                    جزئیات
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     </div>
