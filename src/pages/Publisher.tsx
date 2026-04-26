@@ -53,7 +53,7 @@ interface PublisherStorefront {
 
 const Publisher = () => {
   const { id: paramId } = useParams<{ id: string }>();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { lang } = useI18n();
   const nav = useNavigate();
 
@@ -71,6 +71,7 @@ const Publisher = () => {
   const [salesDetailFor, setSalesDetailFor] = useState<Book | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
     if (paramId === "me" && !user) {
       nav("/auth");
       return;
@@ -135,7 +136,7 @@ const Publisher = () => {
     })();
 
     return () => { cancelled = true; };
-  }, [targetId, isMe, paramId, user, nav]);
+  }, [targetId, isMe, paramId, user, authLoading, nav]);
 
   const stats = useMemo(() => {
     const total = books.length;
@@ -154,7 +155,7 @@ const Publisher = () => {
     setConfirmDelete(null);
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <main className="container py-20 flex justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-accent" />
