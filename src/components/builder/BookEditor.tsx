@@ -148,6 +148,7 @@ const draftToBlock = (b: BlockDraft): any | null => {
             src: b.src,
             caption: b.caption,
             hideCaption: b.hideCaption,
+            hotspots: b.hotspots && b.hotspots.length ? b.hotspots : undefined,
           }
         : null;
     case "gallery":
