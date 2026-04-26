@@ -14,6 +14,82 @@ export type Database = {
   }
   public: {
     Tables: {
+      book_editors: {
+        Row: {
+          book_id: string
+          can_publish: boolean
+          created_at: string
+          editor_id: string
+          granted_by: string
+          id: string
+        }
+        Insert: {
+          book_id: string
+          can_publish?: boolean
+          created_at?: string
+          editor_id: string
+          granted_by: string
+          id?: string
+        }
+        Update: {
+          book_id?: string
+          can_publish?: boolean
+          created_at?: string
+          editor_id?: string
+          granted_by?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_editors_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      book_reviews: {
+        Row: {
+          body: string
+          book_id: string
+          created_at: string
+          id: string
+          is_official: boolean
+          rating: number | null
+          reviewer_id: string
+          title: string | null
+        }
+        Insert: {
+          body: string
+          book_id: string
+          created_at?: string
+          id?: string
+          is_official?: boolean
+          rating?: number | null
+          reviewer_id: string
+          title?: string | null
+        }
+        Update: {
+          body?: string
+          book_id?: string
+          created_at?: string
+          id?: string
+          is_official?: boolean
+          rating?: number | null
+          reviewer_id?: string
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_reviews_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       books: {
         Row: {
           ai_audio_url: string | null
@@ -34,6 +110,10 @@ export type Database = {
           published_at: string | null
           publisher: string | null
           publisher_id: string | null
+          reject_reason: string | null
+          review_status: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           slug: string | null
           status: string
           tags: string[] | null
@@ -61,6 +141,10 @@ export type Database = {
           published_at?: string | null
           publisher?: string | null
           publisher_id?: string | null
+          reject_reason?: string | null
+          review_status?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           slug?: string | null
           status?: string
           tags?: string[] | null
@@ -88,6 +172,10 @@ export type Database = {
           published_at?: string | null
           publisher?: string | null
           publisher_id?: string | null
+          reject_reason?: string | null
+          review_status?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           slug?: string | null
           status?: string
           tags?: string[] | null
@@ -95,6 +183,72 @@ export type Database = {
           title_en?: string | null
           typography_preset?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      credit_purchase_requests: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          note: string | null
+          payment_reference: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          payment_reference?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          payment_reference?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      credit_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          metadata: Json | null
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          metadata?: Json | null
+          reason: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          metadata?: Json | null
+          reason?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -166,6 +320,96 @@ export type Database = {
         }
         Relationships: []
       }
+      publisher_profiles: {
+        Row: {
+          banner_url: string | null
+          bio: string | null
+          created_at: string
+          display_name: string
+          id: string
+          is_active: boolean
+          is_trusted: boolean
+          logo_url: string | null
+          slug: string
+          theme: string | null
+          updated_at: string
+          user_id: string
+          website: string | null
+        }
+        Insert: {
+          banner_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name: string
+          id?: string
+          is_active?: boolean
+          is_trusted?: boolean
+          logo_url?: string | null
+          slug: string
+          theme?: string | null
+          updated_at?: string
+          user_id: string
+          website?: string | null
+        }
+        Update: {
+          banner_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          is_trusted?: boolean
+          logo_url?: string | null
+          slug?: string
+          theme?: string | null
+          updated_at?: string
+          user_id?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      publisher_upgrade_requests: {
+        Row: {
+          bio: string | null
+          created_at: string
+          credits_offered: number
+          display_name: string
+          id: string
+          reject_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          user_id: string
+          website: string | null
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string
+          credits_offered?: number
+          display_name: string
+          id?: string
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id: string
+          website?: string | null
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string
+          credits_offered?: number
+          display_name?: string
+          id?: string
+          reject_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       user_books: {
         Row: {
           acquired_via: string
@@ -213,15 +457,59 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          granted_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      can_edit_book: {
+        Args: { _book_id: string; _user_id: string }
+        Returns: boolean
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_publisher: { Args: { _user_id: string }; Returns: boolean }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role:
+        | "super_admin"
+        | "admin"
+        | "moderator"
+        | "reviewer"
+        | "publisher"
+        | "editor"
+        | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -348,6 +636,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: [
+        "super_admin",
+        "admin",
+        "moderator",
+        "reviewer",
+        "publisher",
+        "editor",
+        "user",
+      ],
+    },
   },
 } as const

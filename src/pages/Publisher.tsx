@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Briefcase, Plus, Pencil, Trash2, Eye, BookOpen, Users, FileEdit,
-  CheckCircle2, ExternalLink, Loader2,
+  CheckCircle2, ExternalLink, Loader2, Settings,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,6 +38,15 @@ interface PublisherProfile {
   avatar_url: string | null;
 }
 
+interface PublisherStorefront {
+  display_name: string;
+  bio: string | null;
+  banner_url: string | null;
+  logo_url: string | null;
+  theme: string | null;
+  is_trusted: boolean;
+}
+
 const Publisher = () => {
   const { id: paramId } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -49,6 +58,7 @@ const Publisher = () => {
 
   const [books, setBooks] = useState<Book[]>([]);
   const [profile, setProfile] = useState<PublisherProfile | null>(null);
+  const [storefront, setStorefront] = useState<PublisherStorefront | null>(null);
   const [readerStats, setReaderStats] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<Book | null>(null);
@@ -63,21 +73,22 @@ const Publisher = () => {
 
     (async () => {
       setLoading(true);
-      const [{ data: bookList }, { data: prof }] = await Promise.all([
+      const [{ data: bookList }, { data: prof }, { data: sf }] = await Promise.all([
         supabase
           .from("books")
           .select("*")
           .eq("publisher_id", targetId)
           .order("created_at", { ascending: false }),
         supabase.from("profiles").select("id, display_name, avatar_url").eq("id", targetId).maybeSingle(),
+        supabase.from("publisher_profiles").select("display_name, bio, banner_url, logo_url, theme, is_trusted").eq("user_id", targetId).maybeSingle(),
       ]);
       if (cancelled) return;
 
       const list = (bookList as Book[]) ?? [];
-      // For public storefront, hide drafts
       const visible = isMe ? list : list.filter((b) => b.status === "published");
       setBooks(visible);
       setProfile((prof as PublisherProfile) ?? null);
+      setStorefront((sf as PublisherStorefront) ?? null);
 
       // Reader counts via user_books
       if (visible.length) {
@@ -123,9 +134,7 @@ const Publisher = () => {
     );
   }
 
-  const displayName = profile?.display_name || (isMe
-    ? (lang === "fa" ? "ناشر" : "Publisher")
-    : (lang === "fa" ? "ناشر" : "Publisher"));
+  const displayName = storefront?.display_name || profile?.display_name || (lang === "fa" ? "ناشر" : "Publisher");
 
   return (
     <main className="container py-10 md:py-16 min-h-[calc(100vh-4rem)]">
@@ -150,10 +159,15 @@ const Publisher = () => {
           )}
         </div>
         {isMe ? (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Link to="/upload">
               <Button className="gap-2 bg-gradient-warm hover:opacity-90">
                 <Plus className="w-4 h-4" /> {lang === "fa" ? "کتاب جدید" : "New book"}
+              </Button>
+            </Link>
+            <Link to={`/publisher/${user?.id}/settings`}>
+              <Button variant="outline" className="gap-2">
+                <Settings className="w-4 h-4" /> {lang === "fa" ? "تنظیمات" : "Settings"}
               </Button>
             </Link>
             {user && (
