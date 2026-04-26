@@ -282,18 +282,19 @@ const PublisherSettings = () => {
 
               {selectedBookId && (
                 <>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="شناسه کاربری ادیتور (UUID)"
-                      value={editorEmail}
-                      onChange={(e) => setEditorEmail(e.target.value)}
-                    />
-                    <Button onClick={inviteEditor} className="gap-2 bg-gradient-warm shrink-0">
-                      <UserPlus className="w-4 h-4" /> افزودن
-                    </Button>
+                  <div className="rounded-lg border border-dashed p-4 bg-muted/30">
+                    <p className="text-sm mb-2">
+                      برای دعوت ادیتور جدید با ایمیل، از صفحهٔ مخصوص دعوت استفاده کنید.
+                    </p>
+                    <Link to="/editor-requests">
+                      <Button size="sm" variant="outline" className="gap-2">
+                        <UserPlus className="w-4 h-4" /> دعوت ادیتور با ایمیل
+                      </Button>
+                    </Link>
                   </div>
 
                   <div className="space-y-2">
+                    <h4 className="text-sm font-medium">ادیتورهای فعلی این کتاب</h4>
                     {bookEditors.length === 0 ? (
                       <p className="text-sm text-muted-foreground">ادیتوری برای این کتاب تعریف نشده.</p>
                     ) : (
@@ -316,7 +317,7 @@ const PublisherSettings = () => {
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    شناسه کاربری ادیتور را از پروفایل خودش دریافت کنید. در هر زمان می‌توانید دسترسی را پس بگیرید.
+                    در هر زمان می‌توانید دسترسی هر ادیتور را پس بگیرید.
                   </p>
                 </>
               )}
