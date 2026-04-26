@@ -120,10 +120,41 @@ export const Navbar = () => {
               {lang === "fa" ? "EN" : "فا"}
             </Button>
             {user ? (
-              <Button variant="outline" size="sm" onClick={handleSignOut} className="gap-1.5">
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">{t("nav_signout")}</span>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-2 px-2">
+                    <Avatar className="w-7 h-7">
+                      {profile?.avatar_url && <AvatarImage src={profile.avatar_url} />}
+                      <AvatarFallback className="text-xs bg-gradient-warm text-primary-foreground">
+                        {(profile?.display_name || user.email || "?").slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="hidden sm:inline max-w-[120px] truncate text-sm">
+                      {profile?.display_name || user.email?.split("@")[0]}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="glass-strong w-56">
+                  <DropdownMenuLabel className="truncate">
+                    {profile?.display_name || user.email?.split("@")[0]}
+                    <div className="text-xs text-muted-foreground font-normal truncate">{user.email}</div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => nav("/profile")} className="gap-2 cursor-pointer">
+                    <UserIcon className="w-4 h-4" /> پروفایل من
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => nav("/library")} className="gap-2 cursor-pointer">
+                    <Library className="w-4 h-4" /> کتابخانهٔ من
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => nav("/credits")} className="gap-2 cursor-pointer">
+                    <Coins className="w-4 h-4" /> اعتبار
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="gap-2 cursor-pointer text-destructive">
+                    <LogOut className="w-4 h-4" /> {t("nav_signout")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <Button size="sm" onClick={() => nav("/auth")} className="gap-1.5 bg-gradient-warm hover:opacity-90">
                 <LogIn className="w-4 h-4" />
