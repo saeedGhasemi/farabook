@@ -746,6 +746,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
                       isSelected={selectedBlockIdx === bi}
                       onSelect={() => setSelectedBlockIdx(bi)}
                       onUpdate={(patch) => updateBlock(activePageIdx, bi, patch)}
+                      onReplace={(next) => replaceBlock(activePageIdx, bi, next)}
                       onDelete={() => removeBlock(activePageIdx, bi)}
                       onDuplicate={() => duplicateBlock(activePageIdx, bi)}
                       onMoveUp={bi > 0 ? () => moveBlock(activePageIdx, bi, -1) : undefined}
