@@ -4,13 +4,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Loader2, Pencil } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Pencil, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { BookEditor, draftsFromDbPages } from "@/components/builder/BookEditor";
+import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
 
 const Edit = () => {
   const { id } = useParams();
