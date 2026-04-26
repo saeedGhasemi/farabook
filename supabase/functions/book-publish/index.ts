@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
     // ---- 1. AI Summary -------------------------------------------------
     let aiSummary: string | null = null;
     if (body.generateSummary && LOVABLE_API_KEY) {
-      const text = extractText(book.pages as any[]);
+      const text = bookText;
       if (text.trim().length > 50) {
         const sys = fa
           ? "تو یک ویراستار حرفه‌ای کتاب هستی. متن کتاب را بخوان و یک خلاصهٔ گیرا و توصیفی در دو تا سه پاراگراف به فارسی روان بنویس. لحن کتاب را حفظ کن. فقط خلاصه را بنویس، بدون مقدمه یا پایان."
