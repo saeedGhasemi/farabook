@@ -16,6 +16,9 @@ import { toast } from "sonner";
 import { resolveBookMedia } from "@/lib/book-media";
 import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
 import { bookCreditCost, purchaseBookWithCredits } from "@/lib/purchase";
+import { ConfirmTransactionDialog } from "@/components/ConfirmTransactionDialog";
+import { useCredits } from "@/hooks/useCredits";
+import { useNavigate } from "react-router-dom";
 
 const resolveCover = (s: string | null) => resolveBookMedia(s);
 
@@ -37,6 +40,8 @@ interface Book {
 const Store = () => {
   const { t, lang } = useI18n();
   const { user } = useAuth();
+  const nav = useNavigate();
+  const { credits } = useCredits();
   const [searchParams, setSearchParams] = useSearchParams();
   const [books, setBooks] = useState<Book[]>([]);
   const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
@@ -45,6 +50,7 @@ const Store = () => {
   const cat = searchParams.get("cat");
   const [confirmDelete, setConfirmDelete] = useState<Book | null>(null);
   const [previewBook, setPreviewBook] = useState<Book | null>(null);
+  const [confirmBuy, setConfirmBuy] = useState<Book | null>(null);
 
   const reload = () => {
     supabase.from("books")
@@ -85,12 +91,19 @@ const Store = () => {
     setConfirmDelete(null);
   };
 
-  const handleAdd = async (book: Book) => {
-    if (!user) { toast.error(t("nav_signin")); return; }
+  const requestBuy = (book: Book) => {
+    if (!user) { toast.error(t("nav_signin")); nav("/auth"); return; }
+    setConfirmBuy(book);
+  };
+
+  const performBuy = async (book: Book) => {
+    setConfirmBuy(null);
     const res = await purchaseBookWithCredits({
       bookId: book.id,
       bookTitle: lang === "en" && book.title_en ? book.title_en : book.title,
+      bookPrice: book.price,
       lang,
+      navigate: (to) => nav(to),
     });
     if (res?.ok) setOwned((prev) => new Set(prev).add(book.id));
   };
