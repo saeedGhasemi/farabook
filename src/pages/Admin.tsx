@@ -63,8 +63,8 @@ const AdminInner = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkRole, setBulkRole] = useState<AppRole | "">("");
   const [editId, setEditId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<{ display_name: string; username: string; national_id: string }>({
-    display_name: "", username: "", national_id: "",
+  const [editDraft, setEditDraft] = useState<{ display_name: string; username: string; national_id: string; email: string }>({
+    display_name: "", username: "", national_id: "", email: "",
   });
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
@@ -251,6 +251,7 @@ const AdminInner = () => {
       display_name: u.display_name || "",
       username: u.username || "",
       national_id: u.national_id || "",
+      email: u.email || "",
     });
   };
 
