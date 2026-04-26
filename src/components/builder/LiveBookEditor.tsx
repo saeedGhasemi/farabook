@@ -1182,7 +1182,20 @@ const InsertSlot = ({
 /*  Text-type switcher — convert paragraph ↔ heading ↔ quote ↔ callout */
 /* ------------------------------------------------------------------ */
 
-type TextStyleId = "paragraph" | "heading" | "quote" | "callout-info" | "callout-sparkle";
+type CalloutVariant = "info" | "sparkle" | "tip" | "warning" | "success" | "danger" | "note" | "question" | "quote";
+type TextStyleId = "paragraph" | "heading" | "quote" | `callout-${CalloutVariant}`;
+
+export const CALLOUT_VARIANTS: { id: CalloutVariant; symbol: string; fa: string; en: string }[] = [
+  { id: "info",     symbol: "ℹ️", fa: "اطلاعات",  en: "Info" },
+  { id: "tip",      symbol: "💡", fa: "نکته",     en: "Tip" },
+  { id: "sparkle",  symbol: "✨", fa: "هایلایت",   en: "Highlight" },
+  { id: "warning",  symbol: "⚠️", fa: "هشدار",    en: "Warning" },
+  { id: "danger",   symbol: "⛔", fa: "خطر",      en: "Danger" },
+  { id: "success",  symbol: "✅", fa: "موفقیت",    en: "Success" },
+  { id: "note",     symbol: "📝", fa: "یادداشت",  en: "Note" },
+  { id: "question", symbol: "❓", fa: "پرسش",     en: "Question" },
+  { id: "quote",    symbol: "❝",  fa: "گفتاورد",  en: "Pull-quote" },
+];
 
 const isTextLike = (b: BlockDraft) =>
   b.kind === "paragraph" ||
@@ -1194,7 +1207,7 @@ const currentTextStyle = (b: BlockDraft): TextStyleId | null => {
   if (b.kind === "paragraph") return "paragraph";
   if (b.kind === "heading") return "heading";
   if (b.kind === "quote") return "quote";
-  if (b.kind === "callout") return b.icon === "sparkle" ? "callout-sparkle" : "callout-info";
+  if (b.kind === "callout") return `callout-${(b.icon || "info") as CalloutVariant}`;
   return null;
 };
 
@@ -1202,13 +1215,12 @@ const currentTextStyle = (b: BlockDraft): TextStyleId | null => {
 const convertTextBlock = (b: BlockDraft, target: TextStyleId): BlockDraft => {
   const text = (b as any).text || "";
   const author = (b as any).author || "";
-  switch (target) {
-    case "paragraph":  return { kind: "paragraph", text };
-    case "heading":    return { kind: "heading", text };
-    case "quote":      return { kind: "quote", text, author };
-    case "callout-info":     return { kind: "callout", icon: "info", text };
-    case "callout-sparkle":  return { kind: "callout", icon: "sparkle", text };
-  }
+  if (target === "paragraph") return { kind: "paragraph", text };
+  if (target === "heading")   return { kind: "heading", text };
+  if (target === "quote")     return { kind: "quote", text, author };
+  // callout-<variant>
+  const variant = target.slice("callout-".length) as CalloutVariant;
+  return { kind: "callout", icon: variant, text };
 };
 
 const TextTypeSwitcher = ({
@@ -1222,11 +1234,15 @@ const TextTypeSwitcher = ({
   const fa = lang === "fa";
   const current = currentTextStyle(block);
   const items: { id: TextStyleId; label: string; symbol: string; title: string }[] = [
-    { id: "paragraph",       symbol: "P",  label: fa ? "متن" : "Text",          title: fa ? "متن معمولی" : "Paragraph" },
-    { id: "heading",         symbol: "H",  label: fa ? "عنوان" : "Heading",     title: fa ? "تبدیل به عنوان/سرفصل" : "Convert to heading" },
-    { id: "quote",           symbol: "❝",  label: fa ? "نقل قول" : "Quote",     title: fa ? "تبدیل به نقل قول" : "Convert to quote" },
-    { id: "callout-info",    symbol: "💡", label: fa ? "نکته" : "Note",         title: fa ? "تبدیل به نکته" : "Convert to callout" },
-    { id: "callout-sparkle", symbol: "✨", label: fa ? "هایلایت" : "Highlight", title: fa ? "تبدیل به برجسته/هایلایت" : "Convert to highlight" },
+    { id: "paragraph", symbol: "P",  label: fa ? "متن" : "Text",      title: fa ? "متن معمولی" : "Paragraph" },
+    { id: "heading",   symbol: "H",  label: fa ? "عنوان" : "Heading", title: fa ? "تبدیل به عنوان" : "Convert to heading" },
+    { id: "quote",     symbol: "❝",  label: fa ? "نقل قول" : "Quote", title: fa ? "تبدیل به نقل قول" : "Convert to quote" },
+    ...CALLOUT_VARIANTS.map((v) => ({
+      id: `callout-${v.id}` as TextStyleId,
+      symbol: v.symbol,
+      label: fa ? v.fa : v.en,
+      title: fa ? `تبدیل به ${v.fa}` : `Convert to ${v.en}`,
+    })),
   ];
   return (
     <div
