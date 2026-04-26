@@ -16,7 +16,7 @@ import {
   Plus, Trash2, Image as ImageIcon, Video, Layers, Type, ChevronUp,
   ChevronDown, FileText, Quote as QuoteIcon, Lightbulb, GalleryHorizontal,
   ListOrdered, Save, Loader2, EyeOff, Rocket, Eye, X, Copy,
-  PanelLeft, PanelRight, Sparkles, GripVertical, FileImage,
+  PanelLeft, PanelRight, Sparkles, GripVertical, FileImage, Scissors,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
