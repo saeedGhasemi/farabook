@@ -4,13 +4,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Loader2, Pencil } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Pencil, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { BookEditor, draftsFromDbPages } from "@/components/builder/BookEditor";
+import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
 
 const Edit = () => {
   const { id } = useParams();
@@ -21,6 +22,8 @@ const Edit = () => {
 
   const [loading, setLoading] = useState(true);
   const [initial, setInitial] = useState<Parameters<typeof BookEditor>[0]["initial"] | null>(null);
+  const [previewBook, setPreviewBook] = useState<any>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -32,7 +35,7 @@ const Edit = () => {
     (async () => {
       const { data, error } = await supabase
         .from("books")
-        .select("id, title, author, description, cover_url, pages, publisher_id, status, typography_preset, author_user_id")
+        .select("id, title, author, description, cover_url, pages, publisher_id, status, typography_preset, author_user_id, category, price")
         .eq("id", id)
         .maybeSingle();
       if (error || !data) {
@@ -68,6 +71,16 @@ const Edit = () => {
         typography_preset: data.typography_preset,
         author_user_id: (data as any).author_user_id ?? null,
       });
+      setPreviewBook({
+        id: data.id,
+        title: data.title,
+        author: data.author,
+        cover_url: data.cover_url,
+        description: data.description,
+        category: (data as any).category ?? null,
+        price: Number((data as any).price ?? 0),
+        publisher_id: data.publisher_id,
+      });
       setLoading(false);
     })();
   }, [id, user, authLoading, nav, lang]);
@@ -98,9 +111,28 @@ const Edit = () => {
             · {lang === "fa" ? "ذخیره خودکار فعال" : "Autosaving"}
           </span>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ms-auto h-8 gap-1.5"
+          onClick={() => setPreviewOpen(true)}
+        >
+          <Eye className="w-4 h-4" />
+          {lang === "fa" ? "پیش‌نمایش فروشگاه" : "Store preview"}
+        </Button>
       </motion.div>
 
       <BookEditor initial={initial} />
+
+      <BookPreviewDialog
+        book={previewBook}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        isOwned={false}
+        isOwner={true}
+        canBuy={false}
+        onBuy={() => {}}
+      />
     </main>
   );
 };

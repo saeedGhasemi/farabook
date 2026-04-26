@@ -5,6 +5,7 @@ import {
   Briefcase, Plus, Pencil, Trash2, Eye, BookOpen, Users, FileEdit,
   CheckCircle2, ExternalLink, Loader2, Settings,
 } from "lucide-react";
+import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/lib/i18n";
@@ -62,6 +63,7 @@ const Publisher = () => {
   const [readerStats, setReaderStats] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<Book | null>(null);
+  const [previewBook, setPreviewBook] = useState<Book | null>(null);
 
   useEffect(() => {
     if (paramId === "me" && !user) {
@@ -279,6 +281,15 @@ const Publisher = () => {
                             <Pencil className="w-3.5 h-3.5" /> {lang === "fa" ? "ویرایش" : "Edit"}
                           </Button>
                         </Link>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() => setPreviewBook(book)}
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          {lang === "fa" ? "پیش‌نمایش" : "Preview"}
+                        </Button>
                         {isDraft && (
                           <Link to={`/publish/${book.id}`}>
                             <Button size="sm" className="gap-1.5 bg-gradient-warm">
@@ -329,6 +340,25 @@ const Publisher = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BookPreviewDialog
+        book={previewBook ? {
+          id: previewBook.id,
+          title: previewBook.title,
+          author: previewBook.author,
+          cover_url: previewBook.cover_url,
+          description: previewBook.description,
+          category: previewBook.category,
+          price: previewBook.price,
+          publisher_id: previewBook.publisher_id,
+        } : null}
+        open={!!previewBook}
+        onOpenChange={(o) => !o && setPreviewBook(null)}
+        isOwned={false}
+        isOwner={true}
+        canBuy={false}
+        onBuy={() => {}}
+      />
     </main>
   );
 };

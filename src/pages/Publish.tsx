@@ -57,6 +57,8 @@ const Publish = () => {
   const [book, setBook] = useState<BookRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [estimatedFee, setEstimatedFee] = useState(0);
+  const [estimatedFactor, setEstimatedFactor] = useState(1);
   const { credits } = useCredits();
 
   // Form
@@ -124,9 +126,26 @@ const Publish = () => {
     );
   };
 
-  const handlePublish = async () => {
+  const openPublishConfirm = async () => {
     if (!book) return;
     if (!title.trim()) { toast.error(lang === "fa" ? "عنوان لازم است" : "Title required"); return; }
+    // Already paid → skip confirm (no fee)
+    if (book.first_published_paid) { setEstimatedFee(0); setEstimatedFactor(1); setConfirmOpen(true); return; }
+    const factor = estimateComplexity(book.pages || []);
+    setEstimatedFactor(factor);
+    // Pull current fee settings
+    const { data: fee } = await supabase.from("platform_fee_settings").select("book_publish_mode, book_publish_value").eq("id", 1).maybeSingle();
+    const base = Number(book.price) || 0;
+    const mode = (fee as any)?.book_publish_mode || "fixed";
+    const value = Number((fee as any)?.book_publish_value || 50);
+    const baseFee = mode === "percent" ? Math.round((base * value) / 100) : Math.round(value);
+    setEstimatedFee(Math.max(0, baseFee * factor));
+    setConfirmOpen(true);
+  };
+
+  const handlePublish = async () => {
+    if (!book) return;
+    setConfirmOpen(false);
     setBusy(true);
     try {
       // 1) First-time publish fee (auto complexity, deducted from publisher)
@@ -138,7 +157,7 @@ const Publish = () => {
         );
         if (payErr) {
           if (String(payErr.message).includes("insufficient_credits")) {
-            showInsufficientCreditsToast(lang, 0, (to) => nav(to));
+            showInsufficientCreditsToast(lang, estimatedFee, (to) => nav(to));
             setBusy(false);
             return;
           }
@@ -487,7 +506,7 @@ const Publish = () => {
                 : "After publishing, the book becomes visible in the store."}
             </p>
             <Button
-              onClick={handlePublish}
+              onClick={openPublishConfirm}
               disabled={busy}
               className="bg-gradient-warm hover:opacity-90 gap-2"
             >
@@ -500,6 +519,26 @@ const Publish = () => {
           </div>
         </div>
       </div>
+
+      <ConfirmTransactionDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={lang === "fa" ? "تأیید انتشار کتاب" : "Confirm publication"}
+        description={
+          book.first_published_paid
+            ? (lang === "fa"
+                ? "این کتاب قبلاً منتشر شده و هزینه‌ای کسر نمی‌شود؛ فقط به‌روزرسانی انجام می‌شود."
+                : "Already paid; only metadata will be updated.")
+            : (lang === "fa"
+                ? `هزینه انتشار با توجه به حجم/پیچیدگی کتاب، با ضریب ${estimatedFactor}× محاسبه شده است.`
+                : `Publish fee calculated using a complexity factor of ${estimatedFactor}×.`)
+        }
+        currentBalance={credits}
+        cost={estimatedFee}
+        lang={lang}
+        confirmLabel={lang === "fa" ? "تأیید و انتشار" : "Confirm & publish"}
+        onConfirm={handlePublish}
+      />
     </main>
   );
 };
