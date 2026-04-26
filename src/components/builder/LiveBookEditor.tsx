@@ -65,6 +65,7 @@ const draftToRuntimeBlock = (b: BlockDraft): Block | null => {
         src: b.src || "",
         caption: b.caption,
         hideCaption: b.hideCaption,
+        hotspots: b.hotspots && b.hotspots.length ? b.hotspots : undefined,
       };
     case "gallery":
       return { type: "gallery", images: b.images, caption: b.caption };
