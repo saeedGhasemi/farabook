@@ -446,6 +446,48 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
       },
     );
   };
+
+  /**
+   * Word-like Enter behavior: split a text block at the cursor into two
+   * paragraphs. Keeps text before the cursor in the current block; moves
+   * text after into a new paragraph block right after it.
+   */
+  const splitTextBlockAtCursor = (
+    pi: number,
+    bi: number,
+    before: string,
+    after: string,
+  ) => {
+    setPages((ps) =>
+      ps.map((p, i) => {
+        if (i !== pi) return p;
+        const arr = [...p.blocks];
+        const cur = arr[bi] as any;
+        if (!cur) return p;
+        arr[bi] = { ...cur, text: before };
+        arr.splice(bi + 1, 0, { kind: "paragraph", text: after });
+        return { ...p, blocks: arr };
+      }),
+    );
+    setSelectedBlockIdx(bi + 1);
+    markDirty();
+  };
+
+  /** Backspace at start of empty block: delete it & focus previous. */
+  const mergeWithPreviousBlock = (pi: number, bi: number) => {
+    if (bi === 0) return;
+    setPages((ps) =>
+      ps.map((p, i) => {
+        if (i !== pi) return p;
+        const arr = [...p.blocks];
+        arr.splice(bi, 1);
+        return { ...p, blocks: arr };
+      }),
+    );
+    setSelectedBlockIdx(bi - 1);
+    markDirty();
+  };
+
   const uploadToBucket = useCallback(
     async (file: File, prefix = "edit"): Promise<string | null> => {
       if (!user) return null;
