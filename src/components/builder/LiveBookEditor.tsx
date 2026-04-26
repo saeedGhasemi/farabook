@@ -1210,20 +1210,32 @@ const InlineTextBlock = ({
 /* ------------------------------------------------------------------ */
 
 const Inspector = ({
-  block, onUpdate, uploadFile, lang,
+  block, onUpdate, onReplace, uploadFile, lang,
 }: {
   block: BlockDraft;
   onUpdate: (patch: Partial<BlockDraft>) => void;
+  onReplace: (next: BlockDraft) => void;
   uploadFile: (f: File, prefix?: string) => Promise<string | null>;
   lang: "fa" | "en";
 }) => {
   const fa = lang === "fa";
+
+  // Shared header for text-like blocks: "Convert to" type switcher
+  const TextStyleHeader = (
+    <div className="space-y-1.5 pb-2 mb-2 border-b border-border">
+      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        {fa ? "تبدیل به" : "Convert to"}
+      </Label>
+      <TextTypeSwitcher block={block} onConvert={onReplace} lang={lang} />
+    </div>
+  );
 
   switch (block.kind) {
     case "heading":
     case "paragraph":
       return (
         <div className="space-y-2">
+          {TextStyleHeader}
           <Label className="text-xs">{fa ? "متن" : "Text"}</Label>
           <Textarea
             value={block.text}
@@ -1239,6 +1251,7 @@ const Inspector = ({
     case "quote":
       return (
         <div className="space-y-2">
+          {TextStyleHeader}
           <Label className="text-xs">{fa ? "متن نقل قول" : "Quote text"}</Label>
           <Textarea
             value={block.text}
@@ -1256,6 +1269,7 @@ const Inspector = ({
     case "callout":
       return (
         <div className="space-y-2">
+          {TextStyleHeader}
           <Label className="text-xs">{fa ? "نوع" : "Style"}</Label>
           <div className="flex gap-1">
             {(["info", "sparkle"] as const).map((v) => (
