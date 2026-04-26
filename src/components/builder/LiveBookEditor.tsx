@@ -16,7 +16,7 @@ import {
   Plus, Trash2, Image as ImageIcon, Video, Layers, Type, ChevronUp,
   ChevronDown, FileText, Quote as QuoteIcon, Lightbulb, GalleryHorizontal,
   ListOrdered, Save, Loader2, EyeOff, Rocket, Eye, X, Copy,
-  PanelLeft, PanelRight, Sparkles, GripVertical, FileImage,
+  PanelLeft, PanelRight, Sparkles, GripVertical, FileImage, Scissors,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -385,7 +385,53 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
     markDirty();
   };
 
-  /* ---------- upload helper ---------- */
+  /**
+   * Split the page at block `bi` into a new chapter that follows it.
+   * The selected block becomes the title of the new chapter; everything
+   * after it (and the block itself, converted to a paragraph if it wasn't
+   * already a heading) moves into the new page. The current page keeps
+   * everything before `bi`.
+   */
+  const splitToNewChapter = (pi: number, bi: number) => {
+    setPages((ps) => {
+      const arr = [...ps];
+      const src = arr[pi];
+      if (!src) return ps;
+      const before = src.blocks.slice(0, bi);
+      const pivot = src.blocks[bi];
+      const after = src.blocks.slice(bi + 1);
+
+      // Derive new chapter title from the pivot block's text if available
+      const pivotText = (pivot as any)?.text?.trim?.() || "";
+      const newTitle =
+        pivotText || (lang === "fa" ? "فصل جدید" : "New chapter");
+
+      // Body of new chapter:
+      //   • If pivot was a heading/text-like block whose text became the
+      //     title, drop it (avoid duplication) — unless it was a non-text
+      //     block (image, video, …) in which case keep it.
+      const isTextPivot = pivot && isTextLike(pivot);
+      const newBlocks: BlockDraft[] = [];
+      if (pivot && (!isTextPivot || !pivotText)) newBlocks.push(pivot);
+      newBlocks.push(...after);
+      if (newBlocks.length === 0) newBlocks.push({ kind: "paragraph", text: "" });
+
+      const newChapter: PageDraft = { title: newTitle, blocks: newBlocks };
+
+      // Make sure the original page still has at least one block
+      const updatedSrc: PageDraft = {
+        ...src,
+        blocks: before.length ? before : [{ kind: "paragraph", text: "" }],
+      };
+
+      arr.splice(pi, 1, updatedSrc, newChapter);
+      return arr;
+    });
+    setActivePageIdx(pi + 1);
+    setSelectedBlockIdx(null);
+    markDirty();
+    toast.success(lang === "fa" ? "فصل جدید ساخته شد" : "New chapter created");
+  };
   const uploadToBucket = useCallback(
     async (file: File, prefix = "edit"): Promise<string | null> => {
       if (!user) return null;
@@ -756,6 +802,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
                           : undefined
                       }
                       onSlash={() => setInsertAt(bi + 1)}
+                      onSplit={() => splitToNewChapter(activePageIdx, bi)}
                       lang={lang}
                     />
                     <InsertSlot
@@ -811,6 +858,11 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
                     block={selectedBlock}
                     onUpdate={(patch) => updateBlock(activePageIdx, selectedBlockIdx, patch)}
                     onReplace={(next) => replaceBlock(activePageIdx, selectedBlockIdx, next)}
+                    onSplit={
+                      selectedBlockIdx > 0 || activePage.blocks.length > 1
+                        ? () => splitToNewChapter(activePageIdx, selectedBlockIdx)
+                        : undefined
+                    }
                     uploadFile={uploadToBucket}
                     lang={lang}
                   />
@@ -1029,7 +1081,7 @@ const TextTypeSwitcher = ({
 
 const BlockShell = ({
   block, pageIndex, blockIndex, isSelected, onSelect, onUpdate, onReplace, onDelete,
-  onDuplicate, onMoveUp, onMoveDown, onSlash, lang,
+  onDuplicate, onMoveUp, onMoveDown, onSlash, onSplit, lang,
 }: {
   block: BlockDraft;
   pageIndex: number;
@@ -1043,6 +1095,7 @@ const BlockShell = ({
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   onSlash: () => void;
+  onSplit?: () => void;
   lang: "fa" | "en";
 }) => {
   const isText = isTextLike(block);
@@ -1091,6 +1144,16 @@ const BlockShell = ({
         <button onClick={onDuplicate} className="p-1 hover:bg-foreground/10 rounded" aria-label="duplicate">
           <Copy className="w-3 h-3" />
         </button>
+        {onSplit && (
+          <button
+            onClick={onSplit}
+            className="p-1 hover:bg-accent/15 text-accent rounded"
+            aria-label={lang === "fa" ? "تبدیل به فصل جدید" : "Split into new chapter"}
+            title={lang === "fa" ? "از اینجا فصل جدید بساز" : "Start a new chapter here"}
+          >
+            <Scissors className="w-3 h-3" />
+          </button>
+        )}
         <button onClick={onDelete} className="p-1 hover:bg-destructive/10 text-destructive rounded" aria-label="delete">
           <Trash2 className="w-3 h-3" />
         </button>
@@ -1210,23 +1273,37 @@ const InlineTextBlock = ({
 /* ------------------------------------------------------------------ */
 
 const Inspector = ({
-  block, onUpdate, onReplace, uploadFile, lang,
+  block, onUpdate, onReplace, onSplit, uploadFile, lang,
 }: {
   block: BlockDraft;
   onUpdate: (patch: Partial<BlockDraft>) => void;
   onReplace: (next: BlockDraft) => void;
+  onSplit?: () => void;
   uploadFile: (f: File, prefix?: string) => Promise<string | null>;
   lang: "fa" | "en";
 }) => {
   const fa = lang === "fa";
 
-  // Shared header for text-like blocks: "Convert to" type switcher
+  // Shared header for text-like blocks: "Convert to" type switcher +
+  // a one-click "promote to new chapter" action.
   const TextStyleHeader = (
-    <div className="space-y-1.5 pb-2 mb-2 border-b border-border">
+    <div className="space-y-2 pb-3 mb-3 border-b border-border">
       <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
         {fa ? "تبدیل به" : "Convert to"}
       </Label>
       <TextTypeSwitcher block={block} onConvert={onReplace} lang={lang} />
+      {onSplit && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onSplit}
+          className="w-full justify-start gap-2 h-8 text-xs"
+        >
+          <Scissors className="w-3.5 h-3.5 text-accent" />
+          {fa ? "تبدیل به سرفصل فصل جدید" : "Promote to new chapter"}
+        </Button>
+      )}
     </div>
   );
 
