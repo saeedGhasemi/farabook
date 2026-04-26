@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { resolveBookMedia } from "@/lib/book-media";
 import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
+import { bookCreditCost, purchaseBookWithCredits } from "@/lib/purchase";
 
 const resolveCover = (s: string | null) => resolveBookMedia(s);
 
@@ -86,14 +87,12 @@ const Store = () => {
 
   const handleAdd = async (book: Book) => {
     if (!user) { toast.error(t("nav_signin")); return; }
-    const { error } = await supabase.from("user_books").insert({
-      user_id: user.id,
-      book_id: book.id,
-      acquired_via: book.price === 0 ? "purchase" : "purchase",
+    const res = await purchaseBookWithCredits({
+      bookId: book.id,
+      bookTitle: lang === "en" && book.title_en ? book.title_en : book.title,
+      lang,
     });
-    if (error) { toast.error(error.message); return; }
-    setOwned((prev) => new Set(prev).add(book.id));
-    toast.success(t("added"));
+    if (res?.ok) setOwned((prev) => new Set(prev).add(book.id));
   };
 
   const filtered = books.filter((b) => {
@@ -192,9 +191,18 @@ const Store = () => {
                 )}
                 <p className="text-sm text-muted-foreground line-clamp-2 flex-1">{book.description}</p>
                 <div className="flex items-center justify-between gap-2 pt-2">
-                  <span className="font-semibold text-primary">
-                    {book.price === 0 ? t("free") : `${book.price.toLocaleString()} ${t("toman")}`}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-primary">
+                      {book.price === 0 ? t("free") : `${book.price.toLocaleString()} ${t("toman")}`}
+                    </span>
+                    {book.price > 0 && (
+                      <span className="text-[11px] text-muted-foreground">
+                        {lang === "fa"
+                          ? `${bookCreditCost(book.price).toLocaleString("fa-IR")} اعتبار`
+                          : `${bookCreditCost(book.price).toLocaleString()} credits`}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex gap-1.5">
                     <Button
                       size="sm"
