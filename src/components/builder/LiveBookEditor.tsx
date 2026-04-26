@@ -1490,7 +1490,6 @@ const InlineTextBlock = ({
 }) => {
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const [hasSelection, setHasSelection] = useState(false);
-  const [toolbarOpen, setToolbarOpen] = useToolbarOpen();
 
   // When this block becomes the selected one (e.g. after Enter splits a
   // paragraph or the user clicks it) auto-focus the cursor at the end so
