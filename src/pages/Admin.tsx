@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Shield, Users, CreditCard, BookCheck, UserPlus, Trash2, Loader2, Check, X, AlertCircle } from "lucide-react";
+import { Shield, Users, CreditCard, BookCheck, UserPlus, Trash2, Loader2, Check, X, AlertCircle, Power, PowerOff, Plus, Minus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { RoleGuard } from "@/components/RoleGuard";
 import { UserDetailDialog } from "@/components/admin/UserDetailDialog";
