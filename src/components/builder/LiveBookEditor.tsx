@@ -1297,6 +1297,7 @@ const Inspector = ({
   lang: "fa" | "en";
 }) => {
   const fa = lang === "fa";
+  const [uploading, setUploading] = useState(false);
 
   // Shared header for text-like blocks: "Convert to" type switcher +
   // a one-click "promote to new chapter" action.
