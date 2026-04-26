@@ -32,6 +32,7 @@ interface UserRow {
   display_name: string | null;
   roles: AppRole[];
   credits: number;
+  is_active: boolean;
 }
 
 const AdminInner = () => {
