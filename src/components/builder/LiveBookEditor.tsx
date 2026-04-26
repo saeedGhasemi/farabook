@@ -540,7 +540,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
                 {lang === "fa" ? "ذخیره…" : "Saving…"}
               </>
             ) : dirty ? (
-              <span className="text-amber-500">●</span>
+              <span className="text-accent">●</span>
             ) : lastSavedAt ? (
               <span>✓ {lastSavedAt.toLocaleTimeString()}</span>
             ) : (
