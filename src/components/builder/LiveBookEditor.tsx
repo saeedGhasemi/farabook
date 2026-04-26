@@ -1143,7 +1143,7 @@ const TextTypeSwitcher = ({
 
 const BlockShell = ({
   block, pageIndex, blockIndex, isSelected, onSelect, onUpdate, onReplace, onDelete,
-  onDuplicate, onMoveUp, onMoveDown, onSlash, onSplit, lang,
+  onDuplicate, onMoveUp, onMoveDown, onSlash, onSplit, onSplitAtCursor, onMergePrev, lang,
 }: {
   block: BlockDraft;
   pageIndex: number;
@@ -1158,6 +1158,8 @@ const BlockShell = ({
   onMoveDown?: () => void;
   onSlash: () => void;
   onSplit?: () => void;
+  onSplitAtCursor?: (before: string, after: string) => void;
+  onMergePrev?: () => void;
   lang: "fa" | "en";
 }) => {
   const isText = isTextLike(block);
