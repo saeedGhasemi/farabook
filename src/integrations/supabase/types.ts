@@ -100,6 +100,41 @@ export type Database = {
           },
         ]
       }
+      book_revenue_shares: {
+        Row: {
+          book_id: string
+          created_at: string
+          id: string
+          percent: number
+          role: string
+          user_id: string
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          id?: string
+          percent: number
+          role: string
+          user_id: string
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          id?: string
+          percent?: number
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_revenue_shares_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       book_reviews: {
         Row: {
           body: string
@@ -148,16 +183,19 @@ export type Database = {
           ambient_theme: string | null
           audience: string | null
           author: string
+          author_user_id: string | null
           category: string | null
           cover_url: string | null
           created_at: string
           description: string | null
+          first_published_paid: boolean
           id: string
           isbn: string | null
           language: string | null
           pages: Json
           preview_pages: number[] | null
           price: number
+          publish_complexity_factor: number | null
           published_at: string | null
           publisher: string | null
           publisher_id: string | null
@@ -179,16 +217,19 @@ export type Database = {
           ambient_theme?: string | null
           audience?: string | null
           author: string
+          author_user_id?: string | null
           category?: string | null
           cover_url?: string | null
           created_at?: string
           description?: string | null
+          first_published_paid?: boolean
           id?: string
           isbn?: string | null
           language?: string | null
           pages?: Json
           preview_pages?: number[] | null
           price?: number
+          publish_complexity_factor?: number | null
           published_at?: string | null
           publisher?: string | null
           publisher_id?: string | null
@@ -210,16 +251,19 @@ export type Database = {
           ambient_theme?: string | null
           audience?: string | null
           author?: string
+          author_user_id?: string | null
           category?: string | null
           cover_url?: string | null
           created_at?: string
           description?: string | null
+          first_published_paid?: boolean
           id?: string
           isbn?: string | null
           language?: string | null
           pages?: Json
           preview_pages?: number[] | null
           price?: number
+          publish_complexity_factor?: number | null
           published_at?: string | null
           publisher?: string | null
           publisher_id?: string | null
@@ -399,6 +443,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          link: string | null
+          metadata: Json | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          metadata?: Json | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          link?: string | null
+          metadata?: Json | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      platform_fee_settings: {
+        Row: {
+          book_publish_mode: string
+          book_publish_value: number
+          book_purchase_mode: string
+          book_purchase_value: number
+          editor_order_mode: string
+          editor_order_value: number
+          id: number
+          publisher_signup_mode: string
+          publisher_signup_value: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          book_publish_mode?: string
+          book_publish_value?: number
+          book_purchase_mode?: string
+          book_purchase_value?: number
+          editor_order_mode?: string
+          editor_order_value?: number
+          id?: number
+          publisher_signup_mode?: string
+          publisher_signup_value?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          book_publish_mode?: string
+          book_publish_value?: number
+          book_purchase_mode?: string
+          book_purchase_value?: number
+          editor_order_mode?: string
+          editor_order_value?: number
+          id?: number
+          publisher_signup_mode?: string
+          publisher_signup_value?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -642,9 +764,35 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_update_platform_fees: {
+        Args: { _settings: Json }
+        Returns: {
+          book_publish_mode: string
+          book_publish_value: number
+          book_purchase_mode: string
+          book_purchase_value: number
+          editor_order_mode: string
+          editor_order_value: number
+          id: number
+          publisher_signup_mode: string
+          publisher_signup_value: number
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "platform_fee_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       can_edit_book: {
         Args: { _book_id: string; _user_id: string }
         Returns: boolean
+      }
+      compute_fee: {
+        Args: { _base: number; _mode: string; _value: number }
+        Returns: number
       }
       find_user_by_email: { Args: { _email: string }; Returns: string }
       has_role: {
@@ -658,7 +806,19 @@ export type Database = {
       is_publisher: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_valid_iran_national_id: { Args: { _code: string }; Returns: boolean }
+      publish_book_paid: {
+        Args: { _book_id: string; _complexity?: number }
+        Returns: Json
+      }
       purchase_book: { Args: { _book_id: string }; Returns: Json }
+      request_publisher_upgrade_paid: {
+        Args: { _bio?: string; _display_name: string; _website?: string }
+        Returns: Json
+      }
+      set_book_revenue_shares: {
+        Args: { _book_id: string; _shares: Json }
+        Returns: Json
+      }
     }
     Enums: {
       app_role:
