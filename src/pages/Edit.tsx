@@ -66,6 +66,7 @@ const Edit = () => {
         cover_url: data.cover_url,
         pages: draftsFromDbPages(data.pages as any[]),
         typography_preset: data.typography_preset,
+        author_user_id: (data as any).author_user_id ?? null,
       });
       setLoading(false);
     })();
