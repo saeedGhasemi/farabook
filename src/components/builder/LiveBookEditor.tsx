@@ -393,6 +393,11 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
    * everything before `bi`.
    */
   const splitToNewChapter = (pi: number, bi: number) => {
+    // Snapshot for undo
+    const prevPages = pages;
+    const prevActive = activePageIdx;
+    const prevSelected = selectedBlockIdx;
+
     setPages((ps) => {
       const arr = [...ps];
       const src = arr[pi];
@@ -401,15 +406,10 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
       const pivot = src.blocks[bi];
       const after = src.blocks.slice(bi + 1);
 
-      // Derive new chapter title from the pivot block's text if available
       const pivotText = (pivot as any)?.text?.trim?.() || "";
       const newTitle =
         pivotText || (lang === "fa" ? "فصل جدید" : "New chapter");
 
-      // Body of new chapter:
-      //   • If pivot was a heading/text-like block whose text became the
-      //     title, drop it (avoid duplication) — unless it was a non-text
-      //     block (image, video, …) in which case keep it.
       const isTextPivot = pivot && isTextLike(pivot);
       const newBlocks: BlockDraft[] = [];
       if (pivot && (!isTextPivot || !pivotText)) newBlocks.push(pivot);
@@ -418,7 +418,6 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
 
       const newChapter: PageDraft = { title: newTitle, blocks: newBlocks };
 
-      // Make sure the original page still has at least one block
       const updatedSrc: PageDraft = {
         ...src,
         blocks: before.length ? before : [{ kind: "paragraph", text: "" }],
@@ -430,7 +429,22 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
     setActivePageIdx(pi + 1);
     setSelectedBlockIdx(null);
     markDirty();
-    toast.success(lang === "fa" ? "فصل جدید ساخته شد" : "New chapter created");
+    toast.success(
+      lang === "fa" ? "فصل جدید ساخته شد" : "New chapter created",
+      {
+        action: {
+          label: lang === "fa" ? "بازگردانی" : "Undo",
+          onClick: () => {
+            setPages(prevPages);
+            setActivePageIdx(prevActive);
+            setSelectedBlockIdx(prevSelected);
+            markDirty();
+            toast.message(lang === "fa" ? "بازگردانی شد" : "Reverted");
+          },
+        },
+        duration: 8000,
+      },
+    );
   };
   const uploadToBucket = useCallback(
     async (file: File, prefix = "edit"): Promise<string | null> => {
