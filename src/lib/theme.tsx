@@ -18,8 +18,8 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const root = document.documentElement;
-    // Sky is now default; silver/paper still toggle data-theme for overrides.
-    if (theme === "sky") root.removeAttribute("data-theme");
+    // Silver is the bare-:root palette; everything else sets data-theme.
+    if (theme === "silver") root.removeAttribute("data-theme");
     else root.setAttribute("data-theme", theme);
     localStorage.setItem("ui-theme", theme);
   }, [theme]);
