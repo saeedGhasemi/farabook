@@ -1638,7 +1638,16 @@ const InlineTextBlock = ({
     setHasSelection((ta.selectionEnd ?? 0) > (ta.selectionStart ?? 0));
   };
 
-  const showToolbar = isSelected && hasSelection;
+  // Toolbar visibility:
+  //   • when the user has actively selected text → always show (so they can format)
+  //   • otherwise → show whenever the block is selected AND the toolbar isn't collapsed
+  const showToolbar = isSelected && (hasSelection || toolbarOpen);
+  const showReopenChip = isSelected && !toolbarOpen && !hasSelection;
+  const toolbarEl = showToolbar
+    ? <FloatingFormatToolbar onFormat={(k) => formatHandler(k)} onCollapse={hasSelection ? undefined : () => setToolbarOpen(false)} lang={lang} />
+    : showReopenChip
+      ? <ToolbarReopenChip onOpen={() => setToolbarOpen(true)} lang={lang} />
+      : null;
   const formatHandler = (kind: "bold" | "italic" | "underline" | "link") => {
     const ta = taRef.current;
     if (!ta) return;
