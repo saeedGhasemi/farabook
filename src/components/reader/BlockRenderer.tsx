@@ -63,22 +63,50 @@ interface Props {
   onHighlightClick?: (hl: SavedHL) => void;
 }
 
-/* Strip massive inline citation blobs that some Word imports leave behind:
-   "(Author, 2024)https://dummy-citation.com/citation?d=...."  → keep the
-   "(Author, 2024)" plus a small superscript ref pill. */
-const cleanInlineRefs = (text: string): React.ReactNode => {
-  // Match either dummy-citation links or any bare URL stuck to text
-  const re = /(https?:\/\/[^\s)]+)/g;
+/* Render light inline markdown: **bold**, *italic*, __underline__,
+   [text](url), plus bare URLs (replaced with compact ref pill).      */
+const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
+  // Order matters — bold (**) before italic (*) before underline.
+  // Capturing groups so split() keeps the matched delimiters.
+  const re =
+    /(\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
   const parts = text.split(re);
-  let refIdx = 0;
   return parts.map((p, i) => {
-    if (i % 2 === 1) {
-      // it's a URL — replace with compact ref pill
-      refIdx += 1;
+    const key = `${baseKey}-${i}`;
+    if (!p) return null;
+    // Bold
+    if (p.startsWith("**") && p.endsWith("**") && p.length > 4) {
+      return <strong key={key}>{p.slice(2, -2)}</strong>;
+    }
+    // Underline
+    if (p.startsWith("__") && p.endsWith("__") && p.length > 4) {
+      return <u key={key}>{p.slice(2, -2)}</u>;
+    }
+    // Italic (single *)
+    if (p.startsWith("*") && p.endsWith("*") && p.length > 2 && !p.startsWith("**")) {
+      return <em key={key}>{p.slice(1, -1)}</em>;
+    }
+    // Markdown link [text](url)
+    const linkM = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(p);
+    if (linkM) {
+      return (
+        <a
+          key={key}
+          href={linkM[2]}
+          target="_blank"
+          rel="noreferrer"
+          className="text-accent underline-offset-2 hover:underline"
+        >
+          {linkM[1]}
+        </a>
+      );
+    }
+    // Bare URL → compact ref pill (preserves old citation cleanup behavior)
+    if (/^https?:\/\//.test(p)) {
       const isDummy = p.includes("dummy-citation");
       return (
         <a
-          key={i}
+          key={key}
           href={isDummy ? undefined : p}
           target="_blank"
           rel="noreferrer"
@@ -89,9 +117,12 @@ const cleanInlineRefs = (text: string): React.ReactNode => {
         </a>
       );
     }
-    return <span key={i}>{p}</span>;
+    return <span key={key}>{p}</span>;
   });
 };
+
+/* Strip inline citation blobs and apply inline markdown formatting. */
+const cleanInlineRefs = (text: string): React.ReactNode => renderInlineMarkdown(text);
 
 /* Render text with inline colored highlight spans — clickable & vivid */
 const renderWithHighlights = (

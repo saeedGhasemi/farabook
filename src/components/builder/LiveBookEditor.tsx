@@ -446,6 +446,48 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
       },
     );
   };
+
+  /**
+   * Word-like Enter behavior: split a text block at the cursor into two
+   * paragraphs. Keeps text before the cursor in the current block; moves
+   * text after into a new paragraph block right after it.
+   */
+  const splitTextBlockAtCursor = (
+    pi: number,
+    bi: number,
+    before: string,
+    after: string,
+  ) => {
+    setPages((ps) =>
+      ps.map((p, i) => {
+        if (i !== pi) return p;
+        const arr = [...p.blocks];
+        const cur = arr[bi] as any;
+        if (!cur) return p;
+        arr[bi] = { ...cur, text: before };
+        arr.splice(bi + 1, 0, { kind: "paragraph", text: after });
+        return { ...p, blocks: arr };
+      }),
+    );
+    setSelectedBlockIdx(bi + 1);
+    markDirty();
+  };
+
+  /** Backspace at start of empty block: delete it & focus previous. */
+  const mergeWithPreviousBlock = (pi: number, bi: number) => {
+    if (bi === 0) return;
+    setPages((ps) =>
+      ps.map((p, i) => {
+        if (i !== pi) return p;
+        const arr = [...p.blocks];
+        arr.splice(bi, 1);
+        return { ...p, blocks: arr };
+      }),
+    );
+    setSelectedBlockIdx(bi - 1);
+    markDirty();
+  };
+
   const uploadToBucket = useCallback(
     async (file: File, prefix = "edit"): Promise<string | null> => {
       if (!user) return null;
@@ -817,6 +859,12 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
                       }
                       onSlash={() => setInsertAt(bi + 1)}
                       onSplit={() => splitToNewChapter(activePageIdx, bi)}
+                      onSplitAtCursor={(before, after) =>
+                        splitTextBlockAtCursor(activePageIdx, bi, before, after)
+                      }
+                      onMergePrev={
+                        bi > 0 ? () => mergeWithPreviousBlock(activePageIdx, bi) : undefined
+                      }
                       lang={lang}
                     />
                     <InsertSlot
@@ -1095,7 +1143,7 @@ const TextTypeSwitcher = ({
 
 const BlockShell = ({
   block, pageIndex, blockIndex, isSelected, onSelect, onUpdate, onReplace, onDelete,
-  onDuplicate, onMoveUp, onMoveDown, onSlash, onSplit, lang,
+  onDuplicate, onMoveUp, onMoveDown, onSlash, onSplit, onSplitAtCursor, onMergePrev, lang,
 }: {
   block: BlockDraft;
   pageIndex: number;
@@ -1110,6 +1158,8 @@ const BlockShell = ({
   onMoveDown?: () => void;
   onSlash: () => void;
   onSplit?: () => void;
+  onSplitAtCursor?: (before: string, after: string) => void;
+  onMergePrev?: () => void;
   lang: "fa" | "en";
 }) => {
   const isText = isTextLike(block);
@@ -1175,7 +1225,16 @@ const BlockShell = ({
 
       <div className="p-1">
         {isText ? (
-          <InlineTextBlock block={block} onUpdate={onUpdate} onSlash={onSlash} lang={lang} />
+          <InlineTextBlock
+            block={block}
+            onUpdate={onUpdate}
+            onReplace={onReplace}
+            onSlash={onSlash}
+            onSplitAtCursor={onSplitAtCursor}
+            onMergePrev={onMergePrev}
+            isSelected={isSelected}
+            lang={lang}
+          />
         ) : (
           // Non-text rich blocks render through the real BlockRenderer
           // so what you see equals what readers see.
@@ -1195,51 +1254,258 @@ const BlockShell = ({
 };
 
 /* ------------------------------------------------------------------ */
-/*  Inline editable text block (paragraph/heading/quote/callout)      */
+/*  Inline editable text block — Word-like rich text editing          */
+/*                                                                    */
+/*  Features:                                                         */
+/*   • Selection-anchored floating toolbar (B / I / U / Link)         */
+/*   • Keyboard shortcuts: Ctrl/Cmd+B/I/U/K, Ctrl+1/2/3 (heading lvl) */
+/*   • Markdown shortcuts at line start: "# ", "## ", "> ", "- "      */
+/*     auto-converts the block kind                                   */
+/*   • Enter splits the block into a new paragraph at the cursor      */
+/*     (Shift+Enter inserts a soft newline)                           */
+/*   • Backspace at start of empty block deletes & focuses previous   */
+/*   • "/" still opens the slash insert menu                          */
 /* ------------------------------------------------------------------ */
 
+const FloatingFormatToolbar = ({
+  onFormat,
+  lang,
+}: {
+  onFormat: (kind: "bold" | "italic" | "underline" | "link") => void;
+  lang: "fa" | "en";
+}) => {
+  const fa = lang === "fa";
+  const Btn = ({
+    label, title, onClick, className = "",
+  }: { label: React.ReactNode; title: string; onClick: () => void; className?: string }) => (
+    <button
+      type="button"
+      onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onClick(); }}
+      title={title}
+      className={`h-7 min-w-7 px-1.5 text-sm rounded hover:bg-foreground/10 flex items-center justify-center ${className}`}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div
+      className="absolute -top-9 start-1 z-40 glass-strong rounded-lg border border-border shadow-elegant px-1 py-0.5 flex items-center gap-0.5"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Btn label={<span className="font-bold">B</span>} title={fa ? "ضخیم (Ctrl+B)" : "Bold (Ctrl+B)"} onClick={() => onFormat("bold")} />
+      <Btn label={<span className="italic">I</span>} title={fa ? "کج (Ctrl+I)" : "Italic (Ctrl+I)"} onClick={() => onFormat("italic")} />
+      <Btn label={<span className="underline">U</span>} title={fa ? "زیرخط (Ctrl+U)" : "Underline (Ctrl+U)"} onClick={() => onFormat("underline")} />
+      <span className="w-px h-4 bg-border mx-0.5" />
+      <Btn label="🔗" title={fa ? "پیوند (Ctrl+K)" : "Link (Ctrl+K)"} onClick={() => onFormat("link")} />
+    </div>
+  );
+};
+
+/** Wrap the selected range with the given prefix/suffix — markdown style. */
+const wrapSelection = (
+  ta: HTMLTextAreaElement | HTMLInputElement,
+  prefix: string,
+  suffix: string,
+  onChange: (v: string) => void,
+) => {
+  const value = ta.value;
+  const start = ta.selectionStart ?? value.length;
+  const end = ta.selectionEnd ?? start;
+  const sel = value.slice(start, end);
+  // Toggle: if already wrapped, unwrap.
+  const before = value.slice(0, start);
+  const after = value.slice(end);
+  const wrappedAlready =
+    sel.startsWith(prefix) && sel.endsWith(suffix) &&
+    sel.length >= prefix.length + suffix.length;
+  let next: string;
+  let newStart: number;
+  let newEnd: number;
+  if (wrappedAlready) {
+    const inner = sel.slice(prefix.length, sel.length - suffix.length);
+    next = before + inner + after;
+    newStart = start;
+    newEnd = start + inner.length;
+  } else {
+    next = before + prefix + sel + suffix + after;
+    newStart = start + prefix.length;
+    newEnd = newStart + sel.length;
+  }
+  onChange(next);
+  // Restore selection after React re-render
+  requestAnimationFrame(() => {
+    ta.focus();
+    try { ta.setSelectionRange(newStart, newEnd); } catch { /* ignore */ }
+  });
+};
+
 const InlineTextBlock = ({
-  block, onUpdate, onSlash, lang,
+  block, onUpdate, onReplace, onSlash, onSplitAtCursor, onMergePrev, isSelected, lang,
 }: {
   block: BlockDraft;
   onUpdate: (patch: Partial<BlockDraft>) => void;
+  onReplace: (next: BlockDraft) => void;
   onSlash: () => void;
+  onSplitAtCursor?: (before: string, after: string) => void;
+  onMergePrev?: () => void;
+  isSelected: boolean;
   lang: "fa" | "en";
 }) => {
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+  const [hasSelection, setHasSelection] = useState(false);
+
+  // When this block becomes the selected one (e.g. after Enter splits a
+  // paragraph or the user clicks it) auto-focus the cursor at the end so
+  // typing continues seamlessly — Word-like.
+  useEffect(() => {
+    if (!isSelected) return;
+    const ta = taRef.current;
+    if (!ta) return;
+    if (document.activeElement === ta) return;
+    ta.focus();
+    const len = ta.value.length;
+    try { ta.setSelectionRange(len, len); } catch { /* ignore */ }
+  }, [isSelected]);
+
   const placeholders: Record<string, string> = {
-    paragraph: lang === "fa" ? "بنویسید… (برای منوی بلوک‌ها / بزنید)" : "Write… (type / for blocks)",
+    paragraph: lang === "fa"
+      ? "بنویسید…  (/ منوی بلوک‌ها  •  # عنوان  •  > نقل قول  •  Ctrl+B/I/U)"
+      : "Write…  (/ for blocks  •  # heading  •  > quote  •  Ctrl+B/I/U)",
     heading: lang === "fa" ? "عنوان زیربخش…" : "Subheading…",
     quote: lang === "fa" ? "نقل قول…" : "Quote…",
     callout: lang === "fa" ? "نکته…" : "Callout…",
   };
 
-  const onTextChange = (val: string) => {
-    if (val.endsWith("/")) {
-      // open insert menu instead of saving the slash
+  /** Apply value-change with side effects: slash menu + line-start markdown shortcuts. */
+  const handleChange = (val: string, prev: string) => {
+    // Slash menu — typed "/" at end opens insert menu
+    if (val.length === prev.length + 1 && val.endsWith("/")) {
       onUpdate({ text: val.slice(0, -1) } as any);
       onSlash();
       return;
     }
+    // Markdown line-start shortcuts only fire for paragraph blocks and only
+    // when the user has just typed the trigger space.
+    if (block.kind === "paragraph" && val.length === prev.length + 1) {
+      // Trigger on the very first line only (whole-block conversion)
+      const firstLine = val.split("\n", 1)[0];
+      if (firstLine === val) {
+        if (firstLine === "# ") { onReplace({ kind: "heading", text: "" } as any); return; }
+        if (firstLine === "## ") { onReplace({ kind: "heading", text: "" } as any); return; }
+        if (firstLine === "### ") { onReplace({ kind: "heading", text: "" } as any); return; }
+        if (firstLine === "> ") { onReplace({ kind: "quote", text: "" } as any); return; }
+        if (firstLine === "!! ") { onReplace({ kind: "callout", icon: "info", text: "" } as any); return; }
+      }
+    }
     onUpdate({ text: val } as any);
   };
 
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+    const ta = e.currentTarget;
+    const meta = e.metaKey || e.ctrlKey;
+
+    // Format shortcuts
+    if (meta && !e.shiftKey && !e.altKey) {
+      const k = e.key.toLowerCase();
+      if (k === "b") { e.preventDefault(); wrapSelection(ta, "**", "**", (v) => onUpdate({ text: v } as any)); return; }
+      if (k === "i") { e.preventDefault(); wrapSelection(ta, "*", "*", (v) => onUpdate({ text: v } as any)); return; }
+      if (k === "u") { e.preventDefault(); wrapSelection(ta, "__", "__", (v) => onUpdate({ text: v } as any)); return; }
+      if (k === "k") {
+        e.preventDefault();
+        const url = window.prompt(lang === "fa" ? "آدرس پیوند:" : "Link URL:");
+        if (url) wrapSelection(ta, "[", `](${url})`, (v) => onUpdate({ text: v } as any));
+        return;
+      }
+      if (k === "1" || k === "2" || k === "3") {
+        e.preventDefault();
+        if (block.kind !== "heading") onReplace({ kind: "heading", text: (block as any).text || "" } as any);
+        return;
+      }
+      if (k === "0") {
+        e.preventDefault();
+        if (block.kind !== "paragraph") onReplace({ kind: "paragraph", text: (block as any).text || "" } as any);
+        return;
+      }
+    }
+
+    // Enter → split block (Shift+Enter = soft newline, default browser behavior)
+    if (e.key === "Enter" && !e.shiftKey && !meta && onSplitAtCursor) {
+      // For single-line inputs (heading) Enter always splits.
+      e.preventDefault();
+      const value = ta.value;
+      const pos = ta.selectionStart ?? value.length;
+      onSplitAtCursor(value.slice(0, pos), value.slice(pos));
+      return;
+    }
+
+    // Backspace at start of empty block → merge with previous
+    if (e.key === "Backspace" && onMergePrev) {
+      const value = ta.value;
+      const pos = ta.selectionStart ?? 0;
+      const end = ta.selectionEnd ?? 0;
+      if (pos === 0 && end === 0 && value.length === 0) {
+        e.preventDefault();
+        onMergePrev();
+        return;
+      }
+    }
+  };
+
+  const trackSelection = (e: React.SyntheticEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+    const ta = e.currentTarget;
+    setHasSelection((ta.selectionEnd ?? 0) > (ta.selectionStart ?? 0));
+  };
+
+  const showToolbar = isSelected && hasSelection;
+  const formatHandler = (kind: "bold" | "italic" | "underline" | "link") => {
+    const ta = taRef.current;
+    if (!ta) return;
+    const onChange = (v: string) => onUpdate({ text: v } as any);
+    if (kind === "bold") wrapSelection(ta, "**", "**", onChange);
+    else if (kind === "italic") wrapSelection(ta, "*", "*", onChange);
+    else if (kind === "underline") wrapSelection(ta, "__", "__", onChange);
+    else if (kind === "link") {
+      const url = window.prompt(lang === "fa" ? "آدرس پیوند:" : "Link URL:");
+      if (url) wrapSelection(ta, "[", `](${url})`, onChange);
+    }
+  };
+
+  // ---------- HEADING ----------
   if (block.kind === "heading") {
     return (
-      <input
-        value={block.text}
-        onChange={(e) => onTextChange(e.target.value)}
-        placeholder={placeholders.heading}
-        className="w-full bg-transparent border-0 outline-none text-2xl md:text-3xl font-display font-bold py-2 px-3"
-      />
+      <div className="relative">
+        {showToolbar && <FloatingFormatToolbar onFormat={formatHandler} lang={lang} />}
+        <textarea
+          ref={taRef}
+          value={block.text}
+          onChange={(e) => handleChange(e.target.value, block.text)}
+          onKeyDown={onKeyDown}
+          onSelect={trackSelection}
+          onMouseUp={trackSelection}
+          onKeyUp={trackSelection}
+          onBlur={() => setHasSelection(false)}
+          placeholder={placeholders.heading}
+          rows={1}
+          className="w-full bg-transparent border-0 outline-none text-2xl md:text-3xl font-display font-bold py-2 px-3 resize-none overflow-hidden"
+        />
+      </div>
     );
   }
 
+  // ---------- QUOTE ----------
   if (block.kind === "quote") {
     return (
-      <div className="my-4 px-4 md:px-6 py-3 border-s-4 border-accent bg-foreground/[0.03] rounded-r-xl">
+      <div className="relative my-4 px-4 md:px-6 py-3 border-s-4 border-accent bg-foreground/[0.03] rounded-r-xl">
+        {showToolbar && <FloatingFormatToolbar onFormat={formatHandler} lang={lang} />}
         <textarea
+          ref={taRef}
           value={block.text}
-          onChange={(e) => onTextChange(e.target.value)}
+          onChange={(e) => handleChange(e.target.value, block.text)}
+          onKeyDown={onKeyDown}
+          onSelect={trackSelection}
+          onMouseUp={trackSelection}
+          onKeyUp={trackSelection}
+          onBlur={() => setHasSelection(false)}
           placeholder={placeholders.quote}
           rows={2}
           className="w-full bg-transparent border-0 outline-none text-lg italic font-display resize-none leading-relaxed"
@@ -1254,13 +1520,21 @@ const InlineTextBlock = ({
     );
   }
 
+  // ---------- CALLOUT ----------
   if (block.kind === "callout") {
     return (
-      <div className={`my-4 p-4 rounded-xl flex gap-3 ${block.icon === "sparkle" ? "bg-accent/10 border border-accent/30" : "bg-primary/5 border border-primary/20"}`}>
+      <div className={`relative my-4 p-4 rounded-xl flex gap-3 ${block.icon === "sparkle" ? "bg-accent/10 border border-accent/30" : "bg-primary/5 border border-primary/20"}`}>
+        {showToolbar && <FloatingFormatToolbar onFormat={formatHandler} lang={lang} />}
         <div className="text-xl shrink-0">{block.icon === "sparkle" ? "✨" : "💡"}</div>
         <textarea
+          ref={taRef}
           value={block.text}
-          onChange={(e) => onTextChange(e.target.value)}
+          onChange={(e) => handleChange(e.target.value, block.text)}
+          onKeyDown={onKeyDown}
+          onSelect={trackSelection}
+          onMouseUp={trackSelection}
+          onKeyUp={trackSelection}
+          onBlur={() => setHasSelection(false)}
           placeholder={placeholders.callout}
           rows={2}
           className="flex-1 bg-transparent border-0 outline-none text-base leading-relaxed resize-none"
@@ -1269,18 +1543,28 @@ const InlineTextBlock = ({
     );
   }
 
-  // paragraph
+  // ---------- PARAGRAPH ----------
   if (block.kind !== "paragraph") return null;
   return (
-    <textarea
-      value={block.text}
-      onChange={(e) => onTextChange(e.target.value)}
-      placeholder={placeholders.paragraph}
-      rows={Math.max(2, Math.ceil((block.text || "").length / 70))}
-      className="w-full bg-transparent border-0 outline-none text-lg leading-[1.9] resize-none px-3 py-2 font-serif"
-    />
+    <div className="relative">
+      {showToolbar && <FloatingFormatToolbar onFormat={formatHandler} lang={lang} />}
+      <textarea
+        ref={taRef}
+        value={block.text}
+        onChange={(e) => handleChange(e.target.value, block.text)}
+        onKeyDown={onKeyDown}
+        onSelect={trackSelection}
+        onMouseUp={trackSelection}
+        onKeyUp={trackSelection}
+        onBlur={() => setHasSelection(false)}
+        placeholder={placeholders.paragraph}
+        rows={Math.max(2, Math.ceil((block.text || "").length / 70))}
+        className="w-full bg-transparent border-0 outline-none text-lg leading-[1.9] resize-none px-3 py-2 font-serif"
+      />
+    </div>
   );
 };
+
 
 /* ------------------------------------------------------------------ */
 /*  Inspector — rich controls for the selected block                  */
