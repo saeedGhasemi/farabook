@@ -519,11 +519,24 @@ const AdminInner = () => {
             </CardHeader>
             <CardContent dir="rtl">
               {(() => {
-                const filtered = users.filter((u) => {
-                  if (!search.trim()) return true;
-                  const q = search.toLowerCase();
-                  return (u.display_name || "").toLowerCase().includes(q) || u.id.toLowerCase().includes(q);
-                });
+                const filtered = users
+                  .filter((u) => roleFilter === "all" || u.roles.includes(roleFilter))
+                  .filter((u) => {
+                    if (!search.trim()) return true;
+                    const q = search.toLowerCase();
+                    return (u.display_name || "").toLowerCase().includes(q)
+                      || (u.email || "").toLowerCase().includes(q)
+                      || (u.username || "").toLowerCase().includes(q)
+                      || (u.national_id || "").toLowerCase().includes(q)
+                      || u.id.toLowerCase().includes(q);
+                  })
+                  .sort((a, b) => {
+                    const dir = sortDir === "asc" ? 1 : -1;
+                    const av = (a as any)[sortKey] ?? "";
+                    const bv = (b as any)[sortKey] ?? "";
+                    if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+                    return String(av).localeCompare(String(bv), "fa") * dir;
+                  });
                 const allChecked = filtered.length > 0 && filtered.every((u) => selectedIds.has(u.id));
                 const someChecked = filtered.some((u) => selectedIds.has(u.id));
                 const toggleAll = (checked: boolean) => {
@@ -536,7 +549,6 @@ const AdminInner = () => {
                 };
                 return (
                   <>
-                    {/* Bulk actions toolbar */}
                     {selectedArr.length > 0 && (
                       <div className="mb-3 p-3 rounded-lg border bg-accent/30 flex flex-wrap items-center gap-2 text-sm">
                         <span className="font-medium">
@@ -578,7 +590,6 @@ const AdminInner = () => {
                       </div>
                     )}
 
-                    {/* Single responsive table for both mobile and desktop */}
                     <div className="w-full overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -590,16 +601,20 @@ const AdminInner = () => {
                                 aria-label="انتخاب همه"
                               />
                             </TableHead>
-                            <TableHead className="text-right">کاربر</TableHead>
+                            <TableHead className="text-right"><SortHeader k="display_name">نام</SortHeader></TableHead>
+                            <TableHead className="text-right"><SortHeader k="username">نام کاربری</SortHeader></TableHead>
+                            <TableHead className="text-right"><SortHeader k="email">ایمیل</SortHeader></TableHead>
+                            <TableHead className="text-right"><SortHeader k="national_id">کد ملی</SortHeader></TableHead>
                             <TableHead className="text-right">نقش‌ها</TableHead>
-                            <TableHead className="text-right whitespace-nowrap">اعتبار</TableHead>
+                            <TableHead className="text-right whitespace-nowrap"><SortHeader k="credits">اعتبار</SortHeader></TableHead>
                             <TableHead className="text-right whitespace-nowrap">وضعیت</TableHead>
-                            <TableHead className="text-right whitespace-nowrap w-28">عملیات</TableHead>
+                            <TableHead className="text-right whitespace-nowrap w-44">عملیات</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {filtered.map((u) => {
                             const checked = selectedIds.has(u.id);
+                            const editing = editId === u.id;
                             return (
                               <TableRow
                                 key={u.id}
@@ -613,11 +628,58 @@ const AdminInner = () => {
                                     aria-label="انتخاب کاربر"
                                   />
                                 </TableCell>
-                                <TableCell className="cursor-pointer" onClick={() => setSelectedUserId(u.id)}>
-                                  <div className="font-medium truncate max-w-[200px]">{u.display_name || "—"}</div>
-                                  <div className="text-xs text-muted-foreground font-mono">{u.id.slice(0, 8)}…</div>
+                                <TableCell className="min-w-[140px]">
+                                  {editing ? (
+                                    <Input
+                                      value={editDraft.display_name}
+                                      onChange={(e) => setEditDraft({ ...editDraft, display_name: e.target.value })}
+                                      className="h-8 text-sm"
+                                    />
+                                  ) : (
+                                    <>
+                                      <div className="font-medium truncate max-w-[180px]">{u.display_name || "—"}</div>
+                                      <div className="text-[10px] text-muted-foreground font-mono">{u.id.slice(0, 8)}…</div>
+                                    </>
+                                  )}
                                 </TableCell>
-                                <TableCell className="cursor-pointer" onClick={() => setSelectedUserId(u.id)}>
+                                <TableCell className="min-w-[120px]">
+                                  {editing ? (
+                                    <Input
+                                      value={editDraft.username}
+                                      onChange={(e) => setEditDraft({ ...editDraft, username: e.target.value })}
+                                      placeholder="username"
+                                      className="h-8 text-sm font-mono"
+                                    />
+                                  ) : (
+                                    <span className="text-sm font-mono">{u.username || "—"}</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="min-w-[180px]">
+                                  {editing ? (
+                                    <Input
+                                      type="email"
+                                      value={editDraft.email}
+                                      onChange={(e) => setEditDraft({ ...editDraft, email: e.target.value })}
+                                      className="h-8 text-sm"
+                                    />
+                                  ) : (
+                                    <span className="text-xs">{u.email || "—"}</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="min-w-[110px]">
+                                  {editing ? (
+                                    <Input
+                                      value={editDraft.national_id}
+                                      onChange={(e) => setEditDraft({ ...editDraft, national_id: e.target.value })}
+                                      placeholder="۱۰ رقم"
+                                      maxLength={10}
+                                      className="h-8 text-sm font-mono"
+                                    />
+                                  ) : (
+                                    <span className="text-xs font-mono">{u.national_id || "—"}</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
                                   <div className="flex flex-wrap gap-1">
                                     {u.roles.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
                                     {u.roles.map((r) => (
@@ -627,20 +689,45 @@ const AdminInner = () => {
                                     ))}
                                   </div>
                                 </TableCell>
-                                <TableCell className="cursor-pointer whitespace-nowrap" onClick={() => setSelectedUserId(u.id)}>
-                                  <Badge variant="outline">{u.credits.toLocaleString("fa-IR")}</Badge>
+                                <TableCell className="whitespace-nowrap">
+                                  <button type="button" onClick={() => giveCredits(u.id)} className="hover:underline" title="افزودن/کسر اعتبار">
+                                    <Badge variant="outline">{u.credits.toLocaleString("fa-IR")}</Badge>
+                                  </button>
                                 </TableCell>
                                 <TableCell className="whitespace-nowrap">
-                                  {u.is_active ? (
-                                    <Badge variant="secondary" className="text-[10px]">فعال</Badge>
-                                  ) : (
-                                    <Badge variant="destructive" className="text-[10px]">غیرفعال</Badge>
-                                  )}
+                                  <button type="button" onClick={() => toggleActive(u)} title="تغییر وضعیت">
+                                    {u.is_active ? (
+                                      <Badge variant="secondary" className="text-[10px]">فعال</Badge>
+                                    ) : (
+                                      <Badge variant="destructive" className="text-[10px]">غیرفعال</Badge>
+                                    )}
+                                  </button>
                                 </TableCell>
                                 <TableCell onClick={(e) => e.stopPropagation()} className="whitespace-nowrap">
-                                  <Button size="sm" variant="outline" onClick={() => setSelectedUserId(u.id)}>
-                                    جزئیات
-                                  </Button>
+                                  <div className="flex gap-1">
+                                    {editing ? (
+                                      <>
+                                        <Button size="sm" variant="default" onClick={() => saveEdit(u.id, u.email)} className="h-8 px-2">
+                                          <Save className="w-3.5 h-3.5" />
+                                        </Button>
+                                        <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-8 px-2">
+                                          <X className="w-3.5 h-3.5" />
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Button size="sm" variant="ghost" onClick={() => startEdit(u)} className="h-8 px-2" title="ویرایش">
+                                          <Pencil className="w-3.5 h-3.5" />
+                                        </Button>
+                                        <Button size="sm" variant="ghost" onClick={() => resetPassword(u)} className="h-8 px-2" title="تغییر گذرواژه">
+                                          🔑
+                                        </Button>
+                                        <Button size="sm" variant="ghost" onClick={() => setSelectedUserId(u.id)} className="h-8 px-2" title="جزئیات">
+                                          ⋯
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             );
