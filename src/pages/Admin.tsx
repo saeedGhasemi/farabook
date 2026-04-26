@@ -51,7 +51,7 @@ const AdminInner = () => {
     setLoading(true);
     const [{ data: profiles }, { data: roles }, { data: tx }, { data: cReq }, { data: pReq }, { data: books }] =
       await Promise.all([
-        supabase.from("profiles").select("id, display_name"),
+        supabase.from("profiles").select("id, display_name, is_active"),
         supabase.from("user_roles").select("user_id, role"),
         supabase.from("credit_transactions").select("user_id, amount"),
         supabase.from("credit_purchase_requests").select("*").order("created_at", { ascending: false }),
@@ -80,6 +80,7 @@ const AdminInner = () => {
         display_name: p.display_name,
         roles: roleMap.get(p.id) || [],
         credits: credMap.get(p.id) || 0,
+        is_active: p.is_active !== false,
       })),
     );
     setCredReqs((cReq as any[]) || []);
