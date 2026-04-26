@@ -385,7 +385,53 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
     markDirty();
   };
 
-  /* ---------- upload helper ---------- */
+  /**
+   * Split the page at block `bi` into a new chapter that follows it.
+   * The selected block becomes the title of the new chapter; everything
+   * after it (and the block itself, converted to a paragraph if it wasn't
+   * already a heading) moves into the new page. The current page keeps
+   * everything before `bi`.
+   */
+  const splitToNewChapter = (pi: number, bi: number) => {
+    setPages((ps) => {
+      const arr = [...ps];
+      const src = arr[pi];
+      if (!src) return ps;
+      const before = src.blocks.slice(0, bi);
+      const pivot = src.blocks[bi];
+      const after = src.blocks.slice(bi + 1);
+
+      // Derive new chapter title from the pivot block's text if available
+      const pivotText = (pivot as any)?.text?.trim?.() || "";
+      const newTitle =
+        pivotText || (lang === "fa" ? "فصل جدید" : "New chapter");
+
+      // Body of new chapter:
+      //   • If pivot was a heading/text-like block whose text became the
+      //     title, drop it (avoid duplication) — unless it was a non-text
+      //     block (image, video, …) in which case keep it.
+      const isTextPivot = pivot && isTextLike(pivot);
+      const newBlocks: BlockDraft[] = [];
+      if (pivot && (!isTextPivot || !pivotText)) newBlocks.push(pivot);
+      newBlocks.push(...after);
+      if (newBlocks.length === 0) newBlocks.push({ kind: "paragraph", text: "" });
+
+      const newChapter: PageDraft = { title: newTitle, blocks: newBlocks };
+
+      // Make sure the original page still has at least one block
+      const updatedSrc: PageDraft = {
+        ...src,
+        blocks: before.length ? before : [{ kind: "paragraph", text: "" }],
+      };
+
+      arr.splice(pi, 1, updatedSrc, newChapter);
+      return arr;
+    });
+    setActivePageIdx(pi + 1);
+    setSelectedBlockIdx(null);
+    markDirty();
+    toast.success(lang === "fa" ? "فصل جدید ساخته شد" : "New chapter created");
+  };
   const uploadToBucket = useCallback(
     async (file: File, prefix = "edit"): Promise<string | null> => {
       if (!user) return null;
