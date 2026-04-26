@@ -911,6 +911,54 @@ const AdminInner = () => {
         onOpenChange={(v) => !v && setSelectedUserId(null)}
         onChanged={load}
       />
+
+      {/* Create user dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle>ساخت کاربر جدید</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground">ایمیل</label>
+              <Input type="email" value={createForm.email}
+                onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">گذرواژه (حداقل ۶)</label>
+              <Input type="text" value={createForm.password}
+                onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">نام نمایشی</label>
+              <Input value={createForm.display_name}
+                onChange={(e) => setCreateForm({ ...createForm, display_name: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground">نقش</label>
+                <Select value={createForm.role} onValueChange={(v) => setCreateForm({ ...createForm, role: v as AppRole })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {ALL_ROLES.map((r) => (
+                      <SelectItem key={r} value={r}>{ROLE_LABEL[r]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">اعتبار اولیه</label>
+                <Input type="number" value={createForm.credits}
+                  onChange={(e) => setCreateForm({ ...createForm, credits: Number(e.target.value) })} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>انصراف</Button>
+            <Button onClick={createUser}>ساخت کاربر</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 };
