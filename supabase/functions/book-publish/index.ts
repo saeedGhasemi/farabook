@@ -63,6 +63,24 @@ const extractText = (pages: any[]): string => {
   return out.join("\n").slice(0, 12000);
 };
 
+/** Detect whether the book content is Persian/Arabic (fa) or Latin (en).
+ *  Uses character-class ratios so the result reflects the *actual* text
+ *  rather than the metadata flag (which authors often forget to set). */
+const detectLang = (text: string): "fa" | "en" => {
+  if (!text) return "fa";
+  const sample = text.slice(0, 4000);
+  let fa = 0;
+  let en = 0;
+  for (const ch of sample) {
+    const code = ch.charCodeAt(0);
+    // Arabic + Persian + Arabic Supplement
+    if ((code >= 0x0600 && code <= 0x06FF) || (code >= 0x0750 && code <= 0x077F) || (code >= 0xFB50 && code <= 0xFDFF) || (code >= 0xFE70 && code <= 0xFEFF)) fa++;
+    else if ((code >= 0x0041 && code <= 0x005A) || (code >= 0x0061 && code <= 0x007A)) en++;
+  }
+  if (fa === 0 && en === 0) return "fa";
+  return fa >= en ? "fa" : "en";
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -105,13 +123,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    const lang = body.metadata.language || book.language || "fa";
+    const bookText = extractText(book.pages as any[]);
+    const detectedLang = detectLang(bookText);
+    const lang = body.metadata.language || book.language || detectedLang;
     const fa = lang === "fa";
+    console.log("book-publish lang:", { metadata: body.metadata.language, book: book.language, detected: detectedLang, final: lang });
 
     // ---- 1. AI Summary -------------------------------------------------
     let aiSummary: string | null = null;
     if (body.generateSummary && LOVABLE_API_KEY) {
-      const text = extractText(book.pages as any[]);
+      const text = bookText;
       if (text.trim().length > 50) {
         const sys = fa
           ? "تو یک ویراستار حرفه‌ای کتاب هستی. متن کتاب را بخوان و یک خلاصهٔ گیرا و توصیفی در دو تا سه پاراگراف به فارسی روان بنویس. لحن کتاب را حفظ کن. فقط خلاصه را بنویس، بدون مقدمه یا پایان."
