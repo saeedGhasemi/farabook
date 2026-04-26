@@ -269,69 +269,103 @@ const AdminInner = () => {
 
         <TabsContent value="users" className="mt-4">
           <Card className="glass">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
               <CardTitle>مدیریت کاربران و نقش‌ها</CardTitle>
+              <Input
+                placeholder="جستجو نام یا شناسه…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="max-w-xs"
+              />
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>کاربر</TableHead>
-                      <TableHead>نقش‌ها</TableHead>
-                      <TableHead>اعتبار</TableHead>
-                      <TableHead>عملیات</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map((u) => (
-                      <TableRow key={u.id}>
-                        <TableCell>
-                          <div className="font-medium">{u.display_name || "—"}</div>
-                          <div className="text-xs text-muted-foreground font-mono">{u.id.slice(0, 8)}…</div>
-                        </TableCell>
-                        <TableCell>
+              {(() => {
+                const filtered = users.filter((u) => {
+                  if (!search.trim()) return true;
+                  const q = search.toLowerCase();
+                  return (u.display_name || "").toLowerCase().includes(q) || u.id.toLowerCase().includes(q);
+                });
+                return (
+                  <>
+                    {/* Mobile: cards */}
+                    <div className="md:hidden space-y-2">
+                      {filtered.map((u) => (
+                        <button
+                          key={u.id}
+                          onClick={() => setSelectedUserId(u.id)}
+                          className="w-full text-right p-3 rounded-lg border bg-card hover:bg-accent/30 transition"
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <div className="font-medium truncate">{u.display_name || "—"}</div>
+                            <Badge variant="outline" className="shrink-0">
+                              {u.credits.toLocaleString("fa-IR")}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground font-mono mb-2">{u.id.slice(0, 8)}…</div>
                           <div className="flex flex-wrap gap-1">
-                            {u.roles.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                            {u.roles.length === 0 && <span className="text-xs text-muted-foreground">بدون نقش</span>}
                             {u.roles.map((r) => (
-                              <Badge
-                                key={r}
-                                variant={r === "super_admin" ? "default" : "secondary"}
-                                className="cursor-pointer gap-1"
-                                onClick={() => revokeRole(u.id, r)}
-                                title="کلیک برای حذف"
-                              >
+                              <Badge key={r} variant={r === "super_admin" ? "default" : "secondary"} className="text-[10px]">
                                 {ROLE_LABEL[r]}
-                                {r !== "user" && <X className="w-3 h-3" />}
                               </Badge>
                             ))}
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{u.credits.toLocaleString("fa-IR")}</Badge>
-                          <Button size="sm" variant="ghost" className="ms-2" onClick={() => giveCredits(u.id)}>
-                            تنظیم
-                          </Button>
-                        </TableCell>
-                        <TableCell>
-                          <Select onValueChange={(v) => grantRole(u.id, v as AppRole)}>
-                            <SelectTrigger className="w-40">
-                              <SelectValue placeholder="افزودن نقش" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ALL_ROLES.filter((r) => !u.roles.includes(r)).map((r) => (
-                                <SelectItem key={r} value={r}>
-                                  {ROLE_LABEL[r]}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Desktop: table */}
+                    <div className="hidden md:block">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>کاربر</TableHead>
+                            <TableHead>نقش‌ها</TableHead>
+                            <TableHead>اعتبار</TableHead>
+                            <TableHead className="w-32">عملیات</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filtered.map((u) => (
+                            <TableRow
+                              key={u.id}
+                              className="cursor-pointer hover:bg-accent/20"
+                              onClick={() => setSelectedUserId(u.id)}
+                            >
+                              <TableCell>
+                                <div className="font-medium">{u.display_name || "—"}</div>
+                                <div className="text-xs text-muted-foreground font-mono">{u.id.slice(0, 8)}…</div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1">
+                                  {u.roles.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                                  {u.roles.map((r) => (
+                                    <Badge key={r} variant={r === "super_admin" ? "default" : "secondary"} className="text-[10px]">
+                                      {ROLE_LABEL[r]}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{u.credits.toLocaleString("fa-IR")}</Badge>
+                              </TableCell>
+                              <TableCell onClick={(e) => e.stopPropagation()}>
+                                <Button size="sm" variant="outline" onClick={() => setSelectedUserId(u.id)}>
+                                  جزئیات
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {filtered.length === 0 && (
+                      <p className="text-center text-sm text-muted-foreground py-6">کاربری یافت نشد</p>
+                    )}
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
