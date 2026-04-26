@@ -41,6 +41,9 @@ const App = () => (
               <Route path="/edit/:id" element={<Edit />} />
               <Route path="/publish/:id" element={<Publish />} />
               <Route path="/publisher/:id" element={<Publisher />} />
+              <Route path="/publisher/:id/settings" element={<PublisherSettings />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/credits" element={<Credits />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
