@@ -928,6 +928,86 @@ const InsertSlot = ({
 };
 
 /* ------------------------------------------------------------------ */
+/*  Text-type switcher — convert paragraph ↔ heading ↔ quote ↔ callout */
+/* ------------------------------------------------------------------ */
+
+type TextStyleId = "paragraph" | "heading" | "quote" | "callout-info" | "callout-sparkle";
+
+const isTextLike = (b: BlockDraft) =>
+  b.kind === "paragraph" ||
+  b.kind === "heading" ||
+  b.kind === "quote" ||
+  b.kind === "callout";
+
+const currentTextStyle = (b: BlockDraft): TextStyleId | null => {
+  if (b.kind === "paragraph") return "paragraph";
+  if (b.kind === "heading") return "heading";
+  if (b.kind === "quote") return "quote";
+  if (b.kind === "callout") return b.icon === "sparkle" ? "callout-sparkle" : "callout-info";
+  return null;
+};
+
+/** Convert a text-like block to another text style, preserving the text. */
+const convertTextBlock = (b: BlockDraft, target: TextStyleId): BlockDraft => {
+  const text = (b as any).text || "";
+  const author = (b as any).author || "";
+  switch (target) {
+    case "paragraph":  return { kind: "paragraph", text };
+    case "heading":    return { kind: "heading", text };
+    case "quote":      return { kind: "quote", text, author };
+    case "callout-info":     return { kind: "callout", icon: "info", text };
+    case "callout-sparkle":  return { kind: "callout", icon: "sparkle", text };
+  }
+};
+
+const TextTypeSwitcher = ({
+  block, onConvert, lang, compact = false,
+}: {
+  block: BlockDraft;
+  onConvert: (next: BlockDraft) => void;
+  lang: "fa" | "en";
+  compact?: boolean;
+}) => {
+  const fa = lang === "fa";
+  const current = currentTextStyle(block);
+  const items: { id: TextStyleId; label: string; symbol: string; title: string }[] = [
+    { id: "paragraph",       symbol: "P",  label: fa ? "متن" : "Text",          title: fa ? "متن معمولی" : "Paragraph" },
+    { id: "heading",         symbol: "H",  label: fa ? "عنوان" : "Heading",     title: fa ? "تبدیل به عنوان/سرفصل" : "Convert to heading" },
+    { id: "quote",           symbol: "❝",  label: fa ? "نقل قول" : "Quote",     title: fa ? "تبدیل به نقل قول" : "Convert to quote" },
+    { id: "callout-info",    symbol: "💡", label: fa ? "نکته" : "Note",         title: fa ? "تبدیل به نکته" : "Convert to callout" },
+    { id: "callout-sparkle", symbol: "✨", label: fa ? "هایلایت" : "Highlight", title: fa ? "تبدیل به برجسته/هایلایت" : "Convert to highlight" },
+  ];
+  return (
+    <div
+      className={`flex items-center gap-0.5 ${compact ? "" : "p-1 rounded-lg bg-foreground/5 border border-border"}`}
+      onClick={(e) => e.stopPropagation()}
+      role="group"
+      aria-label={fa ? "تبدیل نوع متن" : "Convert text style"}
+    >
+      {items.map((it) => {
+        const active = current === it.id;
+        return (
+          <button
+            key={it.id}
+            type="button"
+            title={it.title}
+            onClick={() => { if (!active) onConvert(convertTextBlock(block, it.id)); }}
+            className={`flex items-center gap-1 px-2 ${compact ? "py-0.5 text-[11px]" : "py-1 text-xs"} rounded-md transition-colors ${
+              active
+                ? "bg-accent text-accent-foreground font-semibold shadow-sm"
+                : "hover:bg-accent/15 text-foreground/80"
+            }`}
+          >
+            <span className="leading-none">{it.symbol}</span>
+            {!compact && <span className="hidden md:inline">{it.label}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
 /*  BlockShell — wraps a live-preview block with selection chrome     */
 /* ------------------------------------------------------------------ */
 
