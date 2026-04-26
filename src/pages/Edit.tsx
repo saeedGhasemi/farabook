@@ -22,6 +22,8 @@ const Edit = () => {
 
   const [loading, setLoading] = useState(true);
   const [initial, setInitial] = useState<Parameters<typeof BookEditor>[0]["initial"] | null>(null);
+  const [previewBook, setPreviewBook] = useState<any>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
