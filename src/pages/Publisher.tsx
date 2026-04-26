@@ -61,9 +61,11 @@ const Publisher = () => {
   const [profile, setProfile] = useState<PublisherProfile | null>(null);
   const [storefront, setStorefront] = useState<PublisherStorefront | null>(null);
   const [readerStats, setReaderStats] = useState<Record<string, number>>({});
+  const [salesStats, setSalesStats] = useState<Record<string, { count: number; gross: number; toMe: number; distributed: { user_id: string; role: string; amount: number; name?: string }[] }>>({});
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<Book | null>(null);
   const [previewBook, setPreviewBook] = useState<Book | null>(null);
+  const [salesDetailFor, setSalesDetailFor] = useState<Book | null>(null);
 
   useEffect(() => {
     if (paramId === "me" && !user) {
@@ -92,9 +94,9 @@ const Publisher = () => {
       setProfile((prof as PublisherProfile) ?? null);
       setStorefront((sf as PublisherStorefront) ?? null);
 
-      // Reader counts via user_books
       if (visible.length) {
         const ids = visible.map((b) => b.id);
+        // Reader counts
         const { data: ub } = await supabase
           .from("user_books")
           .select("book_id")
@@ -104,6 +106,45 @@ const Publisher = () => {
           counts[r.book_id] = (counts[r.book_id] ?? 0) + 1;
         });
         if (!cancelled) setReaderStats(counts);
+
+        // Sales + revenue distribution (only for owner view)
+        if (isMe) {
+          const { data: tx } = await supabase
+            .from("credit_transactions")
+            .select("amount, reason, metadata, user_id")
+            .or("reason.eq.book_purchase,reason.like.revenue_share_%");
+          const stats: typeof salesStats = {};
+          ids.forEach((id) => { stats[id] = { count: 0, gross: 0, toMe: 0, distributed: [] }; });
+          const recipientIds = new Set<string>();
+          (tx ?? []).forEach((t: any) => {
+            const bid = t.metadata?.book_id;
+            if (!bid || !stats[bid]) return;
+            const amt = Number(t.amount);
+            if (t.reason === "book_purchase" && amt < 0) {
+              stats[bid].count += 1;
+              stats[bid].gross += Math.abs(amt);
+            } else if (t.reason?.startsWith("revenue_share_") && amt > 0) {
+              const role = t.reason.replace("revenue_share_", "");
+              stats[bid].distributed.push({ user_id: t.user_id, role, amount: amt });
+              recipientIds.add(t.user_id);
+              if (t.user_id === user?.id) stats[bid].toMe += amt;
+            }
+          });
+          // resolve recipient names
+          if (recipientIds.size) {
+            const { data: profs } = await supabase
+              .from("profiles").select("id, display_name, username")
+              .in("id", Array.from(recipientIds));
+            const nameMap: Record<string, string> = {};
+            (profs ?? []).forEach((p: any) => {
+              nameMap[p.id] = p.display_name || p.username || p.id.slice(0, 8);
+            });
+            Object.values(stats).forEach((s) => {
+              s.distributed.forEach((d) => { d.name = nameMap[d.user_id]; });
+            });
+          }
+          if (!cancelled) setSalesStats(stats);
+        }
       }
       setLoading(false);
     })();
