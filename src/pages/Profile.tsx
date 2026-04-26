@@ -169,6 +169,15 @@ const Profile = () => {
         </div>
       </div>
 
+      <Tabs defaultValue="info" dir="rtl">
+        <TabsList className="glass">
+          <TabsTrigger value="info">اطلاعات من</TabsTrigger>
+          <TabsTrigger value="earnings">درآمد و هزینه</TabsTrigger>
+        </TabsList>
+        <TabsContent value="earnings" className="mt-4">
+          {user && <UserEarnings userId={user.id} />}
+        </TabsContent>
+        <TabsContent value="info" className="mt-4">
       <Card className="glass">
         <CardHeader>
           <CardTitle>اطلاعات من</CardTitle>
