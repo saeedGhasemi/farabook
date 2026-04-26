@@ -1225,7 +1225,16 @@ const BlockShell = ({
 
       <div className="p-1">
         {isText ? (
-          <InlineTextBlock block={block} onUpdate={onUpdate} onSlash={onSlash} lang={lang} />
+          <InlineTextBlock
+            block={block}
+            onUpdate={onUpdate}
+            onReplace={onReplace}
+            onSlash={onSlash}
+            onSplitAtCursor={onSplitAtCursor}
+            onMergePrev={onMergePrev}
+            isSelected={isSelected}
+            lang={lang}
+          />
         ) : (
           // Non-text rich blocks render through the real BlockRenderer
           // so what you see equals what readers see.
