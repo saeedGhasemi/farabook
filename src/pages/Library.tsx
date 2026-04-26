@@ -126,23 +126,7 @@ const Library = () => {
                     </div>
                   </div>
                 </Link>
-                {isOwner && (
-                  <div className="absolute top-2 end-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                    <Link to={`/edit/${r.books.id}`}>
-                      <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full shadow-md">
-                        <Pencil className="w-3 h-3" />
-                      </Button>
-                    </Link>
-                    <Button
-                      size="icon"
-                      variant="destructive"
-                      className="h-7 w-7 rounded-full shadow-md"
-                      onClick={(e) => { e.preventDefault(); setConfirmDelete(r.books); }}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-                )}
+                {/* Edit/Delete moved to Publisher page only — kept off the Library cards. */}
               </motion.div>
             );
           })}

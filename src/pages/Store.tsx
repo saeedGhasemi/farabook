@@ -158,23 +158,7 @@ const Store = () => {
                     {lang === "fa" ? "پیش‌نویس" : "Draft"}
                   </Badge>
                 )}
-                {isOwner && (
-                  <div className="absolute bottom-2 end-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Link to={`/edit/${book.id}`}>
-                      <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full shadow-md">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                    </Link>
-                    <Button
-                      size="icon"
-                      variant="destructive"
-                      className="h-8 w-8 rounded-full shadow-md"
-                      onClick={() => setConfirmDelete(book)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                )}
+                {/* Edit/Delete actions are only available in the Publisher page. */}
               </div>
               <div className="p-5 flex-1 flex flex-col gap-3">
                 <div>
@@ -197,9 +181,9 @@ const Store = () => {
                       <Eye className="w-3.5 h-3.5" />
                     </Button>
                     {isOwner ? (
-                      <Link to={`/edit/${book.id}`}>
+                      <Link to={`/read/${book.id}`}>
                         <Button size="sm" variant="outline" className="gap-1.5">
-                          <Pencil className="w-3.5 h-3.5" /> {lang === "fa" ? "ویرایش" : "Edit"}
+                          <Check className="w-3.5 h-3.5" /> {t("read")}
                         </Button>
                       </Link>
                     ) : isOwned ? (
