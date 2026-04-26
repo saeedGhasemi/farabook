@@ -1027,7 +1027,7 @@ const TextTypeSwitcher = ({
 /* ------------------------------------------------------------------ */
 
 const BlockShell = ({
-  block, pageIndex, blockIndex, isSelected, onSelect, onUpdate, onDelete,
+  block, pageIndex, blockIndex, isSelected, onSelect, onUpdate, onReplace, onDelete,
   onDuplicate, onMoveUp, onMoveDown, onSlash, lang,
 }: {
   block: BlockDraft;
@@ -1036,6 +1036,7 @@ const BlockShell = ({
   isSelected: boolean;
   onSelect: () => void;
   onUpdate: (patch: Partial<BlockDraft>) => void;
+  onReplace: (next: BlockDraft) => void;
   onDelete: () => void;
   onDuplicate: () => void;
   onMoveUp?: () => void;
@@ -1043,11 +1044,7 @@ const BlockShell = ({
   onSlash: () => void;
   lang: "fa" | "en";
 }) => {
-  const isText =
-    block.kind === "paragraph" ||
-    block.kind === "heading" ||
-    block.kind === "quote" ||
-    block.kind === "callout";
+  const isText = isTextLike(block);
 
   // For text blocks: render a real editable element styled like the live block.
   // For richer blocks: render the BlockRenderer in a non-interactive overlay.
@@ -1062,6 +1059,16 @@ const BlockShell = ({
           : "ring-1 ring-transparent hover:ring-border hover:bg-foreground/[0.02]"
       }`}
     >
+      {/* Floating type-switcher (text blocks only, when selected) */}
+      {isText && isSelected && (
+        <div
+          className="absolute -top-4 start-2 z-30 glass-strong rounded-full border border-border shadow-elegant"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <TextTypeSwitcher block={block} onConvert={onReplace} lang={lang} compact />
+        </div>
+      )}
+
       {/* Hover/selected toolbar */}
       <div className={`absolute -top-3 end-2 z-20 flex items-center gap-0.5 glass-strong rounded-full border border-border px-1 py-0.5 transition-opacity ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100 pointer-events-none"}`}
         style={{ pointerEvents: isSelected ? "auto" : "none" }}
