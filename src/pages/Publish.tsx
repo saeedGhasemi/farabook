@@ -335,6 +335,19 @@ const Publish = () => {
           </div>
         </section>
 
+        {/* Revenue split */}
+        <section className="glass-strong rounded-2xl p-5 space-y-3">
+          <h2 className="font-display font-bold text-lg">
+            {lang === "fa" ? "سهم‌بندی درآمد" : "Revenue split"}
+          </h2>
+          <RevenueShareEditor
+            bookId={book.id}
+            publisherId={book.publisher_id || user!.id}
+            authorUserId={book.author_user_id}
+            lang={lang}
+          />
+        </section>
+
         {/* Preview pages */}
         <section className="glass-strong rounded-2xl p-5 space-y-3">
           <h2 className="font-display font-bold text-lg">
