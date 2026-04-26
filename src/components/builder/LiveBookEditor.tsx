@@ -810,6 +810,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
                   <Inspector
                     block={selectedBlock}
                     onUpdate={(patch) => updateBlock(activePageIdx, selectedBlockIdx, patch)}
+                    onReplace={(next) => replaceBlock(activePageIdx, selectedBlockIdx, next)}
                     uploadFile={uploadToBucket}
                     lang={lang}
                   />
