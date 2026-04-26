@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Loader2, Pencil, Eye } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Pencil, Eye, Rocket } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/lib/i18n";
@@ -118,7 +118,15 @@ const Edit = () => {
           onClick={() => setPreviewOpen(true)}
         >
           <Eye className="w-4 h-4" />
-          {lang === "fa" ? "پیش‌نمایش فروشگاه" : "Store preview"}
+          <span className="hidden sm:inline">{lang === "fa" ? "پیش‌نمایش فروشگاه" : "Store preview"}</span>
+        </Button>
+        <Button
+          size="sm"
+          className="h-8 gap-1.5 bg-gradient-warm hover:opacity-90"
+          onClick={() => id && nav(`/publish/${id}`)}
+        >
+          <Rocket className="w-4 h-4" />
+          {lang === "fa" ? "قیمت، سهام و انتشار" : "Price, shares & publish"}
         </Button>
       </motion.div>
 
