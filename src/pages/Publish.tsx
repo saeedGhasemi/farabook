@@ -17,6 +17,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { speakSmart, stopSpeak } from "@/lib/tts";
+import { RevenueShareEditor } from "@/components/publish/RevenueShareEditor";
+import { estimateComplexity, showInsufficientCreditsToast } from "@/lib/credit-guard";
+import { pulseCredits, requestCreditsRefresh } from "@/lib/credits-bus";
 
 interface BookRow {
   id: string;
