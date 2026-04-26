@@ -63,6 +63,7 @@ const Publisher = () => {
   const [readerStats, setReaderStats] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<Book | null>(null);
+  const [previewBook, setPreviewBook] = useState<Book | null>(null);
 
   useEffect(() => {
     if (paramId === "me" && !user) {
