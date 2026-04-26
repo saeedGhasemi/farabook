@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Navigate } from "react-router-dom";
+import { CREDITS_PER_TOMAN, creditsToToman } from "@/lib/purchase";
 
 const PRESETS = [50, 100, 250, 500, 1000];
 const PUBLISHER_FEE = 200;
@@ -115,6 +116,9 @@ const Credits = () => {
         <div className="text-right">
           <div className="text-xs text-muted-foreground">موجودی</div>
           <div className="text-3xl font-bold gold-text">{credits.toLocaleString("fa-IR")}</div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">
+            ≈ {creditsToToman(credits).toLocaleString("fa-IR")} تومان
+          </div>
         </div>
       </div>
 
@@ -155,6 +159,10 @@ const Credits = () => {
                   value={amount}
                   onChange={(e) => setAmount(Number(e.target.value))}
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  معادل <strong>{creditsToToman(amount).toLocaleString("fa-IR")} تومان</strong>
+                  {" "}(هر {CREDITS_PER_TOMAN} اعتبار = ۱ تومان)
+                </p>
               </div>
               <div>
                 <label className="text-sm">شماره پیگیری پرداخت (اختیاری)</label>
