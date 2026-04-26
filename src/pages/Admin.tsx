@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Shield, Users, CreditCard, BookCheck, UserPlus, Trash2, Loader2, Check, X } from "lucide-react";
+import { Shield, Users, CreditCard, BookCheck, UserPlus, Trash2, Loader2, Check, X, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +36,8 @@ const AdminInner = () => {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [credReqs, setCredReqs] = useState<any[]>([]);
   const [pubReqs, setPubReqs] = useState<any[]>([]);
-  const [pendingBooks, setPendingBooks] = useState<any[]>([]);
+  const [allBooks, setAllBooks] = useState<any[]>([]);
+  const [bookFilter, setBookFilter] = useState<"pending_review" | "approved" | "rejected" | "all">("pending_review");
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -50,8 +51,7 @@ const AdminInner = () => {
         supabase.from("publisher_upgrade_requests").select("*").order("created_at", { ascending: false }),
         supabase
           .from("books")
-          .select("id, title, author, publisher_id, status, review_status, created_at")
-          .eq("review_status", "pending_review")
+          .select("id, title, author, publisher_id, status, review_status, reject_reason, reviewed_at, created_at")
           .order("created_at", { ascending: false }),
       ]);
 
@@ -77,13 +77,27 @@ const AdminInner = () => {
     );
     setCredReqs((cReq as any[]) || []);
     setPubReqs((pReq as any[]) || []);
-    setPendingBooks((books as any[]) || []);
+    setAllBooks((books as any[]) || []);
     setLoading(false);
   };
 
   useEffect(() => {
     load();
   }, []);
+
+  const filteredBooks = useMemo(() => {
+    if (bookFilter === "all") return allBooks;
+    return allBooks.filter((b) => (b.review_status || "approved") === bookFilter);
+  }, [allBooks, bookFilter]);
+
+  const bookCounts = useMemo(() => {
+    const counts = { pending_review: 0, approved: 0, rejected: 0, all: allBooks.length };
+    allBooks.forEach((b) => {
+      const s = (b.review_status || "approved") as keyof typeof counts;
+      if (s in counts) counts[s] = (counts[s] as number) + 1;
+    });
+    return counts;
+  }, [allBooks]);
 
   const grantRole = async (userId: string, role: AppRole) => {
     const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
@@ -246,7 +260,7 @@ const AdminInner = () => {
             <UserPlus className="w-4 h-4" /> درخواست ناشر ({pubReqs.filter((r) => r.status === "pending").length})
           </TabsTrigger>
           <TabsTrigger value="books" className="gap-2">
-            <BookCheck className="w-4 h-4" /> کتاب‌های در انتظار ({pendingBooks.length})
+            <BookCheck className="w-4 h-4" /> کتاب‌ها ({bookCounts.pending_review} در انتظار)
           </TabsTrigger>
         </TabsList>
 
@@ -402,30 +416,75 @@ const AdminInner = () => {
 
         <TabsContent value="books" className="mt-4">
           <Card className="glass">
-            <CardHeader>
-              <CardTitle>کتاب‌های در انتظار بررسی</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between gap-4 flex-wrap">
+              <CardTitle>مدیریت کتاب‌ها</CardTitle>
+              <div className="flex gap-1 flex-wrap">
+                {([
+                  ["pending_review", "در انتظار", bookCounts.pending_review],
+                  ["approved", "تأیید شده", bookCounts.approved],
+                  ["rejected", "رد شده", bookCounts.rejected],
+                  ["all", "همه", bookCounts.all],
+                ] as const).map(([key, label, count]) => (
+                  <Button
+                    key={key}
+                    size="sm"
+                    variant={bookFilter === key ? "default" : "outline"}
+                    onClick={() => setBookFilter(key as typeof bookFilter)}
+                    className="gap-1"
+                  >
+                    {label} <Badge variant="secondary" className="ms-1">{count}</Badge>
+                  </Button>
+                ))}
+              </div>
             </CardHeader>
             <CardContent>
-              {pendingBooks.length === 0 ? (
-                <p className="text-muted-foreground text-sm">کتابی منتظر بررسی نیست.</p>
+              {filteredBooks.length === 0 ? (
+                <p className="text-muted-foreground text-sm">موردی در این فیلتر نیست.</p>
               ) : (
                 <div className="space-y-2">
-                  {pendingBooks.map((b) => (
-                    <div key={b.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                      <div>
-                        <div className="font-medium">{b.title}</div>
-                        <div className="text-xs text-muted-foreground">{b.author}</div>
+                  {filteredBooks.map((b) => {
+                    const status = (b.review_status || "approved") as string;
+                    return (
+                      <div key={b.id} className="p-3 rounded-lg border bg-card">
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                          <div className="min-w-0">
+                            <div className="font-medium flex items-center gap-2">
+                              {b.title}
+                              <Badge
+                                variant={
+                                  status === "approved" ? "default" : status === "rejected" ? "destructive" : "secondary"
+                                }
+                              >
+                                {status === "pending_review" ? "در انتظار" : status === "approved" ? "تأیید شده" : "رد شده"}
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {b.author} • ناشر: {b.publisher_id?.slice(0, 8) || "—"}…
+                              {b.reviewed_at && ` • بررسی: ${new Date(b.reviewed_at).toLocaleDateString("fa-IR")}`}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            {status !== "approved" && (
+                              <Button size="sm" onClick={() => approveBook(b, false)} className="gap-1">
+                                <Check className="w-3.5 h-3.5" /> تأیید
+                              </Button>
+                            )}
+                            {status !== "rejected" && (
+                              <Button size="sm" variant="outline" onClick={() => rejectBook(b)} className="gap-1">
+                                <X className="w-3.5 h-3.5" /> رد
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        {status === "rejected" && b.reject_reason && (
+                          <div className="mt-2 flex items-start gap-2 p-2 rounded-md bg-destructive/10 text-destructive text-xs">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            <span><strong>دلیل رد:</strong> {b.reject_reason}</span>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={() => approveBook(b, false)} className="gap-1">
-                          <Check className="w-3.5 h-3.5" /> تأیید
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => rejectBook(b)} className="gap-1">
-                          <X className="w-3.5 h-3.5" /> رد
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
