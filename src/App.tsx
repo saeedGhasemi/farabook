@@ -19,6 +19,7 @@ import PublisherSettings from "./pages/PublisherSettings";
 import Admin from "./pages/Admin";
 import Credits from "./pages/Credits";
 import EditorRequests from "./pages/EditorRequests";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/admin" element={<Admin />} />
               <Route path="/credits" element={<Credits />} />
               <Route path="/editor-requests" element={<EditorRequests />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

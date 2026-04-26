@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { speakSmart, stopSpeak } from "@/lib/tts";
 import { resolveBookMedia } from "@/lib/book-media";
+import { BookComments } from "@/components/BookComments";
 import { toast } from "sonner";
 
 interface PreviewBook {
@@ -240,6 +241,9 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
                 )}
               </div>
             </section>
+
+            <Separator className="my-4" />
+            <BookComments bookId={book.id} />
           </ScrollArea>
         )}
 
