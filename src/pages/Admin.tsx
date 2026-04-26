@@ -40,6 +40,8 @@ const AdminInner = () => {
   const [allBooks, setAllBooks] = useState<any[]>([]);
   const [bookFilter, setBookFilter] = useState<"pending_review" | "approved" | "rejected" | "all">("pending_review");
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
