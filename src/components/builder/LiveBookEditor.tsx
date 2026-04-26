@@ -57,9 +57,7 @@ const draftToRuntimeBlock = (b: BlockDraft): Block | null => {
     case "quote":
       return { type: "quote", text: b.text || "", author: b.author };
     case "callout":
-      return b.icon === "sparkle"
-        ? { type: "highlight", text: b.text || "" }
-        : { type: "callout", icon: b.icon || "info", text: b.text || "" };
+      return { type: "callout", icon: b.icon || "info", text: b.text || "" };
     case "image":
       return {
         type: "image",
