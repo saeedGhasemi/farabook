@@ -260,7 +260,7 @@ const AdminInner = () => {
             <UserPlus className="w-4 h-4" /> درخواست ناشر ({pubReqs.filter((r) => r.status === "pending").length})
           </TabsTrigger>
           <TabsTrigger value="books" className="gap-2">
-            <BookCheck className="w-4 h-4" /> کتاب‌های در انتظار ({pendingBooks.length})
+            <BookCheck className="w-4 h-4" /> کتاب‌ها ({bookCounts.pending_review} در انتظار)
           </TabsTrigger>
         </TabsList>
 
