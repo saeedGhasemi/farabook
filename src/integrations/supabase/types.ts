@@ -658,6 +658,7 @@ export type Database = {
       is_publisher: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_valid_iran_national_id: { Args: { _code: string }; Returns: boolean }
+      purchase_book: { Args: { _book_id: string }; Returns: Json }
     }
     Enums: {
       app_role:
