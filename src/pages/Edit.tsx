@@ -111,9 +111,28 @@ const Edit = () => {
             · {lang === "fa" ? "ذخیره خودکار فعال" : "Autosaving"}
           </span>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ms-auto h-8 gap-1.5"
+          onClick={() => setPreviewOpen(true)}
+        >
+          <Eye className="w-4 h-4" />
+          {lang === "fa" ? "پیش‌نمایش فروشگاه" : "Store preview"}
+        </Button>
       </motion.div>
 
       <BookEditor initial={initial} />
+
+      <BookPreviewDialog
+        book={previewBook}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        isOwned={false}
+        isOwner={true}
+        canBuy={false}
+        onBuy={() => {}}
+      />
     </main>
   );
 };
