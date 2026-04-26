@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import {
   Shield, Users, CreditCard, BookCheck, UserPlus, Trash2, Loader2, Check, X,
   AlertCircle, Power, PowerOff, Plus, Minus, ArrowUpDown, ArrowUp, ArrowDown, Save, Pencil,
+  Banknote,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
