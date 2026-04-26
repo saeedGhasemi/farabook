@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { RoleGuard } from "@/components/RoleGuard";
+import { UserDetailDialog } from "@/components/admin/UserDetailDialog";
 import type { AppRole } from "@/hooks/useRoles";
 
 const ALL_ROLES: AppRole[] = ["super_admin", "admin", "moderator", "reviewer", "publisher", "editor", "user"];
