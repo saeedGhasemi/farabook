@@ -1090,6 +1090,7 @@ const InlineTextBlock = ({
   }
 
   // paragraph
+  if (block.kind !== "paragraph") return null;
   return (
     <textarea
       value={block.text}
