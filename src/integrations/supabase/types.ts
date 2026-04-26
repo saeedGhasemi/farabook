@@ -411,7 +411,9 @@ export type Database = {
           display_name: string | null
           id: string
           is_active: boolean
+          national_id: string | null
           updated_at: string
+          username: string | null
           website: string | null
         }
         Insert: {
@@ -424,7 +426,9 @@ export type Database = {
           display_name?: string | null
           id: string
           is_active?: boolean
+          national_id?: string | null
           updated_at?: string
+          username?: string | null
           website?: string | null
         }
         Update: {
@@ -437,7 +441,9 @@ export type Database = {
           display_name?: string | null
           id?: string
           is_active?: boolean
+          national_id?: string | null
           updated_at?: string
+          username?: string | null
           website?: string | null
         }
         Relationships: []
@@ -609,7 +615,33 @@ export type Database = {
     }
     Functions: {
       accept_editor_request: { Args: { _request_id: string }; Returns: string }
+      admin_adjust_credits: {
+        Args: { _amount: number; _reason: string; _user_id: string }
+        Returns: undefined
+      }
+      admin_list_users: {
+        Args: never
+        Returns: {
+          created_at: string
+          credits: number
+          display_name: string
+          email: string
+          id: string
+          is_active: boolean
+          national_id: string
+          roles: string[]
+          username: string
+        }[]
+      }
       admin_purge_user: { Args: { _user_id: string }; Returns: undefined }
+      admin_set_role: {
+        Args: {
+          _grant: boolean
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: undefined
+      }
       can_edit_book: {
         Args: { _book_id: string; _user_id: string }
         Returns: boolean
@@ -625,6 +657,7 @@ export type Database = {
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_publisher: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_valid_iran_national_id: { Args: { _code: string }; Returns: boolean }
     }
     Enums: {
       app_role:
