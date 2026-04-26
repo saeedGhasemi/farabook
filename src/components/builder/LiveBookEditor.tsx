@@ -1268,23 +1268,37 @@ const InlineTextBlock = ({
 /* ------------------------------------------------------------------ */
 
 const Inspector = ({
-  block, onUpdate, onReplace, uploadFile, lang,
+  block, onUpdate, onReplace, onSplit, uploadFile, lang,
 }: {
   block: BlockDraft;
   onUpdate: (patch: Partial<BlockDraft>) => void;
   onReplace: (next: BlockDraft) => void;
+  onSplit?: () => void;
   uploadFile: (f: File, prefix?: string) => Promise<string | null>;
   lang: "fa" | "en";
 }) => {
   const fa = lang === "fa";
 
-  // Shared header for text-like blocks: "Convert to" type switcher
+  // Shared header for text-like blocks: "Convert to" type switcher +
+  // a one-click "promote to new chapter" action.
   const TextStyleHeader = (
-    <div className="space-y-1.5 pb-2 mb-2 border-b border-border">
+    <div className="space-y-2 pb-3 mb-3 border-b border-border">
       <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
         {fa ? "تبدیل به" : "Convert to"}
       </Label>
       <TextTypeSwitcher block={block} onConvert={onReplace} lang={lang} />
+      {onSplit && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onSplit}
+          className="w-full justify-start gap-2 h-8 text-xs"
+        >
+          <Scissors className="w-3.5 h-3.5 text-accent" />
+          {fa ? "تبدیل به سرفصل فصل جدید" : "Promote to new chapter"}
+        </Button>
+      )}
     </div>
   );
 
