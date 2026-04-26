@@ -232,6 +232,93 @@ const AdminInner = () => {
     }
   };
 
+  // ===== Bulk actions =====
+  const selectedArr = useMemo(() => Array.from(selectedIds), [selectedIds]);
+
+  const toggleOne = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (checked) n.add(id);
+      else n.delete(id);
+      return n;
+    });
+  };
+
+  const bulkSetActive = async (active: boolean) => {
+    if (selectedArr.length === 0) return;
+    if (!confirm(`${active ? "فعال‌سازی" : "غیرفعال‌سازی"} ${selectedArr.length} کاربر؟`)) return;
+    const { error } = await (supabase.from("profiles") as any)
+      .update({ is_active: active })
+      .in("id", selectedArr);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(`${selectedArr.length} کاربر ${active ? "فعال" : "غیرفعال"} شد`);
+      setSelectedIds(new Set());
+      load();
+    }
+  };
+
+  const bulkDelete = async () => {
+    if (selectedArr.length === 0) return;
+    if (!confirm(`حذف کامل ${selectedArr.length} کاربر و تمام داده‌های آن‌ها؟ این عمل غیرقابل بازگشت است.`)) return;
+    let ok = 0;
+    let fail = 0;
+    for (const uid of selectedArr) {
+      const { error } = await (supabase.rpc as any)("admin_purge_user", { _user_id: uid });
+      if (error) fail++;
+      else ok++;
+    }
+    if (fail) toast.error(`${ok} حذف شد، ${fail} خطا`);
+    else toast.success(`${ok} کاربر حذف شد`);
+    setSelectedIds(new Set());
+    load();
+  };
+
+  const bulkGrantRole = async () => {
+    if (selectedArr.length === 0 || !bulkRole) return;
+    const rows = selectedArr.map((uid) => ({ user_id: uid, role: bulkRole as AppRole }));
+    const { error } = await supabase.from("user_roles").upsert(rows, { onConflict: "user_id,role" });
+    if (error) toast.error(error.message);
+    else {
+      toast.success(`نقش ${ROLE_LABEL[bulkRole as AppRole]} به ${selectedArr.length} کاربر داده شد`);
+      setSelectedIds(new Set());
+      setBulkRole("");
+      load();
+    }
+  };
+
+  const bulkRevokeRole = async () => {
+    if (selectedArr.length === 0 || !bulkRole) return;
+    if (bulkRole === "user") return toast.error("نقش کاربر عادی قابل حذف نیست");
+    const { error } = await supabase
+      .from("user_roles")
+      .delete()
+      .in("user_id", selectedArr)
+      .eq("role", bulkRole);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(`نقش ${ROLE_LABEL[bulkRole as AppRole]} از ${selectedArr.length} کاربر گرفته شد`);
+      setSelectedIds(new Set());
+      setBulkRole("");
+      load();
+    }
+  };
+
+  const bulkAdjustCredits = async () => {
+    if (selectedArr.length === 0) return;
+    const amt = Number(window.prompt(`مقدار اعتبار برای ${selectedArr.length} کاربر (مثبت یا منفی):`) || "0");
+    if (!amt) return;
+    const reason = window.prompt("دلیل:") || (amt > 0 ? "bulk_grant" : "bulk_deduct");
+    const rows = selectedArr.map((uid) => ({ user_id: uid, amount: amt, reason }));
+    const { error } = await supabase.from("credit_transactions").insert(rows);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("اعتبار به‌روز شد");
+      setSelectedIds(new Set());
+      load();
+    }
+  };
+
   if (loading) {
     return (
       <div className="container py-20 flex justify-center">
