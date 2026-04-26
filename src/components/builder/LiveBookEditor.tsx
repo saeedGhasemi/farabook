@@ -282,6 +282,20 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
     [],
   );
 
+  const replaceBlock = useCallback(
+    (pi: number, bi: number, next: BlockDraft) => {
+      setPages((ps) =>
+        ps.map((p, i) =>
+          i === pi
+            ? { ...p, blocks: p.blocks.map((b, j) => (j === bi ? next : b)) }
+            : p,
+        ),
+      );
+      markDirty();
+    },
+    [],
+  );
+
   const insertBlock = (pi: number, at: number, kind: BlockDraft["kind"]) => {
     const block = newBlock(kind);
     setPages((ps) =>
