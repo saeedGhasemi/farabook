@@ -128,35 +128,37 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) stop(); onOpenChange(o); }}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <div className="flex items-start gap-4">
-            {book.cover_url && (
-              <img
-                src={resolveBookMedia(book.cover_url)}
-                alt={book.title}
-                className="w-20 h-28 object-cover rounded-lg shadow-md flex-shrink-0"
-              />
-            )}
-            <div className="flex-1 min-w-0">
-              <DialogTitle className="font-display text-2xl">{book.title}</DialogTitle>
-              <DialogDescription className="mt-1">
-                {book.author}
-                {book.category && <Badge variant="secondary" className="ms-2">{book.category}</Badge>}
-              </DialogDescription>
-              <p className="text-xs text-primary font-semibold mt-2">
-                {book.price === 0 ? (fa ? "رایگان" : "Free") : `${book.price.toLocaleString()} ${fa ? "تومان" : "Toman"}`}
-              </p>
+      <DialogContent className="max-w-3xl h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
+        <div className="px-6 pt-6 pb-4 border-b shrink-0">
+          <DialogHeader>
+            <div className="flex items-start gap-4">
+              {book.cover_url && (
+                <img
+                  src={resolveBookMedia(book.cover_url)}
+                  alt={book.title}
+                  className="w-20 h-28 object-cover rounded-lg shadow-md flex-shrink-0"
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <DialogTitle className="font-display text-2xl">{book.title}</DialogTitle>
+                <DialogDescription className="mt-1">
+                  {book.author}
+                  {book.category && <Badge variant="secondary" className="ms-2">{book.category}</Badge>}
+                </DialogDescription>
+                <p className="text-xs text-primary font-semibold mt-2">
+                  {book.price === 0 ? (fa ? "رایگان" : "Free") : `${book.price.toLocaleString()} ${fa ? "تومان" : "Toman"}`}
+                </p>
+              </div>
             </div>
-          </div>
-        </DialogHeader>
+          </DialogHeader>
+        </div>
 
         {loading ? (
           <div className="flex-1 flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
           </div>
         ) : (
-          <ScrollArea className="flex-1 pe-4 -me-4">
+          <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
             {/* AI summary */}
             <section className="mb-5">
               <div className="flex items-center justify-between mb-2">
