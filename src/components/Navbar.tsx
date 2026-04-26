@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Library, Store, LogIn, LogOut, Languages, Palette, Wand2, Briefcase, Menu, X, Shield, Coins } from "lucide-react";
+import { BookOpen, Library, Store, LogIn, LogOut, Languages, Palette, Wand2, Briefcase, Menu, X, Shield, Coins, Mail } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoles } from "@/hooks/useRoles";
@@ -34,6 +34,7 @@ export const Navbar = () => {
     { to: "/library", label: t("nav_library"), icon: Library, show: !!user },
     { to: "/upload", label: t("nav_builder"), icon: Wand2, show: isPublisher || isAdmin },
     { to: "/publisher/me", label: t("nav_publisher"), icon: Briefcase, show: isPublisher || isAdmin },
+    { to: "/editor-requests", label: lang === "fa" ? "ادیتورها" : "Editors", icon: Mail, show: !!user },
     { to: "/credits", label: lang === "fa" ? "اعتبار" : "Credits", icon: Coins, show: !!user },
     { to: "/admin", label: lang === "fa" ? "ادمین" : "Admin", icon: Shield, show: isAdmin },
   ].filter((l) => l.show);
