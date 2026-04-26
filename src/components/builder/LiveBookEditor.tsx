@@ -282,6 +282,20 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
     [],
   );
 
+  const replaceBlock = useCallback(
+    (pi: number, bi: number, next: BlockDraft) => {
+      setPages((ps) =>
+        ps.map((p, i) =>
+          i === pi
+            ? { ...p, blocks: p.blocks.map((b, j) => (j === bi ? next : b)) }
+            : p,
+        ),
+      );
+      markDirty();
+    },
+    [],
+  );
+
   const insertBlock = (pi: number, at: number, kind: BlockDraft["kind"]) => {
     const block = newBlock(kind);
     setPages((ps) =>
@@ -732,6 +746,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
                       isSelected={selectedBlockIdx === bi}
                       onSelect={() => setSelectedBlockIdx(bi)}
                       onUpdate={(patch) => updateBlock(activePageIdx, bi, patch)}
+                      onReplace={(next) => replaceBlock(activePageIdx, bi, next)}
                       onDelete={() => removeBlock(activePageIdx, bi)}
                       onDuplicate={() => duplicateBlock(activePageIdx, bi)}
                       onMoveUp={bi > 0 ? () => moveBlock(activePageIdx, bi, -1) : undefined}
@@ -795,6 +810,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
                   <Inspector
                     block={selectedBlock}
                     onUpdate={(patch) => updateBlock(activePageIdx, selectedBlockIdx, patch)}
+                    onReplace={(next) => replaceBlock(activePageIdx, selectedBlockIdx, next)}
                     uploadFile={uploadToBucket}
                     lang={lang}
                   />
@@ -928,11 +944,91 @@ const InsertSlot = ({
 };
 
 /* ------------------------------------------------------------------ */
+/*  Text-type switcher — convert paragraph ↔ heading ↔ quote ↔ callout */
+/* ------------------------------------------------------------------ */
+
+type TextStyleId = "paragraph" | "heading" | "quote" | "callout-info" | "callout-sparkle";
+
+const isTextLike = (b: BlockDraft) =>
+  b.kind === "paragraph" ||
+  b.kind === "heading" ||
+  b.kind === "quote" ||
+  b.kind === "callout";
+
+const currentTextStyle = (b: BlockDraft): TextStyleId | null => {
+  if (b.kind === "paragraph") return "paragraph";
+  if (b.kind === "heading") return "heading";
+  if (b.kind === "quote") return "quote";
+  if (b.kind === "callout") return b.icon === "sparkle" ? "callout-sparkle" : "callout-info";
+  return null;
+};
+
+/** Convert a text-like block to another text style, preserving the text. */
+const convertTextBlock = (b: BlockDraft, target: TextStyleId): BlockDraft => {
+  const text = (b as any).text || "";
+  const author = (b as any).author || "";
+  switch (target) {
+    case "paragraph":  return { kind: "paragraph", text };
+    case "heading":    return { kind: "heading", text };
+    case "quote":      return { kind: "quote", text, author };
+    case "callout-info":     return { kind: "callout", icon: "info", text };
+    case "callout-sparkle":  return { kind: "callout", icon: "sparkle", text };
+  }
+};
+
+const TextTypeSwitcher = ({
+  block, onConvert, lang, compact = false,
+}: {
+  block: BlockDraft;
+  onConvert: (next: BlockDraft) => void;
+  lang: "fa" | "en";
+  compact?: boolean;
+}) => {
+  const fa = lang === "fa";
+  const current = currentTextStyle(block);
+  const items: { id: TextStyleId; label: string; symbol: string; title: string }[] = [
+    { id: "paragraph",       symbol: "P",  label: fa ? "متن" : "Text",          title: fa ? "متن معمولی" : "Paragraph" },
+    { id: "heading",         symbol: "H",  label: fa ? "عنوان" : "Heading",     title: fa ? "تبدیل به عنوان/سرفصل" : "Convert to heading" },
+    { id: "quote",           symbol: "❝",  label: fa ? "نقل قول" : "Quote",     title: fa ? "تبدیل به نقل قول" : "Convert to quote" },
+    { id: "callout-info",    symbol: "💡", label: fa ? "نکته" : "Note",         title: fa ? "تبدیل به نکته" : "Convert to callout" },
+    { id: "callout-sparkle", symbol: "✨", label: fa ? "هایلایت" : "Highlight", title: fa ? "تبدیل به برجسته/هایلایت" : "Convert to highlight" },
+  ];
+  return (
+    <div
+      className={`flex items-center gap-0.5 ${compact ? "" : "p-1 rounded-lg bg-foreground/5 border border-border"}`}
+      onClick={(e) => e.stopPropagation()}
+      role="group"
+      aria-label={fa ? "تبدیل نوع متن" : "Convert text style"}
+    >
+      {items.map((it) => {
+        const active = current === it.id;
+        return (
+          <button
+            key={it.id}
+            type="button"
+            title={it.title}
+            onClick={() => { if (!active) onConvert(convertTextBlock(block, it.id)); }}
+            className={`flex items-center gap-1 px-2 ${compact ? "py-0.5 text-[11px]" : "py-1 text-xs"} rounded-md transition-colors ${
+              active
+                ? "bg-accent text-accent-foreground font-semibold shadow-sm"
+                : "hover:bg-accent/15 text-foreground/80"
+            }`}
+          >
+            <span className="leading-none">{it.symbol}</span>
+            {!compact && <span className="hidden md:inline">{it.label}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
 /*  BlockShell — wraps a live-preview block with selection chrome     */
 /* ------------------------------------------------------------------ */
 
 const BlockShell = ({
-  block, pageIndex, blockIndex, isSelected, onSelect, onUpdate, onDelete,
+  block, pageIndex, blockIndex, isSelected, onSelect, onUpdate, onReplace, onDelete,
   onDuplicate, onMoveUp, onMoveDown, onSlash, lang,
 }: {
   block: BlockDraft;
@@ -941,6 +1037,7 @@ const BlockShell = ({
   isSelected: boolean;
   onSelect: () => void;
   onUpdate: (patch: Partial<BlockDraft>) => void;
+  onReplace: (next: BlockDraft) => void;
   onDelete: () => void;
   onDuplicate: () => void;
   onMoveUp?: () => void;
@@ -948,11 +1045,7 @@ const BlockShell = ({
   onSlash: () => void;
   lang: "fa" | "en";
 }) => {
-  const isText =
-    block.kind === "paragraph" ||
-    block.kind === "heading" ||
-    block.kind === "quote" ||
-    block.kind === "callout";
+  const isText = isTextLike(block);
 
   // For text blocks: render a real editable element styled like the live block.
   // For richer blocks: render the BlockRenderer in a non-interactive overlay.
@@ -967,6 +1060,16 @@ const BlockShell = ({
           : "ring-1 ring-transparent hover:ring-border hover:bg-foreground/[0.02]"
       }`}
     >
+      {/* Floating type-switcher (text blocks only, when selected) */}
+      {isText && isSelected && (
+        <div
+          className="absolute -top-4 start-2 z-30 glass-strong rounded-full border border-border shadow-elegant"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <TextTypeSwitcher block={block} onConvert={onReplace} lang={lang} compact />
+        </div>
+      )}
+
       {/* Hover/selected toolbar */}
       <div className={`absolute -top-3 end-2 z-20 flex items-center gap-0.5 glass-strong rounded-full border border-border px-1 py-0.5 transition-opacity ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100 pointer-events-none"}`}
         style={{ pointerEvents: isSelected ? "auto" : "none" }}
@@ -1107,20 +1210,32 @@ const InlineTextBlock = ({
 /* ------------------------------------------------------------------ */
 
 const Inspector = ({
-  block, onUpdate, uploadFile, lang,
+  block, onUpdate, onReplace, uploadFile, lang,
 }: {
   block: BlockDraft;
   onUpdate: (patch: Partial<BlockDraft>) => void;
+  onReplace: (next: BlockDraft) => void;
   uploadFile: (f: File, prefix?: string) => Promise<string | null>;
   lang: "fa" | "en";
 }) => {
   const fa = lang === "fa";
+
+  // Shared header for text-like blocks: "Convert to" type switcher
+  const TextStyleHeader = (
+    <div className="space-y-1.5 pb-2 mb-2 border-b border-border">
+      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        {fa ? "تبدیل به" : "Convert to"}
+      </Label>
+      <TextTypeSwitcher block={block} onConvert={onReplace} lang={lang} />
+    </div>
+  );
 
   switch (block.kind) {
     case "heading":
     case "paragraph":
       return (
         <div className="space-y-2">
+          {TextStyleHeader}
           <Label className="text-xs">{fa ? "متن" : "Text"}</Label>
           <Textarea
             value={block.text}
@@ -1136,6 +1251,7 @@ const Inspector = ({
     case "quote":
       return (
         <div className="space-y-2">
+          {TextStyleHeader}
           <Label className="text-xs">{fa ? "متن نقل قول" : "Quote text"}</Label>
           <Textarea
             value={block.text}
@@ -1153,6 +1269,7 @@ const Inspector = ({
     case "callout":
       return (
         <div className="space-y-2">
+          {TextStyleHeader}
           <Label className="text-xs">{fa ? "نوع" : "Style"}</Label>
           <div className="flex gap-1">
             {(["info", "sparkle"] as const).map((v) => (
