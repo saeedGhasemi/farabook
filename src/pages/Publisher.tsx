@@ -134,9 +134,7 @@ const Publisher = () => {
     );
   }
 
-  const displayName = profile?.display_name || (isMe
-    ? (lang === "fa" ? "ناشر" : "Publisher")
-    : (lang === "fa" ? "ناشر" : "Publisher"));
+  const displayName = storefront?.display_name || profile?.display_name || (lang === "fa" ? "ناشر" : "Publisher");
 
   return (
     <main className="container py-10 md:py-16 min-h-[calc(100vh-4rem)]">
@@ -161,10 +159,15 @@ const Publisher = () => {
           )}
         </div>
         {isMe ? (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Link to="/upload">
               <Button className="gap-2 bg-gradient-warm hover:opacity-90">
                 <Plus className="w-4 h-4" /> {lang === "fa" ? "کتاب جدید" : "New book"}
+              </Button>
+            </Link>
+            <Link to={`/publisher/${user?.id}/settings`}>
+              <Button variant="outline" className="gap-2">
+                <Settings className="w-4 h-4" /> {lang === "fa" ? "تنظیمات" : "Settings"}
               </Button>
             </Link>
             {user && (
