@@ -63,6 +63,24 @@ const extractText = (pages: any[]): string => {
   return out.join("\n").slice(0, 12000);
 };
 
+/** Detect whether the book content is Persian/Arabic (fa) or Latin (en).
+ *  Uses character-class ratios so the result reflects the *actual* text
+ *  rather than the metadata flag (which authors often forget to set). */
+const detectLang = (text: string): "fa" | "en" => {
+  if (!text) return "fa";
+  const sample = text.slice(0, 4000);
+  let fa = 0;
+  let en = 0;
+  for (const ch of sample) {
+    const code = ch.charCodeAt(0);
+    // Arabic + Persian + Arabic Supplement
+    if ((code >= 0x0600 && code <= 0x06FF) || (code >= 0x0750 && code <= 0x077F) || (code >= 0xFB50 && code <= 0xFDFF) || (code >= 0xFE70 && code <= 0xFEFF)) fa++;
+    else if ((code >= 0x0041 && code <= 0x005A) || (code >= 0x0061 && code <= 0x007A)) en++;
+  }
+  if (fa === 0 && en === 0) return "fa";
+  return fa >= en ? "fa" : "en";
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
