@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { resolveBookMedia } from "@/lib/book-media";
+import { bookCreditCost } from "@/lib/purchase";
 
 interface Row {
   id: string;
@@ -30,6 +31,7 @@ interface Row {
     category: string | null;
     publisher_id: string | null;
     status: string;
+    price: number;
   } | null;
 }
 
@@ -47,7 +49,7 @@ const Library = () => {
   useEffect(() => {
     if (!user) return;
     supabase.from("user_books")
-      .select("id, status, progress, current_page, acquired_via, books(id, title, title_en, author, cover_url, category, publisher_id, status)")
+      .select("id, status, progress, current_page, acquired_via, books(id, title, title_en, author, cover_url, category, publisher_id, status, price)")
       .eq("user_id", user.id)
       .then(({ data }) => setRows((data as unknown as Row[]) ?? []));
   }, [user]);
