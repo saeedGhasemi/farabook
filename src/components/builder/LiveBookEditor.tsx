@@ -1690,6 +1690,131 @@ const InlineTextBlock = ({
 
 
 /* ------------------------------------------------------------------ */
+/*  HotspotEditor — click on the image preview to add markers, then   */
+/*  edit each hotspot's label & description. Stored as percentages.   */
+/* ------------------------------------------------------------------ */
+
+type HotspotT = { x: number; y: number; label: string; description: string };
+
+const HotspotEditor = ({
+  src, hotspots, onChange, lang,
+}: {
+  src: string;
+  hotspots: HotspotT[];
+  onChange: (next: HotspotT[]) => void;
+  lang: "fa" | "en";
+}) => {
+  const fa = lang === "fa";
+  const [adding, setAdding] = useState(false);
+
+  const onImgClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!adding) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const next: HotspotT = {
+      x: Math.max(0, Math.min(100, x)),
+      y: Math.max(0, Math.min(100, y)),
+      label: fa ? `نقطه ${hotspots.length + 1}` : `Point ${hotspots.length + 1}`,
+      description: "",
+    };
+    onChange([...hotspots, next]);
+    setAdding(false);
+  };
+
+  return (
+    <div className="pt-3 mt-2 border-t border-border space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+          <MapPin className="w-3 h-3" />
+          {fa ? "نقاط هایلایت روی تصویر" : "Image hotspots"}
+        </Label>
+        <Button
+          type="button"
+          variant={adding ? "default" : "outline"}
+          size="sm"
+          onClick={() => setAdding((v) => !v)}
+          className="h-7 text-[11px] px-2"
+        >
+          {adding
+            ? (fa ? "روی تصویر کلیک کنید…" : "Click on image…")
+            : (fa ? "+ افزودن نقطه" : "+ Add point")}
+        </Button>
+      </div>
+
+      <div
+        className={`relative rounded-lg overflow-hidden ${adding ? "ring-2 ring-accent cursor-crosshair" : ""}`}
+        onClick={onImgClick}
+      >
+        <img src={src} alt="" className="w-full max-h-48 object-cover pointer-events-none" />
+        {hotspots.map((h, i) => (
+          <div
+            key={i}
+            className="absolute w-5 h-5 -ml-2.5 -mt-2.5 rounded-full bg-accent text-accent-foreground text-[10px] font-bold flex items-center justify-center shadow-elegant ring-2 ring-background"
+            style={{ left: `${h.x}%`, top: `${h.y}%` }}
+            title={h.label}
+          >
+            {i + 1}
+          </div>
+        ))}
+        {adding && hotspots.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/40 text-xs">
+            {fa ? "روی محل دلخواه کلیک کنید" : "Click anywhere on the image"}
+          </div>
+        )}
+      </div>
+
+      {hotspots.length > 0 && (
+        <div className="space-y-2">
+          {hotspots.map((h, i) => (
+            <div key={i} className="rounded-lg border border-border p-2 space-y-1.5 bg-foreground/[0.02]">
+              <div className="flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-accent text-accent-foreground text-[10px] font-bold flex items-center justify-center shrink-0">
+                  {i + 1}
+                </span>
+                <Input
+                  value={h.label}
+                  onChange={(e) => {
+                    const next = [...hotspots];
+                    next[i] = { ...h, label: e.target.value };
+                    onChange(next);
+                  }}
+                  placeholder={fa ? "عنوان" : "Label"}
+                  className="h-7 text-xs flex-1"
+                />
+                <button
+                  onClick={() => onChange(hotspots.filter((_, k) => k !== i))}
+                  className="p-1 rounded hover:bg-destructive/10 text-destructive"
+                  aria-label="delete hotspot"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+              <Textarea
+                value={h.description}
+                onChange={(e) => {
+                  const next = [...hotspots];
+                  next[i] = { ...h, description: e.target.value };
+                  onChange(next);
+                }}
+                placeholder={fa ? "توضیح کوتاه" : "Short description"}
+                rows={2}
+                className="text-xs"
+              />
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <span>x: {h.x.toFixed(0)}%</span>
+                <span>y: {h.y.toFixed(0)}%</span>
+                <span className="ms-auto">{fa ? "برای جابجایی، حذف و دوباره اضافه کنید" : "To move: delete and re-add"}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
 /*  Inspector — rich controls for the selected block                  */
 /* ------------------------------------------------------------------ */
 
