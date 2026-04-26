@@ -859,6 +859,12 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
                       }
                       onSlash={() => setInsertAt(bi + 1)}
                       onSplit={() => splitToNewChapter(activePageIdx, bi)}
+                      onSplitAtCursor={(before, after) =>
+                        splitTextBlockAtCursor(activePageIdx, bi, before, after)
+                      }
+                      onMergePrev={
+                        bi > 0 ? () => mergeWithPreviousBlock(activePageIdx, bi) : undefined
+                      }
                       lang={lang}
                     />
                     <InsertSlot
