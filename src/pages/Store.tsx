@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Search, ShoppingBag, Check, Eye, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +18,6 @@ import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
 import { bookCreditCost, purchaseBookWithCredits } from "@/lib/purchase";
 import { ConfirmTransactionDialog } from "@/components/ConfirmTransactionDialog";
 import { useCredits } from "@/hooks/useCredits";
-import { useNavigate } from "react-router-dom";
 
 const resolveCover = (s: string | null) => resolveBookMedia(s);
 
