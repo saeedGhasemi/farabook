@@ -17,6 +17,7 @@ import {
   ChevronDown, FileText, Quote as QuoteIcon, Lightbulb, GalleryHorizontal,
   ListOrdered, Save, Loader2, EyeOff, Rocket, Eye, X, Copy,
   PanelLeft, PanelRight, Sparkles, GripVertical, FileImage, Scissors,
+  Undo2, Redo2, Images, MapPin,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -65,6 +66,7 @@ const draftToRuntimeBlock = (b: BlockDraft): Block | null => {
         src: b.src || "",
         caption: b.caption,
         hideCaption: b.hideCaption,
+        hotspots: b.hotspots && b.hotspots.length ? b.hotspots : undefined,
       };
     case "gallery":
       return { type: "gallery", images: b.images, caption: b.caption };
@@ -246,6 +248,29 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
   const [dirty, setDirty] = useState(false);
   const skipFirstSave = useRef(true);
 
+  /* ---------- undo / redo history ---------- */
+  // We keep snapshots of the `pages` array. New snapshots are pushed when
+  // markDirty() is called (debounced). undo/redo restore from the stack
+  // and set `suppressHistory` so the resulting setPages doesn't snapshot
+  // itself. Cap at 50 entries to keep memory bounded.
+  const HISTORY_LIMIT = 50;
+  const undoStack = useRef<PageDraft[][]>([]);
+  const redoStack = useRef<PageDraft[][]>([]);
+  const lastSnapshotAt = useRef<number>(0);
+  const suppressHistory = useRef(false);
+  const [historyTick, setHistoryTick] = useState(0); // forces re-render so undo/redo buttons reflect availability
+
+  const snapshotNow = useCallback((current: PageDraft[]) => {
+    const last = undoStack.current[undoStack.current.length - 1];
+    // Skip if identical to the very last snapshot
+    if (last && JSON.stringify(last) === JSON.stringify(current)) return;
+    undoStack.current.push(current);
+    if (undoStack.current.length > HISTORY_LIMIT) undoStack.current.shift();
+    redoStack.current = []; // any new mutation invalidates redo
+    lastSnapshotAt.current = Date.now();
+    setHistoryTick((t) => t + 1);
+  }, []);
+
   // Clamp activePageIdx if pages shrink
   useEffect(() => {
     if (activePageIdx >= pages.length) setActivePageIdx(Math.max(0, pages.length - 1));
@@ -256,7 +281,81 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
     selectedBlockIdx !== null ? activePage?.blocks[selectedBlockIdx] : null;
 
   /* ---------- mutators ---------- */
-  const markDirty = () => setDirty(true);
+  // markDirty is also our history snapshot point. Debounce rapid
+  // typing into one snapshot per ~400ms burst; standalone mutations
+  // (insert, delete, split…) snapshot immediately if no recent change.
+  const markDirty = () => {
+    setDirty(true);
+    if (suppressHistory.current) return;
+    const now = Date.now();
+    const since = now - lastSnapshotAt.current;
+    if (since > 400) snapshotNow(pages);
+    else {
+      // Still update timestamp so a later edit eventually snapshots
+      lastSnapshotAt.current = now;
+    }
+  };
+
+  // Final-snapshot helper: forces a snapshot of the latest pages on blur
+  // or before an undo, so partial typing isn't lost.
+  const flushHistory = useCallback(() => {
+    if (suppressHistory.current) return;
+    snapshotNow(pages);
+  }, [pages, snapshotNow]);
+
+  const undo = useCallback(() => {
+    flushHistory();
+    const stack = undoStack.current;
+    if (stack.length < 2) return; // need at least previous state
+    const current = stack.pop()!;          // discard current
+    const prev = stack[stack.length - 1];  // peek previous
+    redoStack.current.push(current);
+    suppressHistory.current = true;
+    setPages(prev);
+    setSelectedBlockIdx(null);
+    setDirty(true);
+    setHistoryTick((t) => t + 1);
+    setTimeout(() => { suppressHistory.current = false; }, 0);
+  }, [flushHistory]);
+
+  const redo = useCallback(() => {
+    const next = redoStack.current.pop();
+    if (!next) return;
+    undoStack.current.push(next);
+    suppressHistory.current = true;
+    setPages(next);
+    setSelectedBlockIdx(null);
+    setDirty(true);
+    setHistoryTick((t) => t + 1);
+    setTimeout(() => { suppressHistory.current = false; }, 0);
+  }, []);
+
+  const canUndo = undoStack.current.length > 1;
+  const canRedo = redoStack.current.length > 0;
+  // historyTick is intentionally read so the lint pass keeps it as a dep
+  void historyTick;
+
+  // Seed the history with the initial state once
+  useEffect(() => {
+    if (undoStack.current.length === 0) {
+      undoStack.current.push(pages);
+      lastSnapshotAt.current = Date.now();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Global keyboard shortcuts: Ctrl/Cmd+Z = undo, Ctrl+Shift+Z / Ctrl+Y = redo
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const meta = e.ctrlKey || e.metaKey;
+      if (!meta) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if ((k === "z" && e.shiftKey) || k === "y") { e.preventDefault(); redo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
 
   const updatePage = (pi: number, patch: Partial<PageDraft>) => {
     setPages((ps) => ps.map((p, i) => (i === pi ? { ...p, ...patch } : p)));
@@ -647,6 +746,30 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
         </Button>
 
         <div className="flex-1" />
+
+        {/* Undo / Redo */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={undo}
+          disabled={!canUndo}
+          className="h-8 px-2"
+          title={lang === "fa" ? "بازگردانی (Ctrl+Z)" : "Undo (Ctrl+Z)"}
+          aria-label="undo"
+        >
+          <Undo2 className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={redo}
+          disabled={!canRedo}
+          className="h-8 px-2"
+          title={lang === "fa" ? "تکرار (Ctrl+Shift+Z)" : "Redo (Ctrl+Shift+Z)"}
+          aria-label="redo"
+        >
+          <Redo2 className="w-4 h-4" />
+        </Button>
 
         {isEdit && (
           <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 me-1">
@@ -1567,6 +1690,131 @@ const InlineTextBlock = ({
 
 
 /* ------------------------------------------------------------------ */
+/*  HotspotEditor — click on the image preview to add markers, then   */
+/*  edit each hotspot's label & description. Stored as percentages.   */
+/* ------------------------------------------------------------------ */
+
+type HotspotT = { x: number; y: number; label: string; description: string };
+
+const HotspotEditor = ({
+  src, hotspots, onChange, lang,
+}: {
+  src: string;
+  hotspots: HotspotT[];
+  onChange: (next: HotspotT[]) => void;
+  lang: "fa" | "en";
+}) => {
+  const fa = lang === "fa";
+  const [adding, setAdding] = useState(false);
+
+  const onImgClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!adding) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const next: HotspotT = {
+      x: Math.max(0, Math.min(100, x)),
+      y: Math.max(0, Math.min(100, y)),
+      label: fa ? `نقطه ${hotspots.length + 1}` : `Point ${hotspots.length + 1}`,
+      description: "",
+    };
+    onChange([...hotspots, next]);
+    setAdding(false);
+  };
+
+  return (
+    <div className="pt-3 mt-2 border-t border-border space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+          <MapPin className="w-3 h-3" />
+          {fa ? "نقاط هایلایت روی تصویر" : "Image hotspots"}
+        </Label>
+        <Button
+          type="button"
+          variant={adding ? "default" : "outline"}
+          size="sm"
+          onClick={() => setAdding((v) => !v)}
+          className="h-7 text-[11px] px-2"
+        >
+          {adding
+            ? (fa ? "روی تصویر کلیک کنید…" : "Click on image…")
+            : (fa ? "+ افزودن نقطه" : "+ Add point")}
+        </Button>
+      </div>
+
+      <div
+        className={`relative rounded-lg overflow-hidden ${adding ? "ring-2 ring-accent cursor-crosshair" : ""}`}
+        onClick={onImgClick}
+      >
+        <img src={src} alt="" className="w-full max-h-48 object-cover pointer-events-none" />
+        {hotspots.map((h, i) => (
+          <div
+            key={i}
+            className="absolute w-5 h-5 -ml-2.5 -mt-2.5 rounded-full bg-accent text-accent-foreground text-[10px] font-bold flex items-center justify-center shadow-elegant ring-2 ring-background"
+            style={{ left: `${h.x}%`, top: `${h.y}%` }}
+            title={h.label}
+          >
+            {i + 1}
+          </div>
+        ))}
+        {adding && hotspots.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/40 text-xs">
+            {fa ? "روی محل دلخواه کلیک کنید" : "Click anywhere on the image"}
+          </div>
+        )}
+      </div>
+
+      {hotspots.length > 0 && (
+        <div className="space-y-2">
+          {hotspots.map((h, i) => (
+            <div key={i} className="rounded-lg border border-border p-2 space-y-1.5 bg-foreground/[0.02]">
+              <div className="flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-accent text-accent-foreground text-[10px] font-bold flex items-center justify-center shrink-0">
+                  {i + 1}
+                </span>
+                <Input
+                  value={h.label}
+                  onChange={(e) => {
+                    const next = [...hotspots];
+                    next[i] = { ...h, label: e.target.value };
+                    onChange(next);
+                  }}
+                  placeholder={fa ? "عنوان" : "Label"}
+                  className="h-7 text-xs flex-1"
+                />
+                <button
+                  onClick={() => onChange(hotspots.filter((_, k) => k !== i))}
+                  className="p-1 rounded hover:bg-destructive/10 text-destructive"
+                  aria-label="delete hotspot"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+              <Textarea
+                value={h.description}
+                onChange={(e) => {
+                  const next = [...hotspots];
+                  next[i] = { ...h, description: e.target.value };
+                  onChange(next);
+                }}
+                placeholder={fa ? "توضیح کوتاه" : "Short description"}
+                rows={2}
+                className="text-xs"
+              />
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <span>x: {h.x.toFixed(0)}%</span>
+                <span>y: {h.y.toFixed(0)}%</span>
+                <span className="ms-auto">{fa ? "برای جابجایی، حذف و دوباره اضافه کنید" : "To move: delete and re-add"}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
 /*  Inspector — rich controls for the selected block                  */
 /* ------------------------------------------------------------------ */
 
@@ -1711,6 +1959,65 @@ const Inspector = ({
             <EyeOff className="w-3 h-3" />
             {fa ? "زیرنویس مخفی (با هاور نمایش)" : "Hide caption (reveal on hover)"}
           </label>
+
+          {/* Convert this single image into a slideshow by adding more */}
+          {block.src && (
+            <div className="pt-3 mt-2 border-t border-border space-y-1.5">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {fa ? "تبدیل به اسلایدشو" : "Convert to slideshow"}
+              </Label>
+              <p className="text-[10px] text-muted-foreground">
+                {fa
+                  ? "چند تصویر دیگر اضافه کنید تا این تصویر بخشی از یک اسلایدشو شود."
+                  : "Add more images to turn this into a slideshow."}
+              </p>
+              <Input
+                type="file"
+                accept="image/*"
+                multiple
+                disabled={uploading}
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files || []);
+                  e.target.value = "";
+                  if (!files.length) return;
+                  setUploading(true);
+                  const slides: { src: string; caption?: string }[] = [
+                    { src: block.src, caption: block.caption },
+                  ];
+                  let ok = 0;
+                  for (const f of files) {
+                    const url = await uploadFile(f, "slides");
+                    if (url) { slides.push({ src: url, caption: "" }); ok++; }
+                  }
+                  setUploading(false);
+                  if (ok === 0) {
+                    toast.error(fa ? "آپلود ناموفق بود" : "Upload failed");
+                    return;
+                  }
+                  onReplace({
+                    kind: "slideshow",
+                    images: slides,
+                    autoplay: true,
+                    hideCaption: block.hideCaption,
+                  } as any);
+                  toast.success(
+                    fa ? `به اسلایدشو تبدیل شد (${slides.length} تصویر)` : `Converted to slideshow (${slides.length} images)`,
+                  );
+                }}
+                className="text-xs h-9"
+              />
+            </div>
+          )}
+
+          {/* Hotspots — clickable info markers on the image */}
+          {block.src && (
+            <HotspotEditor
+              src={block.src}
+              hotspots={block.hotspots || []}
+              onChange={(next) => onUpdate({ hotspots: next } as any)}
+              lang={lang}
+            />
+          )}
         </div>
       );
 

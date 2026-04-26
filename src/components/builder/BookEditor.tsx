@@ -40,6 +40,7 @@ export type BlockDraft =
       src: string;
       caption?: string;
       hideCaption?: boolean;
+      hotspots?: { x: number; y: number; label: string; description: string }[];
     }
   | { kind: "video"; src: string; caption?: string }
   | {
@@ -92,6 +93,7 @@ const blockToDraft = (b: any): BlockDraft | null => {
         src: b.src || "",
         caption: b.caption || "",
         hideCaption: !!b.hideCaption,
+        hotspots: Array.isArray(b.hotspots) ? b.hotspots : [],
       };
     case "gallery":
       return {
@@ -146,6 +148,7 @@ const draftToBlock = (b: BlockDraft): any | null => {
             src: b.src,
             caption: b.caption,
             hideCaption: b.hideCaption,
+            hotspots: b.hotspots && b.hotspots.length ? b.hotspots : undefined,
           }
         : null;
     case "gallery":
