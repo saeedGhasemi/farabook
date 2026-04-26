@@ -802,6 +802,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
                           : undefined
                       }
                       onSlash={() => setInsertAt(bi + 1)}
+                      onSplit={() => splitToNewChapter(activePageIdx, bi)}
                       lang={lang}
                     />
                     <InsertSlot
