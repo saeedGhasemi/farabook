@@ -179,6 +179,17 @@ const Store = () => {
                   <h3 className="font-display font-bold text-lg leading-tight line-clamp-2">{title}</h3>
                   <p className="text-sm text-muted-foreground mt-1">{book.author}</p>
                 </div>
+                {ratings[book.id] && (
+                  <div className="flex items-center gap-1 text-xs">
+                    <Star className="w-3.5 h-3.5 fill-accent text-accent" />
+                    <span className="font-semibold text-foreground">
+                      {ratings[book.id].avg.toFixed(1)}
+                    </span>
+                    <span className="text-muted-foreground">
+                      ({ratings[book.id].count.toLocaleString(lang === "fa" ? "fa-IR" : "en-US")})
+                    </span>
+                  </div>
+                )}
                 <p className="text-sm text-muted-foreground line-clamp-2 flex-1">{book.description}</p>
                 <div className="flex items-center justify-between gap-2 pt-2">
                   <span className="font-semibold text-primary">
