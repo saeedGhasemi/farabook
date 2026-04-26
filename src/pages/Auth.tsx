@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 const Auth = () => {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const nav = useNavigate();
   const { user } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
