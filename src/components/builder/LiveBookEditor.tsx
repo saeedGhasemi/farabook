@@ -1139,6 +1139,16 @@ const BlockShell = ({
         <button onClick={onDuplicate} className="p-1 hover:bg-foreground/10 rounded" aria-label="duplicate">
           <Copy className="w-3 h-3" />
         </button>
+        {onSplit && (
+          <button
+            onClick={onSplit}
+            className="p-1 hover:bg-accent/15 text-accent rounded"
+            aria-label={lang === "fa" ? "تبدیل به فصل جدید" : "Split into new chapter"}
+            title={lang === "fa" ? "از اینجا فصل جدید بساز" : "Start a new chapter here"}
+          >
+            <Scissors className="w-3 h-3" />
+          </button>
+        )}
         <button onClick={onDelete} className="p-1 hover:bg-destructive/10 text-destructive rounded" aria-label="delete">
           <Trash2 className="w-3 h-3" />
         </button>
