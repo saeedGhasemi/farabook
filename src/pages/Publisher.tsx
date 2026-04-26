@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Briefcase, Plus, Pencil, Trash2, Eye, BookOpen, Users, FileEdit,
-  CheckCircle2, ExternalLink, Loader2,
+  CheckCircle2, ExternalLink, Loader2, Settings,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,6 +38,15 @@ interface PublisherProfile {
   avatar_url: string | null;
 }
 
+interface PublisherStorefront {
+  display_name: string;
+  bio: string | null;
+  banner_url: string | null;
+  logo_url: string | null;
+  theme: string | null;
+  is_trusted: boolean;
+}
+
 const Publisher = () => {
   const { id: paramId } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -49,6 +58,7 @@ const Publisher = () => {
 
   const [books, setBooks] = useState<Book[]>([]);
   const [profile, setProfile] = useState<PublisherProfile | null>(null);
+  const [storefront, setStorefront] = useState<PublisherStorefront | null>(null);
   const [readerStats, setReaderStats] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<Book | null>(null);
