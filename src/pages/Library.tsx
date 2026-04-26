@@ -55,11 +55,14 @@ const Library = () => {
         .eq("user_id", user.id);
       const ownedRows = ((ub as unknown as Row[]) ?? []).filter((r) => r.books);
 
-      // 2) Books the user published — auto-included as virtual library entries
+      // 2) Books the user published AND are live in the store — auto-included
+      //    as virtual library entries. Drafts stay only in "My Publications"
+      //    until the publisher finalizes them.
       const ownedBookIds = new Set(ownedRows.map((r) => r.books?.id));
       const { data: pub } = await supabase.from("books")
         .select("id, title, title_en, author, cover_url, category, publisher_id, status, price")
-        .eq("publisher_id", user.id);
+        .eq("publisher_id", user.id)
+        .eq("status", "published");
       const virtualRows: Row[] = ((pub as any[]) ?? [])
         .filter((b) => !ownedBookIds.has(b.id))
         .map((b) => ({
