@@ -1404,11 +1404,28 @@ const BlockShell = ({
 /*   • "/" still opens the slash insert menu                          */
 /* ------------------------------------------------------------------ */
 
+const TOOLBAR_OPEN_KEY = "lb.editor.toolbarOpen";
+const useToolbarOpen = (): [boolean, (v: boolean) => void] => {
+  const [open, setOpen] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem(TOOLBAR_OPEN_KEY);
+      return v === null ? true : v === "1";
+    } catch { return true; }
+  });
+  const set = (v: boolean) => {
+    setOpen(v);
+    try { localStorage.setItem(TOOLBAR_OPEN_KEY, v ? "1" : "0"); } catch { /* ignore */ }
+  };
+  return [open, set];
+};
+
 const FloatingFormatToolbar = ({
   onFormat,
+  onCollapse,
   lang,
 }: {
   onFormat: (kind: "bold" | "italic" | "underline" | "link") => void;
+  onCollapse?: () => void;
   lang: "fa" | "en";
 }) => {
   const fa = lang === "fa";
@@ -1434,9 +1451,30 @@ const FloatingFormatToolbar = ({
       <Btn label={<span className="underline">U</span>} title={fa ? "زیرخط (Ctrl+U)" : "Underline (Ctrl+U)"} onClick={() => onFormat("underline")} />
       <span className="w-px h-4 bg-border mx-0.5" />
       <Btn label="🔗" title={fa ? "پیوند (Ctrl+K)" : "Link (Ctrl+K)"} onClick={() => onFormat("link")} />
+      {onCollapse && (
+        <>
+          <span className="w-px h-4 bg-border mx-0.5" />
+          <Btn label="×" title={fa ? "بستن نوار ابزار" : "Hide toolbar"} onClick={onCollapse} className="text-muted-foreground hover:text-foreground" />
+        </>
+      )}
     </div>
   );
 };
+
+const ToolbarReopenChip = ({ onOpen, lang }: { onOpen: () => void; lang: "fa" | "en" }) => (
+  <button
+    type="button"
+    onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onOpen(); }}
+    title={lang === "fa" ? "نمایش نوار ابزار" : "Show toolbar"}
+    className="absolute -top-7 start-1 z-40 h-6 px-2 text-[11px] rounded-md glass border border-border text-muted-foreground hover:text-foreground hover:bg-foreground/5 flex items-center gap-1"
+    onClick={(e) => e.stopPropagation()}
+  >
+    <span className="font-bold">B</span>
+    <span className="italic">I</span>
+    <span className="underline">U</span>
+    <span className="opacity-60">▾</span>
+  </button>
+);
 
 /** Wrap the selected range with the given prefix/suffix — markdown style. */
 const wrapSelection = (
@@ -1490,6 +1528,7 @@ const InlineTextBlock = ({
 }) => {
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const [hasSelection, setHasSelection] = useState(false);
+  const [toolbarOpen, setToolbarOpen] = useToolbarOpen();
 
   // When this block becomes the selected one (e.g. after Enter splits a
   // paragraph or the user clicks it) auto-focus the cursor at the end so
@@ -1599,7 +1638,16 @@ const InlineTextBlock = ({
     setHasSelection((ta.selectionEnd ?? 0) > (ta.selectionStart ?? 0));
   };
 
-  const showToolbar = isSelected && hasSelection;
+  // Toolbar visibility:
+  //   • when the user has actively selected text → always show (so they can format)
+  //   • otherwise → show whenever the block is selected AND the toolbar isn't collapsed
+  const showToolbar = isSelected && (hasSelection || toolbarOpen);
+  const showReopenChip = isSelected && !toolbarOpen && !hasSelection;
+  const toolbarEl = showToolbar
+    ? <FloatingFormatToolbar onFormat={(k) => formatHandler(k)} onCollapse={hasSelection ? undefined : () => setToolbarOpen(false)} lang={lang} />
+    : showReopenChip
+      ? <ToolbarReopenChip onOpen={() => setToolbarOpen(true)} lang={lang} />
+      : null;
   const formatHandler = (kind: "bold" | "italic" | "underline" | "link") => {
     const ta = taRef.current;
     if (!ta) return;
@@ -1617,7 +1665,7 @@ const InlineTextBlock = ({
   if (block.kind === "heading") {
     return (
       <div className="relative">
-        {showToolbar && <FloatingFormatToolbar onFormat={formatHandler} lang={lang} />}
+        {toolbarEl}
         <textarea
           ref={taRef}
           value={block.text}
@@ -1639,7 +1687,7 @@ const InlineTextBlock = ({
   if (block.kind === "quote") {
     return (
       <div className="relative my-4 px-4 md:px-6 py-3 border-s-4 border-accent bg-foreground/[0.03] rounded-r-xl">
-        {showToolbar && <FloatingFormatToolbar onFormat={formatHandler} lang={lang} />}
+        {toolbarEl}
         <textarea
           ref={taRef}
           value={block.text}
@@ -1679,7 +1727,7 @@ const InlineTextBlock = ({
     const v = variantStyles[block.icon || "info"] || variantStyles.info;
     return (
       <div className={`relative my-4 p-4 rounded-xl flex gap-3 border ${v.cls}`}>
-        {showToolbar && <FloatingFormatToolbar onFormat={formatHandler} lang={lang} />}
+        {toolbarEl}
         <div className="text-xl shrink-0 leading-none">{v.symbol}</div>
         <textarea
           ref={taRef}
@@ -1702,7 +1750,7 @@ const InlineTextBlock = ({
   if (block.kind !== "paragraph") return null;
   return (
     <div className="relative">
-      {showToolbar && <FloatingFormatToolbar onFormat={formatHandler} lang={lang} />}
+      {toolbarEl}
       <textarea
         ref={taRef}
         value={block.text}
