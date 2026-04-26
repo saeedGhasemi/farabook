@@ -3,8 +3,11 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Briefcase, Plus, Pencil, Trash2, Eye, BookOpen, Users, FileEdit,
-  CheckCircle2, ExternalLink, Loader2, Settings,
+  CheckCircle2, ExternalLink, Loader2, Settings, TrendingUp, Coins, BarChart3,
 } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -287,14 +290,39 @@ const Publisher = () => {
                     <p className="text-sm text-muted-foreground mt-1">{book.author}</p>
                   </div>
                   {isMe && (
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {readers}</span>
-                      <span className="font-semibold text-primary">
-                        {book.price === 0
-                          ? (lang === "fa" ? "رایگان" : "Free")
-                          : `${book.price.toLocaleString()} ${lang === "fa" ? "ت" : "T"}`}
-                      </span>
-                    </div>
+                    <>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {readers}</span>
+                        <span className="font-semibold text-primary">
+                          {book.price === 0
+                            ? (lang === "fa" ? "رایگان" : "Free")
+                            : `${book.price.toLocaleString()} ${lang === "fa" ? "ت" : "T"}`}
+                        </span>
+                      </div>
+                      {/* Sales summary chip */}
+                      {(() => {
+                        const s = salesStats[book.id];
+                        const sales = s?.count || 0;
+                        const earned = s?.toMe || 0;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setSalesDetailFor(book)}
+                            className="text-start rounded-xl border border-accent/30 bg-accent/5 hover:bg-accent/10 transition-colors px-3 py-2 flex items-center justify-between gap-2"
+                          >
+                            <span className="flex items-center gap-1.5 text-xs">
+                              <TrendingUp className="w-3.5 h-3.5 text-accent" />
+                              <span className="font-semibold">{sales.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}</span>
+                              <span className="text-muted-foreground">{lang === "fa" ? "فروش" : "sales"}</span>
+                            </span>
+                            <span className="flex items-center gap-1 text-xs font-mono text-accent">
+                              <Coins className="w-3 h-3" />
+                              {earned.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}
+                            </span>
+                          </button>
+                        );
+                      })()}
+                    </>
                   )}
                   <div className="flex items-center gap-2 pt-2 mt-auto flex-wrap">
                     {isMe ? (
