@@ -233,10 +233,9 @@ const AdminInner = () => {
   const giveCredits = async (userId: string) => {
     const amt = Number(window.prompt("مقدار اعتبار (مثبت یا منفی):") || "0");
     if (!amt) return;
-    const { error } = await supabase.from("credit_transactions").insert({
-      user_id: userId,
-      amount: amt,
-      reason: amt > 0 ? "admin_grant" : "admin_deduct",
+    const reason = window.prompt("دلیل:") || (amt > 0 ? "admin_grant" : "admin_deduct");
+    const { error } = await (supabase.rpc as any)("admin_adjust_credits", {
+      _user_id: userId, _amount: amt, _reason: reason,
     });
     if (error) toast.error(error.message);
     else {
@@ -244,6 +243,99 @@ const AdminInner = () => {
       load();
     }
   };
+
+  // ===== Inline row actions =====
+  const startEdit = (u: UserRow) => {
+    setEditId(u.id);
+    setEditDraft({
+      display_name: u.display_name || "",
+      username: u.username || "",
+      national_id: u.national_id || "",
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditId(null);
+  };
+
+  const saveEdit = async (id: string) => {
+    const payload: any = {
+      display_name: editDraft.display_name.trim() || null,
+      username: editDraft.username.trim() || null,
+      national_id: editDraft.national_id.replace(/\D/g, "") || null,
+    };
+    const { error } = await supabase.from("profiles").update(payload).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("ذخیره شد");
+    setEditId(null);
+    load();
+  };
+
+  const toggleActive = async (u: UserRow) => {
+    const next = !u.is_active;
+    const { error } = await supabase.from("profiles").update({ is_active: next }).eq("id", u.id);
+    if (error) return toast.error(error.message);
+    toast.success(next ? "کاربر فعال شد" : "کاربر غیرفعال شد");
+    load();
+  };
+
+  const inlineGrantRole = async (uid: string, role: AppRole) => {
+    const { error } = await (supabase.rpc as any)("admin_set_role", {
+      _user_id: uid, _role: role, _grant: true,
+    });
+    if (error) toast.error(error.message);
+    else { toast.success(`نقش ${ROLE_LABEL[role]} اعطا شد`); load(); }
+  };
+
+  const inlineRevokeRole = async (uid: string, role: AppRole) => {
+    if (role === "user") return toast.error("نقش کاربر عادی قابل حذف نیست");
+    const { error } = await (supabase.rpc as any)("admin_set_role", {
+      _user_id: uid, _role: role, _grant: false,
+    });
+    if (error) toast.error(error.message);
+    else { toast.success(`نقش ${ROLE_LABEL[role]} لغو شد`); load(); }
+  };
+
+  const createUser = async () => {
+    const { email, password, display_name, role, credits } = createForm;
+    if (!email || password.length < 6) return toast.error("ایمیل و گذرواژه (حداقل ۶ کاراکتر) لازم است");
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(`${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/admin-create-user`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+      body: JSON.stringify({
+        email, password, display_name,
+        roles: ["user", role].filter((v, i, a) => a.indexOf(v) === i),
+        credits: Number(credits) || 0,
+      }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) return toast.error(json.error || "خطا در ساخت کاربر");
+    toast.success(`کاربر ${json.email} ساخته شد`);
+    setCreateOpen(false);
+    setCreateForm({ email: "", password: "", display_name: "", role: "user", credits: 0 });
+    load();
+  };
+
+  const toggleSort = (k: SortKey) => {
+    if (sortKey === k) setSortDir(sortDir === "asc" ? "desc" : "asc");
+    else { setSortKey(k); setSortDir("asc"); }
+  };
+
+  const SortHeader = ({ k, children }: { k: SortKey; children: React.ReactNode }) => (
+    <button
+      onClick={() => toggleSort(k)}
+      className="inline-flex items-center gap-1 hover:text-foreground"
+      type="button"
+    >
+      {children}
+      {sortKey === k ? (sortDir === "asc" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)
+        : <ArrowUpDown className="w-3 h-3 opacity-50" />}
+    </button>
+  );
 
   // ===== Bulk actions =====
   const selectedArr = useMemo(() => Array.from(selectedIds), [selectedIds]);
