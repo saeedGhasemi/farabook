@@ -747,6 +747,30 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
 
         <div className="flex-1" />
 
+        {/* Undo / Redo */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={undo}
+          disabled={!canUndo}
+          className="h-8 px-2"
+          title={lang === "fa" ? "بازگردانی (Ctrl+Z)" : "Undo (Ctrl+Z)"}
+          aria-label="undo"
+        >
+          <Undo2 className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={redo}
+          disabled={!canRedo}
+          className="h-8 px-2"
+          title={lang === "fa" ? "تکرار (Ctrl+Shift+Z)" : "Redo (Ctrl+Shift+Z)"}
+          aria-label="redo"
+        >
+          <Redo2 className="w-4 h-4" />
+        </Button>
+
         {isEdit && (
           <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 me-1">
             {savingDraft ? (
