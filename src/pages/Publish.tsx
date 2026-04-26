@@ -6,6 +6,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, ArrowRight, Loader2, Rocket, Sparkles, Volume2, X, CheckCircle2,
+  Circle, Tag, PieChart, BookMarked,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -74,6 +75,7 @@ const Publish = () => {
   const [tagsInput, setTagsInput] = useState("");
   const [price, setPrice] = useState<number>(0);
   const [previewPages, setPreviewPages] = useState<number[]>([0]);
+  const [sharesSaved, setSharesSaved] = useState(false);
 
   // AI options
   const [genSummary, setGenSummary] = useState(true);
@@ -82,6 +84,38 @@ const Publish = () => {
 
   // Browser TTS preview
   const [speaking, setSpeaking] = useState(false);
+
+  // Step completion (the in-page wizard guide)
+  const priceStepDone = price === 0 || price > 0; // any explicit value (incl. 0/free) counts
+  const sharesStepDone = price === 0 || sharesSaved; // free books skip splits
+  const previewStepDone = (previewPages?.length ?? 0) > 0;
+  const allStepsDone = priceStepDone && sharesStepDone && previewStepDone && !!title.trim();
+
+  const Step = ({
+    n, done, icon: Icon, title: t, hint, anchor,
+  }: { n: number; done: boolean; icon: any; title: string; hint: string; anchor: string }) => (
+    <a
+      href={`#${anchor}`}
+      className={`flex items-start gap-3 rounded-xl border p-3 transition-all ${
+        done
+          ? "border-emerald-500/30 bg-emerald-500/5"
+          : "border-border bg-background/40 hover:border-accent/40"
+      }`}
+    >
+      <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+        done ? "bg-emerald-500 text-white" : "bg-secondary text-foreground/70"
+      }`}>
+        {done ? <CheckCircle2 className="w-4 h-4" /> : n}
+      </div>
+      <div className="min-w-0">
+        <div className="text-sm font-semibold flex items-center gap-1.5">
+          <Icon className="w-3.5 h-3.5 text-accent" />
+          {t}
+        </div>
+        <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">{hint}</p>
+      </div>
+    </a>
+  );
 
   useEffect(() => {
     if (!id) return;
@@ -261,6 +295,63 @@ const Publish = () => {
         </Badge>
       </motion.div>
 
+      {/* Step-by-step guide */}
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-strong rounded-2xl p-4 mb-6"
+      >
+        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <h3 className="font-display font-bold text-sm flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-accent" />
+            {lang === "fa" ? "راهنمای انتشار — ۳ قدم" : "Publishing guide — 3 steps"}
+          </h3>
+          <span className="text-[11px] text-muted-foreground">
+            {lang === "fa"
+              ? "وقتی هر سه قدم تیک خوردند، دکمه «انتشار» فعال می‌شود."
+              : "Publish unlocks when all three steps are checked."}
+          </span>
+        </div>
+        <div className="grid sm:grid-cols-3 gap-2">
+          <Step
+            n={1}
+            done={priceStepDone}
+            icon={Tag}
+            anchor="step-price"
+            title={lang === "fa" ? "قیمت کتاب" : "Book price"}
+            hint={
+              lang === "fa"
+                ? "در بخش «قیمت‌گذاری» مبلغ را به تومان وارد کنید (۰ = رایگان)."
+                : "Enter the price in Toman in the Pricing section (0 = free)."
+            }
+          />
+          <Step
+            n={2}
+            done={sharesStepDone}
+            icon={PieChart}
+            anchor="step-shares"
+            title={lang === "fa" ? "درصد سهام / سهم‌ها" : "Revenue split"}
+            hint={
+              lang === "fa"
+                ? "در «سهم‌بندی درآمد»، درصد نویسنده/ادیتور را وارد کرده و «ذخیره» را بزنید. باقی‌مانده خودکار سهم ناشر است. (برای کتاب رایگان لازم نیست)"
+                : "Set author/editor percentages in Revenue split and click Save. Remainder goes to publisher. (Skipped for free books)"
+            }
+          />
+          <Step
+            n={3}
+            done={previewStepDone}
+            icon={BookMarked}
+            anchor="step-preview"
+            title={lang === "fa" ? "صفحات پیش‌نمایش" : "Preview pages"}
+            hint={
+              lang === "fa"
+                ? "حداقل یک صفحه را به‌عنوان نمونه‌ی رایگان فروشگاه انتخاب کنید."
+                : "Pick at least one page as a free store sample."
+            }
+          />
+        </div>
+      </motion.div>
+
       <div className="space-y-6">
         {/* Core metadata */}
         <section className="glass-strong rounded-2xl p-5 space-y-4">
@@ -339,10 +430,16 @@ const Publish = () => {
         </section>
 
         {/* Pricing */}
-        <section className="glass-strong rounded-2xl p-5 space-y-3">
+        <section id="step-price" className="glass-strong rounded-2xl p-5 space-y-3 scroll-mt-24">
           <h2 className="font-display font-bold text-lg">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-accent text-accent-foreground text-xs me-2">1</span>
             {lang === "fa" ? "قیمت‌گذاری" : "Pricing"}
           </h2>
+          <p className="text-xs text-muted-foreground">
+            {lang === "fa"
+              ? "قیمت کتاب را به تومان وارد کنید. عدد ۰ یعنی کتاب رایگان منتشر می‌شود."
+              : "Enter the book price in Toman. Use 0 to publish for free."}
+          </p>
           <div className="flex items-center gap-3">
             <Input
               type="number"
@@ -359,21 +456,36 @@ const Publish = () => {
         </section>
 
         {/* Revenue split */}
-        <section className="glass-strong rounded-2xl p-5 space-y-3">
+        <section id="step-shares" className="glass-strong rounded-2xl p-5 space-y-3 scroll-mt-24">
           <h2 className="font-display font-bold text-lg">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-accent text-accent-foreground text-xs me-2">2</span>
             {lang === "fa" ? "سهم‌بندی درآمد" : "Revenue split"}
           </h2>
+          <p className="text-xs text-muted-foreground">
+            {lang === "fa"
+              ? "درصد سهم نویسنده و ادیتورها را تعیین و دکمه «ذخیره سهم‌بندی» را بزنید. درصد باقی‌مانده به‌صورت خودکار سهم ناشر (شما) خواهد بود. سهم پلتفرم از پیش از مجموع کسر شده است."
+              : "Set the author/editor percentages and click Save. Whatever remains is the publisher's share. The platform fee is already reserved."}
+          </p>
+          {price === 0 && (
+            <div className="text-[11px] rounded-md border border-emerald-500/30 bg-emerald-500/5 px-2 py-1.5 text-emerald-700 dark:text-emerald-300">
+              {lang === "fa"
+                ? "این کتاب رایگان است؛ نیازی به سهم‌بندی نیست."
+                : "This book is free — no revenue split needed."}
+            </div>
+          )}
           <RevenueShareEditor
             bookId={book.id}
             publisherId={book.publisher_id || user!.id}
             authorUserId={book.author_user_id}
             lang={lang}
+            onSavedChange={() => setSharesSaved(true)}
           />
         </section>
 
         {/* Preview pages */}
-        <section className="glass-strong rounded-2xl p-5 space-y-3">
+        <section id="step-preview" className="glass-strong rounded-2xl p-5 space-y-3 scroll-mt-24">
           <h2 className="font-display font-bold text-lg">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-accent text-accent-foreground text-xs me-2">3</span>
             {lang === "fa" ? "صفحات پیش‌نمایش رایگان" : "Free preview pages"}
           </h2>
           <p className="text-xs text-muted-foreground">
@@ -501,14 +613,19 @@ const Publish = () => {
         <div className="sticky bottom-4 z-30">
           <div className="glass-strong rounded-2xl p-3 flex items-center justify-between gap-3 shadow-elegant">
             <p className="text-xs text-muted-foreground">
-              {lang === "fa"
-                ? "پس از انتشار، کتاب در فروشگاه قابل مشاهده می‌شود."
-                : "After publishing, the book becomes visible in the store."}
+              {allStepsDone
+                ? (lang === "fa"
+                    ? "همه‌چیز آماده است. پس از انتشار، کتاب در فروشگاه قابل مشاهده می‌شود."
+                    : "Everything's ready. After publishing, your book becomes visible in the store.")
+                : (lang === "fa"
+                    ? `${[!priceStepDone && "۱) قیمت", !sharesStepDone && "۲) سهام", !previewStepDone && "۳) پیش‌نمایش"].filter(Boolean).join(" • ")} باقی مانده`
+                    : `Pending: ${[!priceStepDone && "Price", !sharesStepDone && "Shares", !previewStepDone && "Preview"].filter(Boolean).join(" • ")}`)}
             </p>
             <Button
               onClick={openPublishConfirm}
-              disabled={busy}
+              disabled={busy || !allStepsDone}
               className="bg-gradient-warm hover:opacity-90 gap-2"
+              title={!allStepsDone ? (lang === "fa" ? "ابتدا سه قدم بالا را تکمیل کنید" : "Complete the 3 steps first") : undefined}
             >
               {busy ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> {lang === "fa" ? "در حال انتشار…" : "Publishing…"}</>
