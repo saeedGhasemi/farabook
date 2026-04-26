@@ -165,6 +165,7 @@ interface InitialBook {
   cover_url: string | null;
   pages: PageDraft[];
   typography_preset?: string | null;
+  author_user_id?: string | null;
 }
 
 interface Props {
