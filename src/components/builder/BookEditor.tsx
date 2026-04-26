@@ -224,7 +224,13 @@ interface Props {
   onCreated?: (id: string) => void;
 }
 
-export const BookEditor = ({ initial, onCreated }: Props) => {
+// New WYSIWYG live editor lives in LiveBookEditor.tsx. We re-export
+// it through the BookEditor name so Edit/Upload pages keep working
+// without any changes.
+export { LiveBookEditor as BookEditor } from "./LiveBookEditor";
+
+// Legacy (kept for reference, no longer rendered):
+const _LegacyBookEditor = ({ initial, onCreated }: Props) => {
   const { user } = useAuth();
   const { lang } = useI18n();
   const nav = useNavigate();
