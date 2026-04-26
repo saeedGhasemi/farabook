@@ -340,6 +340,25 @@ const Publisher = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BookPreviewDialog
+        book={previewBook ? {
+          id: previewBook.id,
+          title: previewBook.title,
+          author: previewBook.author,
+          cover_url: previewBook.cover_url,
+          description: previewBook.description,
+          category: previewBook.category,
+          price: previewBook.price,
+          publisher_id: previewBook.publisher_id,
+        } : null}
+        open={!!previewBook}
+        onOpenChange={(o) => !o && setPreviewBook(null)}
+        isOwned={false}
+        isOwner={true}
+        canBuy={false}
+        onBuy={() => {}}
+      />
     </main>
   );
 };
