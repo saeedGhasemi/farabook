@@ -57,6 +57,38 @@ const Upload = () => {
     }
   };
 
+  // For "word import" tab we want the narrow centered container.
+  // For "manual" tab we want full-width since the live editor uses
+  // its own three-pane layout.
+  const [tab, setTab] = useState<"manual" | "word">("manual");
+
+  if (tab === "manual") {
+    return (
+      <main className="min-h-[calc(100vh-4rem)]">
+        <div className="container max-w-5xl pt-4 pb-2 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-warm flex items-center justify-center text-primary-foreground shadow-glow">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-xl font-display font-bold">
+                {lang === "fa" ? "کتاب‌ساز" : "Book Builder"}
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                {lang === "fa" ? "ادیتور بصری زنده — همان‌جا که می‌نویسی، می‌بینی" : "Live visual editor — what you see is what you publish"}
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setTab("word")}>
+            <FileText className="w-4 h-4 me-2" />
+            {lang === "fa" ? "از فایل ورد" : "From Word"}
+          </Button>
+        </div>
+        <BookEditor onCreated={(id) => nav(`/edit/${id}`)} />
+      </main>
+    );
+  }
+
   return (
     <main className="container py-10 md:py-16 min-h-[calc(100vh-4rem)] max-w-3xl">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
@@ -74,7 +106,7 @@ const Upload = () => {
             : "Import from Word, or design an interactive book page-by-page with the visual editor."}
         </p>
 
-        <Tabs defaultValue="manual" className="w-full">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "manual" | "word")} className="w-full">
           <TabsList className="grid grid-cols-2 mb-6 w-full max-w-sm">
             <TabsTrigger value="manual">
               <Wand2 className="w-4 h-4 me-2" />
@@ -87,7 +119,7 @@ const Upload = () => {
           </TabsList>
 
           <TabsContent value="manual">
-            <BookEditor onCreated={(id) => nav(`/edit/${id}`)} />
+            {/* unreachable, manual tab returned earlier */}
           </TabsContent>
 
           <TabsContent value="word">
