@@ -19,9 +19,19 @@ export const Navbar = () => {
   const loc = useLocation();
   const nav = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profile, setProfile] = useState<{ display_name: string | null; avatar_url: string | null } | null>(null);
 
   // Close mobile menu on route change
   useEffect(() => { setMobileOpen(false); }, [loc.pathname]);
+
+  // Load profile name/avatar for header
+  useEffect(() => {
+    if (!user) { setProfile(null); return; }
+    let cancelled = false;
+    supabase.from("profiles").select("display_name, avatar_url").eq("id", user.id).maybeSingle()
+      .then(({ data }) => { if (!cancelled) setProfile(data as any); });
+    return () => { cancelled = true; };
+  }, [user]);
 
   const themes: { value: Theme; label: string; swatch: string }[] = [
     { value: "silver", label: lang === "fa" ? "نقره‌ای" : "Silver", swatch: "linear-gradient(135deg,#c8d0db,#8a96a8)" },
