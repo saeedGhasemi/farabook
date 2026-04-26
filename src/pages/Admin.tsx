@@ -36,7 +36,8 @@ const AdminInner = () => {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [credReqs, setCredReqs] = useState<any[]>([]);
   const [pubReqs, setPubReqs] = useState<any[]>([]);
-  const [pendingBooks, setPendingBooks] = useState<any[]>([]);
+  const [allBooks, setAllBooks] = useState<any[]>([]);
+  const [bookFilter, setBookFilter] = useState<"pending_review" | "approved" | "rejected" | "all">("pending_review");
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -50,8 +51,7 @@ const AdminInner = () => {
         supabase.from("publisher_upgrade_requests").select("*").order("created_at", { ascending: false }),
         supabase
           .from("books")
-          .select("id, title, author, publisher_id, status, review_status, created_at")
-          .eq("review_status", "pending_review")
+          .select("id, title, author, publisher_id, status, review_status, reject_reason, reviewed_at, created_at")
           .order("created_at", { ascending: false }),
       ]);
 
@@ -77,13 +77,27 @@ const AdminInner = () => {
     );
     setCredReqs((cReq as any[]) || []);
     setPubReqs((pReq as any[]) || []);
-    setPendingBooks((books as any[]) || []);
+    setAllBooks((books as any[]) || []);
     setLoading(false);
   };
 
   useEffect(() => {
     load();
   }, []);
+
+  const filteredBooks = useMemo(() => {
+    if (bookFilter === "all") return allBooks;
+    return allBooks.filter((b) => (b.review_status || "approved") === bookFilter);
+  }, [allBooks, bookFilter]);
+
+  const bookCounts = useMemo(() => {
+    const counts = { pending_review: 0, approved: 0, rejected: 0, all: allBooks.length };
+    allBooks.forEach((b) => {
+      const s = (b.review_status || "approved") as keyof typeof counts;
+      if (s in counts) counts[s] = (counts[s] as number) + 1;
+    });
+    return counts;
+  }, [allBooks]);
 
   const grantRole = async (userId: string, role: AppRole) => {
     const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
