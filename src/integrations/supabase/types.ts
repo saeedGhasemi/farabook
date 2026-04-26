@@ -756,6 +756,23 @@ export type Database = {
         }[]
       }
       admin_purge_user: { Args: { _user_id: string }; Returns: undefined }
+      admin_recent_transactions: {
+        Args: { _limit?: number }
+        Returns: {
+          amount: number
+          book_id: string
+          book_title: string
+          buyer_id: string
+          buyer_name: string
+          created_at: string
+          id: string
+          metadata: Json
+          reason: string
+          user_email: string
+          user_id: string
+          user_name: string
+        }[]
+      }
       admin_set_role: {
         Args: {
           _grant: boolean
@@ -809,6 +826,16 @@ export type Database = {
       publish_book_paid: {
         Args: { _book_id: string; _complexity?: number }
         Returns: Json
+      }
+      publisher_book_sales_stats: {
+        Args: { _publisher_id: string }
+        Returns: {
+          book_id: string
+          distribution: Json
+          gross_credits: number
+          sales_count: number
+          to_publisher: number
+        }[]
       }
       purchase_book: { Args: { _book_id: string }; Returns: Json }
       request_publisher_upgrade_paid: {

@@ -569,17 +569,17 @@ const Reader = () => {
               onClick={goPrev}
               disabled={pageIdx === 0}
               aria-label={t("prev")}
-              className="fixed top-1/2 start-3 -translate-y-1/2 z-30 w-11 h-11 rounded-full glass-strong shadow-elegant flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:scale-110 transition-transform"
+              className="fixed top-1/2 start-2 sm:start-4 -translate-y-1/2 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-accent text-accent-foreground shadow-book border-2 border-background/70 flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed hover:scale-110 active:scale-95 transition-transform"
             >
-              <Prev className="w-5 h-5" />
+              <Prev className="w-6 h-6" />
             </button>
             <button
               onClick={goNext}
               disabled={pageIdx >= total - 1}
               aria-label={t("next")}
-              className="fixed top-1/2 end-3 -translate-y-1/2 z-30 w-11 h-11 rounded-full glass-strong shadow-elegant flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed hover:scale-110 transition-transform"
+              className="fixed top-1/2 end-2 sm:end-4 -translate-y-1/2 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-accent text-accent-foreground shadow-book border-2 border-background/70 flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed hover:scale-110 active:scale-95 transition-transform"
             >
-              <Next className="w-5 h-5" />
+              <Next className="w-6 h-6" />
             </button>
 
 

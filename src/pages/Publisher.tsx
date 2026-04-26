@@ -3,8 +3,11 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Briefcase, Plus, Pencil, Trash2, Eye, BookOpen, Users, FileEdit,
-  CheckCircle2, ExternalLink, Loader2, Settings,
+  CheckCircle2, ExternalLink, Loader2, Settings, TrendingUp, Coins, BarChart3,
 } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -61,9 +64,11 @@ const Publisher = () => {
   const [profile, setProfile] = useState<PublisherProfile | null>(null);
   const [storefront, setStorefront] = useState<PublisherStorefront | null>(null);
   const [readerStats, setReaderStats] = useState<Record<string, number>>({});
+  const [salesStats, setSalesStats] = useState<Record<string, { count: number; gross: number; toMe: number; distributed: { user_id: string; role: string; amount: number; name?: string }[] }>>({});
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<Book | null>(null);
   const [previewBook, setPreviewBook] = useState<Book | null>(null);
+  const [salesDetailFor, setSalesDetailFor] = useState<Book | null>(null);
 
   useEffect(() => {
     if (paramId === "me" && !user) {
@@ -92,9 +97,9 @@ const Publisher = () => {
       setProfile((prof as PublisherProfile) ?? null);
       setStorefront((sf as PublisherStorefront) ?? null);
 
-      // Reader counts via user_books
       if (visible.length) {
         const ids = visible.map((b) => b.id);
+        // Reader counts
         const { data: ub } = await supabase
           .from("user_books")
           .select("book_id")
@@ -104,6 +109,27 @@ const Publisher = () => {
           counts[r.book_id] = (counts[r.book_id] ?? 0) + 1;
         });
         if (!cancelled) setReaderStats(counts);
+
+        // Sales + revenue distribution (only for owner view) — uses SECURITY DEFINER RPC
+        if (isMe && targetId) {
+          const { data: rows } = await (supabase.rpc as any)("publisher_book_sales_stats", { _publisher_id: targetId });
+          const stats: typeof salesStats = {};
+          ((rows as any[]) ?? []).forEach((r) => {
+            const dist = (r.distribution || []).map((d: any) => ({
+              user_id: d.recipient_id,
+              role: d.role,
+              amount: Number(d.amount),
+              name: d.recipient_name,
+            }));
+            stats[r.book_id] = {
+              count: Number(r.sales_count) || 0,
+              gross: Number(r.gross_credits) || 0,
+              toMe: Number(r.to_publisher) || 0,
+              distributed: dist,
+            };
+          });
+          if (!cancelled) setSalesStats(stats);
+        }
       }
       setLoading(false);
     })();
@@ -264,14 +290,39 @@ const Publisher = () => {
                     <p className="text-sm text-muted-foreground mt-1">{book.author}</p>
                   </div>
                   {isMe && (
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {readers}</span>
-                      <span className="font-semibold text-primary">
-                        {book.price === 0
-                          ? (lang === "fa" ? "رایگان" : "Free")
-                          : `${book.price.toLocaleString()} ${lang === "fa" ? "ت" : "T"}`}
-                      </span>
-                    </div>
+                    <>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {readers}</span>
+                        <span className="font-semibold text-primary">
+                          {book.price === 0
+                            ? (lang === "fa" ? "رایگان" : "Free")
+                            : `${book.price.toLocaleString()} ${lang === "fa" ? "ت" : "T"}`}
+                        </span>
+                      </div>
+                      {/* Sales summary chip */}
+                      {(() => {
+                        const s = salesStats[book.id];
+                        const sales = s?.count || 0;
+                        const earned = s?.toMe || 0;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setSalesDetailFor(book)}
+                            className="text-start rounded-xl border border-accent/30 bg-accent/5 hover:bg-accent/10 transition-colors px-3 py-2 flex items-center justify-between gap-2"
+                          >
+                            <span className="flex items-center gap-1.5 text-xs">
+                              <TrendingUp className="w-3.5 h-3.5 text-accent" />
+                              <span className="font-semibold">{sales.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}</span>
+                              <span className="text-muted-foreground">{lang === "fa" ? "فروش" : "sales"}</span>
+                            </span>
+                            <span className="flex items-center gap-1 text-xs font-mono text-accent">
+                              <Coins className="w-3 h-3" />
+                              {earned.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}
+                            </span>
+                          </button>
+                        );
+                      })()}
+                    </>
                   )}
                   <div className="flex items-center gap-2 pt-2 mt-auto flex-wrap">
                     {isMe ? (
@@ -359,6 +410,76 @@ const Publisher = () => {
         canBuy={false}
         onBuy={() => {}}
       />
+
+      {/* Sales detail dialog */}
+      <Dialog open={!!salesDetailFor} onOpenChange={(o) => !o && setSalesDetailFor(null)}>
+        <DialogContent className="max-w-lg glass-strong">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-accent" />
+              {lang === "fa" ? "گزارش فروش و سهم‌بندی" : "Sales & revenue breakdown"}
+            </DialogTitle>
+            <DialogDescription className="truncate">{salesDetailFor?.title}</DialogDescription>
+          </DialogHeader>
+          {salesDetailFor && (() => {
+            const s = salesStats[salesDetailFor.id];
+            if (!s || s.count === 0) {
+              return (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  {lang === "fa" ? "هنوز فروشی ثبت نشده است." : "No sales recorded yet."}
+                </p>
+              );
+            }
+            const grouped = new Map<string, { name?: string; role: string; amount: number }>();
+            s.distributed.forEach((d) => {
+              const k = `${d.user_id}-${d.role}`;
+              const existing = grouped.get(k);
+              if (existing) existing.amount += d.amount;
+              else grouped.set(k, { name: d.name, role: d.role, amount: d.amount });
+            });
+            const fmt = (n: number) => n.toLocaleString(lang === "fa" ? "fa-IR" : undefined);
+            const roleLabel = (r: string) =>
+              r === "publisher" ? (lang === "fa" ? "ناشر (شما)" : "Publisher (you)")
+              : r === "author" ? (lang === "fa" ? "نویسنده" : "Author")
+              : r === "editor" ? (lang === "fa" ? "ادیتور" : "Editor")
+              : r;
+            return (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-xl border bg-background/40 p-3">
+                    <div className="text-2xl font-display font-bold">{fmt(s.count)}</div>
+                    <div className="text-[10px] text-muted-foreground mt-1">{lang === "fa" ? "تعداد فروش" : "Sales"}</div>
+                  </div>
+                  <div className="rounded-xl border bg-background/40 p-3">
+                    <div className="text-2xl font-display font-bold">{fmt(s.gross)}</div>
+                    <div className="text-[10px] text-muted-foreground mt-1">{lang === "fa" ? "مجموع درآمد" : "Gross"}</div>
+                  </div>
+                  <div className="rounded-xl border bg-accent/10 p-3">
+                    <div className="text-2xl font-display font-bold text-accent">{fmt(s.toMe)}</div>
+                    <div className="text-[10px] text-muted-foreground mt-1">{lang === "fa" ? "سهم شما" : "Your share"}</div>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold mb-2">
+                    {lang === "fa" ? "توزیع درآمد" : "Distribution"}
+                  </h4>
+                  <div className="space-y-1.5">
+                    {Array.from(grouped.values()).map((d, i) => (
+                      <div key={i} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border bg-background/30">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{d.name || (lang === "fa" ? "ناشناس" : "Unknown")}</div>
+                          <div className="text-[10px] text-muted-foreground">{roleLabel(d.role)}</div>
+                        </div>
+                        <div className="font-mono text-sm text-accent">{fmt(d.amount)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 };

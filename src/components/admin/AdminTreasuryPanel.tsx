@@ -53,11 +53,7 @@ export const AdminTreasuryPanel = () => {
   const load = async () => {
     const [{ data: f }, { data: txs }] = await Promise.all([
       supabase.from("platform_fee_settings").select("*").eq("id", 1).maybeSingle(),
-      supabase
-        .from("credit_transactions")
-        .select("id, user_id, amount, reason, metadata, created_at")
-        .order("created_at", { ascending: false })
-        .limit(200),
+      (supabase.rpc as any)("admin_recent_transactions", { _limit: 200 }),
     ]);
     if (f) {
       const fees: Fees = {
@@ -238,30 +234,56 @@ export const AdminTreasuryPanel = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-right">زمان</TableHead>
-                    <TableHead className="text-right">دلیل</TableHead>
+                    <TableHead className="text-right">رویداد</TableHead>
+                    <TableHead className="text-right">جزئیات</TableHead>
                     <TableHead className="text-right">مبلغ</TableHead>
-                    <TableHead className="text-right">کاربر</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tx.slice(0, 50).map((t) => {
+                  {tx.slice(0, 80).map((t) => {
                     const amt = Number(t.amount);
                     const isTreasury = TREASURY_REASONS.has(t.reason);
+                    const reasonLabels: Record<string, string> = {
+                      book_purchase: "خرید کتاب",
+                      publisher_signup_fee: "هزینه ناشر شدن",
+                      book_publish_fee: "هزینه انتشار کتاب",
+                      editor_order_fee: "هزینه سفارش ادیت",
+                      revenue_share_publisher: "سهم فروش — ناشر",
+                      revenue_share_author: "سهم فروش — نویسنده",
+                      revenue_share_editor: "سهم فروش — ادیتور",
+                      seed_starter_credits: "اعتبار اولیه",
+                      admin_adjust: "تنظیم دستی ادمین",
+                    };
+                    const reasonFa = reasonLabels[t.reason] || t.reason;
+                    const userName = t.user_name || String(t.user_id).slice(0, 8);
+                    const buyerName = t.buyer_name;
+                    const bookTitle = t.book_title;
                     return (
                       <TableRow key={t.id}>
                         <TableCell className="text-xs whitespace-nowrap">
                           {new Date(t.created_at).toLocaleString("fa-IR")}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={isTreasury ? "default" : "secondary"} className="text-[10px]">
-                            {t.reason}
+                          <Badge variant={isTreasury ? "default" : "secondary"} className="text-[10px] whitespace-nowrap">
+                            {reasonFa}
                           </Badge>
                         </TableCell>
-                        <TableCell className={`font-mono text-sm ${amt < 0 ? "text-destructive" : "text-accent"}`}>
-                          {amt > 0 ? "+" : ""}{amt.toLocaleString("fa-IR")}
+                        <TableCell className="text-xs leading-relaxed">
+                          {bookTitle && (
+                            <div className="font-medium truncate max-w-[260px]">📖 {bookTitle}</div>
+                          )}
+                          <div className="text-muted-foreground">
+                            {t.reason === "book_purchase"
+                              ? <>خریدار: <span className="font-medium text-foreground">{userName}</span></>
+                              : t.reason?.startsWith("revenue_share_")
+                                ? <>گیرنده: <span className="font-medium text-foreground">{userName}</span>{buyerName && <> · از خرید: {buyerName}</>}</>
+                                : <>کاربر: <span className="font-medium text-foreground">{userName}</span></>
+                            }
+                            {t.user_email && <span className="block text-[10px] opacity-70">{t.user_email}</span>}
+                          </div>
                         </TableCell>
-                        <TableCell className="font-mono text-[10px] text-muted-foreground">
-                          {String(t.user_id).slice(0, 8)}…
+                        <TableCell className={`font-mono text-sm whitespace-nowrap ${amt < 0 ? "text-destructive" : "text-accent"}`}>
+                          {amt > 0 ? "+" : ""}{amt.toLocaleString("fa-IR")}
                         </TableCell>
                       </TableRow>
                     );
