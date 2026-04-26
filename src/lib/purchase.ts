@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { pulseCredits, requestCreditsRefresh } from "@/lib/credits-bus";
+import { showInsufficientCreditsToast } from "@/lib/credit-guard";
 
 // Test multiplier (kept in sync with the SQL `purchase_book` function).
 export const CREDIT_PRICE_MULTIPLIER = 10;
@@ -19,7 +20,9 @@ const fmt = (n: number, lang: "fa" | "en") =>
 interface PurchaseArgs {
   bookId: string;
   bookTitle: string;
+  bookPrice?: number;
   lang: "fa" | "en";
+  navigate?: (to: string) => void;
 }
 
 interface PurchaseResult {
@@ -36,7 +39,9 @@ interface PurchaseResult {
 export const purchaseBookWithCredits = async ({
   bookId,
   bookTitle,
+  bookPrice,
   lang,
+  navigate,
 }: PurchaseArgs): Promise<PurchaseResult | null> => {
   const { data, error } = await supabase.rpc("purchase_book" as any, {
     _book_id: bookId,
@@ -45,11 +50,16 @@ export const purchaseBookWithCredits = async ({
   if (error) {
     const code = String(error.message || "");
     if (code.includes("insufficient_credits")) {
-      toast.error(
-        lang === "fa"
-          ? "اعتبار کافی نیست. لطفاً ابتدا اعتبار خریداری کنید."
-          : "Not enough credits. Please top up first.",
-      );
+      const cost = bookCreditCost(bookPrice ?? 0);
+      if (navigate) {
+        showInsufficientCreditsToast(lang, cost, navigate);
+      } else {
+        toast.error(
+          lang === "fa"
+            ? "اعتبار کافی نیست. لطفاً ابتدا اعتبار خریداری کنید."
+            : "Not enough credits. Please top up first.",
+        );
+      }
     } else if (code.includes("already_owned")) {
       toast.message(
         lang === "fa" ? "این کتاب قبلاً در قفسه شماست." : "Book already in your library.",
