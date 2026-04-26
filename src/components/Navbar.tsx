@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Library, Store, LogIn, LogOut, Languages, Palette, Wand2, Briefcase, Menu, X, Shield, Coins, Mail } from "lucide-react";
+import { BookOpen, Library, Store, LogIn, LogOut, Languages, Palette, Wand2, Briefcase, Menu, X, Shield, Coins, Mail, User as UserIcon } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoles } from "@/hooks/useRoles";
 import { useTheme, type Theme } from "@/lib/theme";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export const Navbar = () => {
   const { t, lang, setLang, dir } = useI18n();
