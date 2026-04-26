@@ -181,9 +181,9 @@ const Store = () => {
                       <Eye className="w-3.5 h-3.5" />
                     </Button>
                     {isOwner ? (
-                      <Link to={`/edit/${book.id}`}>
+                      <Link to={`/read/${book.id}`}>
                         <Button size="sm" variant="outline" className="gap-1.5">
-                          <Pencil className="w-3.5 h-3.5" /> {lang === "fa" ? "ویرایش" : "Edit"}
+                          <Check className="w-3.5 h-3.5" /> {t("read")}
                         </Button>
                       </Link>
                     ) : isOwned ? (
