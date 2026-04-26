@@ -71,6 +71,16 @@ const Edit = () => {
         typography_preset: data.typography_preset,
         author_user_id: (data as any).author_user_id ?? null,
       });
+      setPreviewBook({
+        id: data.id,
+        title: data.title,
+        author: data.author,
+        cover_url: data.cover_url,
+        description: data.description,
+        category: (data as any).category ?? null,
+        price: Number((data as any).price ?? 0),
+        publisher_id: data.publisher_id,
+      });
       setLoading(false);
     })();
   }, [id, user, authLoading, nav, lang]);
