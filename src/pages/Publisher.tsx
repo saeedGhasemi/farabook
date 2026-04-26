@@ -107,42 +107,24 @@ const Publisher = () => {
         });
         if (!cancelled) setReaderStats(counts);
 
-        // Sales + revenue distribution (only for owner view)
-        if (isMe) {
-          const { data: tx } = await supabase
-            .from("credit_transactions")
-            .select("amount, reason, metadata, user_id")
-            .or("reason.eq.book_purchase,reason.like.revenue_share_%");
+        // Sales + revenue distribution (only for owner view) — uses SECURITY DEFINER RPC
+        if (isMe && targetId) {
+          const { data: rows } = await (supabase.rpc as any)("publisher_book_sales_stats", { _publisher_id: targetId });
           const stats: typeof salesStats = {};
-          ids.forEach((id) => { stats[id] = { count: 0, gross: 0, toMe: 0, distributed: [] }; });
-          const recipientIds = new Set<string>();
-          (tx ?? []).forEach((t: any) => {
-            const bid = t.metadata?.book_id;
-            if (!bid || !stats[bid]) return;
-            const amt = Number(t.amount);
-            if (t.reason === "book_purchase" && amt < 0) {
-              stats[bid].count += 1;
-              stats[bid].gross += Math.abs(amt);
-            } else if (t.reason?.startsWith("revenue_share_") && amt > 0) {
-              const role = t.reason.replace("revenue_share_", "");
-              stats[bid].distributed.push({ user_id: t.user_id, role, amount: amt });
-              recipientIds.add(t.user_id);
-              if (t.user_id === user?.id) stats[bid].toMe += amt;
-            }
+          ((rows as any[]) ?? []).forEach((r) => {
+            const dist = (r.distribution || []).map((d: any) => ({
+              user_id: d.recipient_id,
+              role: d.role,
+              amount: Number(d.amount),
+              name: d.recipient_name,
+            }));
+            stats[r.book_id] = {
+              count: Number(r.sales_count) || 0,
+              gross: Number(r.gross_credits) || 0,
+              toMe: Number(r.to_publisher) || 0,
+              distributed: dist,
+            };
           });
-          // resolve recipient names
-          if (recipientIds.size) {
-            const { data: profs } = await supabase
-              .from("profiles").select("id, display_name, username")
-              .in("id", Array.from(recipientIds));
-            const nameMap: Record<string, string> = {};
-            (profs ?? []).forEach((p: any) => {
-              nameMap[p.id] = p.display_name || p.username || p.id.slice(0, 8);
-            });
-            Object.values(stats).forEach((s) => {
-              s.distributed.forEach((d) => { d.name = nameMap[d.user_id]; });
-            });
-          }
           if (!cancelled) setSalesStats(stats);
         }
       }
