@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { RoleGuard } from "@/components/RoleGuard";
 import { UserDetailDialog } from "@/components/admin/UserDetailDialog";
+import { AdminTreasuryPanel } from "@/components/admin/AdminTreasuryPanel";
 import type { AppRole } from "@/hooks/useRoles";
 
 const ALL_ROLES: AppRole[] = ["super_admin", "admin", "moderator", "reviewer", "publisher", "editor", "user"];
