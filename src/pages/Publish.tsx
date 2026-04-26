@@ -125,6 +125,35 @@ const Publish = () => {
     if (!title.trim()) { toast.error(lang === "fa" ? "عنوان لازم است" : "Title required"); return; }
     setBusy(true);
     try {
+      // 1) First-time publish fee (auto complexity, deducted from publisher)
+      if (!book.first_published_paid) {
+        const complexity = estimateComplexity(book.pages || []);
+        const { data: payRes, error: payErr } = await (supabase.rpc as any)(
+          "publish_book_paid",
+          { _book_id: book.id, _complexity: complexity },
+        );
+        if (payErr) {
+          if (String(payErr.message).includes("insufficient_credits")) {
+            showInsufficientCreditsToast(lang, 0, (to) => nav(to));
+            setBusy(false);
+            return;
+          }
+          throw payErr;
+        }
+        const fee = Number((payRes as any)?.fee || 0);
+        const newBal = Number((payRes as any)?.new_balance || 0);
+        if (fee > 0) {
+          pulseCredits({ delta: -fee, newBalance: newBal });
+          requestCreditsRefresh();
+          toast.success(
+            lang === "fa"
+              ? `هزینه انتشار (${fee.toLocaleString("fa-IR")} اعتبار، ضریب ${complexity}×) کسر شد`
+              : `Publish fee ${fee.toLocaleString()} (factor ${complexity}×) deducted`,
+          );
+        }
+      }
+
+      // 2) Push metadata + AI generation through the edge function
       const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
       const { data, error } = await supabase.functions.invoke("book-publish", {
         body: {
