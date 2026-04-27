@@ -26,6 +26,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Callout, Quote, ImageBlock, VideoBlock, GalleryBlock, TimelineBlock, ScrollyBlock,
@@ -35,6 +37,24 @@ import {
   dbPagesToTextPages, textPagesToDbPages, type TextPage,
 } from "@/lib/tiptap-doc";
 import { AiSuggestPanel } from "./AiSuggestPanel";
+
+const TYPOGRAPHY_PRESETS = [
+  { value: "editorial", label_fa: "روزنامه‌ای", label_en: "Editorial" },
+  { value: "academic", label_fa: "آکادمیک", label_en: "Academic" },
+  { value: "modern", label_fa: "مدرن", label_en: "Modern" },
+  { value: "playful", label_fa: "صمیمی", label_en: "Playful" },
+  { value: "elegant", label_fa: "نفیس", label_en: "Elegant" },
+];
+
+const TEXT_COLORS = [
+  { name: "Default", value: "" },
+  { name: "Primary", value: "hsl(var(--primary))" },
+  { name: "Accent", value: "hsl(var(--accent))" },
+  { name: "Success", value: "hsl(142 70% 38%)" },
+  { name: "Warning", value: "hsl(35 95% 50%)" },
+  { name: "Danger", value: "hsl(var(--destructive))" },
+  { name: "Muted", value: "hsl(var(--muted-foreground))" },
+];
 
 interface Initial {
   id?: string;
