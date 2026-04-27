@@ -2,7 +2,7 @@
 // All four fees support either a fixed credit amount OR a percentage.
 import { useEffect, useMemo, useState } from "react";
 import {
-  Banknote, Loader2, Save, ArrowDownCircle, ArrowUpCircle, Coins,
+  Banknote, Loader2, Save, ArrowDownCircle, ArrowUpCircle, Coins, Search, Filter,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
