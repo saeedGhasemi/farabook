@@ -211,6 +211,8 @@
     --glass-border: hsla(150, 70%, 100%, 0.45);
     --shadow-glow: 0 0 40px hsl(158 75% 50% / 0.4);
   }
+
+  .dark {
     --background: 222 25% 9%;
     --foreground: 220 20% 92%;
     --card: 222 22% 12%;
