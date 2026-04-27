@@ -214,6 +214,56 @@ export const TextBookEditor = ({ initial }: Props) => {
     }).run();
   };
 
+  /** Split current chapter at the selection: everything from the selection
+   *  to the end becomes a brand-new chapter inserted after the current one. */
+  const splitChapterAtSelection = () => {
+    if (!editor) return;
+    const { from } = editor.state.selection;
+    const fullJson = editor.getJSON() as TextPage["doc"];
+    const blocks = (fullJson.content ?? []) as any[];
+    // Find which top-level block contains `from`
+    let pos = 1; // doc start = 0; first block content starts at 1
+    let splitIdx = blocks.length;
+    for (let i = 0; i < blocks.length; i++) {
+      const node = editor.state.doc.child(i);
+      const blockSize = node.nodeSize;
+      if (from < pos + blockSize) { splitIdx = i; break; }
+      pos += blockSize;
+    }
+    if (splitIdx >= blocks.length) {
+      toast.info(fa ? "ابتدا روی متن کلیک کنید تا محل شکست مشخص شود" : "Place the cursor where the new chapter should start");
+      return;
+    }
+    const head = blocks.slice(0, splitIdx);
+    const tail = blocks.slice(splitIdx);
+    const newPage: TextPage = {
+      title: fa ? `فصل ${pages.length + 1}` : `Chapter ${pages.length + 1}`,
+      doc: { type: "doc", content: tail.length ? tail : [{ type: "paragraph" }] },
+    };
+    setPages((ps) => {
+      const next = ps.map((p, i) =>
+        i === activeIdx
+          ? { ...p, doc: { type: "doc", content: head.length ? head : [{ type: "paragraph" }] } }
+          : p,
+      );
+      next.splice(activeIdx + 1, 0, newPage);
+      return next;
+    });
+    setDirty(true);
+    setTimeout(() => setActiveIdx(activeIdx + 1), 0);
+    toast.success(fa ? "فصل جدید ساخته شد" : "New chapter created");
+  };
+
+  /** Insert an interactive block at the cursor position. */
+  const insertInteractive = (kind: "video" | "gallery" | "timeline" | "scrollytelling") => {
+    if (!editor) return;
+    const attrs =
+      kind === "video" ? { src: "", caption: "" } :
+      kind === "gallery" ? { images: [], caption: "" } :
+      { title: "", steps: [] };
+    editor.chain().focus().insertContent({ type: kind, attrs }).run();
+  };
+
   if (!editor) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-accent" /></div>;
   }
