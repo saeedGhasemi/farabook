@@ -224,8 +224,10 @@ export const dbPagesToTextPages = (raw: unknown): TextPage[] => {
 };
 
 /** Reverse: pages → DB shape (kept compatible: we store new docs alongside `title`). */
+/** Reverse: pages → DB shape. We write both the new `doc` AND legacy
+ *  `blocks` so the existing Reader/BlockRenderer keeps rendering. */
 export const textPagesToDbPages = (pages: TextPage[]): any[] =>
-  pages.map((p) => ({ title: p.title || "—", doc: p.doc, blocks: [] }));
+  pages.map((p) => ({ title: p.title || "—", doc: p.doc, blocks: docToLegacyBlocks(p.doc) }));
 
 /* ------------------------------------------------------------------ */
 /* HTML rendering for the Reader (no React, used inside dangerouslySet)*/
