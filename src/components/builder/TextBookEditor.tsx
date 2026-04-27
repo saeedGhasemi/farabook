@@ -3,7 +3,8 @@
 // selection with the 5 main tools + AI button. Side panel hosts AI
 // suggestions with Accept/Reject.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useEditor, EditorContent, BubbleMenu } from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
