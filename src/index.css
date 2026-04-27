@@ -56,6 +56,14 @@
     --hl-green: 140 55% 60%;
     --hl-blue: 210 75% 65%;
 
+    /* Publication stage colors — used by Publisher workflow UI */
+    --stage-edit: 210 90% 56%;            /* sky blue — early/edit */
+    --stage-edit-foreground: 220 25% 99%;
+    --stage-pricing: 35 92% 52%;          /* amber — intermediate */
+    --stage-pricing-foreground: 30 50% 12%;
+    --stage-published: 142 70% 40%;       /* green — final/published */
+    --stage-published-foreground: 140 40% 98%;
+
     /* Silver gradients & textures */
     --gradient-paper: linear-gradient(145deg, hsl(220 25% 99%) 0%, hsl(220 18% 95%) 100%);
     --gradient-warm: linear-gradient(135deg, hsl(215 55% 48%) 0%, hsl(222 60% 35%) 100%);
