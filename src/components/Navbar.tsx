@@ -46,7 +46,7 @@ export const Navbar = () => {
     { to: "/", label: t("nav_home"), icon: BookOpen, show: true },
     { to: "/store", label: t("nav_store"), icon: Store, show: true },
     { to: "/library", label: t("nav_library"), icon: Library, show: !!user },
-    { to: "/upload", label: t("nav_builder"), icon: Wand2, show: isPublisher || isAdmin },
+    // Builder is reachable only from the publisher dashboard's "New book" button.
     { to: "/publisher/me", label: t("nav_publisher"), icon: Briefcase, show: isPublisher || isAdmin },
     { to: "/editor-requests", label: lang === "fa" ? "ادیتورها" : "Editors", icon: Mail, show: !!user },
     { to: "/credits", label: lang === "fa" ? "اعتبار" : "Credits", icon: Coins, show: !!user },
