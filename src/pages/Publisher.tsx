@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import {
   Briefcase, Plus, Pencil, Trash2, Eye, BookOpen, Users, FileEdit,
   CheckCircle2, ExternalLink, Loader2, Settings, TrendingUp, Coins, BarChart3,
+  Rocket,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -164,33 +165,40 @@ const Publisher = () => {
   }
 
   const displayName = storefront?.display_name || profile?.display_name || (lang === "fa" ? "ناشر" : "Publisher");
+  const statusLabel = (status: string) => {
+    if (status === "published") return lang === "fa" ? "در فروشگاه" : "In store";
+    if (status === "draft") return lang === "fa" ? "در حال آماده‌سازی" : "Preparing";
+    return status;
+  };
 
   return (
-    <main className="container py-10 md:py-16 min-h-[calc(100vh-4rem)]">
+    <main className="container py-6 md:py-12 min-h-[calc(100vh-4rem)] overflow-x-hidden">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-strong rounded-3xl p-6 md:p-8 mb-10 flex flex-col md:flex-row md:items-center gap-6"
+        className="glass-strong rounded-2xl p-5 md:p-7 mb-6 md:mb-8 flex flex-col lg:flex-row lg:items-center gap-5"
       >
-        <div className="w-16 h-16 rounded-2xl bg-gradient-warm flex items-center justify-center text-primary-foreground shadow-glow shrink-0">
-          <Briefcase className="w-8 h-8" />
+        <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground shadow-glow shrink-0">
+          <Briefcase className="w-7 h-7" />
         </div>
         <div className="flex-1">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">
-            {isMe ? (lang === "fa" ? "داشبورد" : "Dashboard") : (lang === "fa" ? "ویترین ناشر" : "Publisher storefront")}
+          <p className="text-xs text-muted-foreground">
+            {isMe ? (lang === "fa" ? "مرکز کاری ناشر" : "Publisher workspace") : (lang === "fa" ? "ویترین ناشر" : "Publisher storefront")}
           </p>
           <h1 className="text-3xl md:text-4xl font-display font-bold mt-1">{displayName}</h1>
-          {!isMe && (
-            <p className="text-sm text-muted-foreground mt-1">
-              {stats.published} {lang === "fa" ? "کتاب منتشر شده" : "published books"}
-            </p>
-          )}
+          <p className="text-sm text-muted-foreground mt-2 max-w-2xl leading-relaxed">
+            {isMe
+              ? (lang === "fa"
+                  ? "اول محتوای کتاب را کامل کنید؛ سپس از دکمه «قیمت، سهام و انتشار» وارد ویزارد فروشگاه شوید و بعد از ذخیره سهم‌بندی، انتشار نهایی را بزنید."
+                  : "Finish content first, then use Price, shares & publish to open the storefront wizard and finalize publication.")
+              : `${stats.published} ${lang === "fa" ? "کتاب منتشر شده" : "published books"}`}
+          </p>
         </div>
         {isMe ? (
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap lg:justify-end">
             <Link to="/upload">
-              <Button className="gap-2 bg-gradient-warm hover:opacity-90">
+              <Button className="gap-2 bg-primary hover:bg-primary/90">
                 <Plus className="w-4 h-4" /> {lang === "fa" ? "کتاب جدید" : "New book"}
               </Button>
             </Link>
