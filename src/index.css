@@ -533,6 +533,21 @@
   [dir="rtl"] .typo-playful h1,
   [dir="rtl"] .typo-playful h2,
   [dir="rtl"] .typo-playful h3 { font-family: 'Vazirmatn', serif; font-style: normal; }
+
+  /* elegant: refined modern serif/sans mix, large headings, airy reading */
+  .typo-elegant { font-family: 'Crimson Pro', 'Vazirmatn', serif; font-size: 1.05em; line-height: 1.9; letter-spacing: 0.003em; }
+  .typo-elegant h1, .typo-elegant h2, .typo-elegant h3 {
+    font-family: 'Inter', 'Vazirmatn', sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    text-transform: none;
+  }
+  .typo-elegant h2 { border-bottom: 1px solid hsl(var(--border)); padding-bottom: 0.3em; }
+  .typo-elegant p::first-letter { font-size: 1.05em; }
+  [dir="rtl"] .typo-elegant,
+  [dir="rtl"] .typo-elegant h1,
+  [dir="rtl"] .typo-elegant h2,
+  [dir="rtl"] .typo-elegant h3 { font-family: 'Vazirmatn', serif; }
 }
 
 @layer utilities {
