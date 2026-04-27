@@ -67,8 +67,7 @@ Avoid repetition. Focus on key points, definitions, warnings, questions, quotabl
               properties: {
                 typography_preset: {
                   type: "string",
-                  enum: ["editorial", "modern", "classic", "playful"],
-                  description: "Suggested overall typography preset that fits the tone of this page.",
+                  description: "Suggested typography preset: editorial | modern | classic | playful",
                 },
                 suggestions: {
                   type: "array",
@@ -77,26 +76,23 @@ Avoid repetition. Focus on key points, definitions, warnings, questions, quotabl
                     properties: {
                       op: {
                         type: "string",
-                        enum: ["make_callout", "make_quote", "make_heading", "emphasize", "split_paragraph"],
+                        description: "One of: make_callout | make_quote | make_heading | emphasize | split_paragraph",
                       },
                       target_text: { type: "string", description: "Exact substring from the page text to act on." },
                       variant: {
                         type: "string",
-                        enum: ["info", "tip", "note", "warning", "success", "danger", "question", "quote"],
-                        description: "Only for make_callout.",
+                        description: "For make_callout only: info | tip | note | warning | success | danger | question | quote",
                       },
-                      level: { type: "number", enum: [2, 3], description: "Only for make_heading." },
-                      mark: { type: "string", enum: ["bold", "italic", "underline"], description: "Only for emphasize." },
-                      split_after: { type: "string", description: "Only for split_paragraph: the sentence after which to split." },
+                      level: { type: "number", description: "For make_heading only: 2 or 3" },
+                      mark: { type: "string", description: "For emphasize only: bold | italic | underline" },
+                      split_after: { type: "string", description: "For split_paragraph only: sentence to split after" },
                       reason: { type: "string", description: "Short user-facing reason (one sentence)." },
                     },
                     required: ["op", "target_text", "reason"],
-                    additionalProperties: false,
                   },
                 },
               },
               required: ["suggestions"],
-              additionalProperties: false,
             },
           },
         }],
