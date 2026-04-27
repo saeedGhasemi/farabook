@@ -185,9 +185,24 @@ const Upload = () => {
                 <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="mt-2" />
               </div>
               <Button onClick={submitWord} disabled={busy} className="w-full bg-gradient-warm hover:opacity-90">
-                {busy ? <><Loader2 className="w-4 h-4 animate-spin me-2" /> {lang === "fa" ? "در حال پردازش…" : "Processing…"}</>
-                      : (lang === "fa" ? "بساز و باز کن" : "Create & Open")}
+                {stage === 1 ? <><Loader2 className="w-4 h-4 animate-spin me-2" /> {lang === "fa" ? "در حال بارگذاری فایل…" : "Uploading file…"}</>
+                  : stage === 2 ? <><Loader2 className="w-4 h-4 animate-spin me-2" /> {lang === "fa" ? "در حال پردازش متن…" : "Processing text…"}</>
+                  : stage === 3 ? <><CheckCircle2 className="w-4 h-4 me-2" /> {lang === "fa" ? "آماده شد — انتقال به ویرایشگر" : "Done — opening editor"}</>
+                  : (lang === "fa" ? "بساز و باز کن" : "Create & Open")}
               </Button>
+              {busy && (
+                <div className="space-y-2">
+                  <Progress value={progress} className="h-2" />
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>
+                      {stage === 1 && (lang === "fa" ? "۱/۳ بارگذاری فایل ورد" : "1/3 Uploading Word file")}
+                      {stage === 2 && (lang === "fa" ? "۲/۳ تحلیل و استخراج فصل‌ها (ممکن است چند ثانیه طول بکشد)" : "2/3 Parsing and extracting chapters")}
+                      {stage === 3 && (lang === "fa" ? "۳/۳ انتقال به ویرایشگر…" : "3/3 Opening editor…")}
+                    </span>
+                    <span className="tabular-nums">{Math.round(progress)}٪</span>
+                  </div>
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
