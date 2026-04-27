@@ -264,21 +264,33 @@ const Credits = () => {
                       admin_adjust: "تنظیم دستی ادمین",
                     };
                     const label = REASON_FA[r.reason] || r.reason;
+                    const meta = (r.metadata || {}) as any;
+                    const details: string[] = [];
+                    if (meta.book_title) details.push(`کتاب: ${meta.book_title}`);
+                    else if (meta.book_id) details.push(`کتاب #${String(meta.book_id).slice(0, 6)}`);
+                    if (meta.percent) details.push(`${meta.percent}٪ سهم`);
+                    if (meta.complexity) details.push(`ضریب پیچیدگی ${meta.complexity}×`);
+                    if (meta.note) details.push(String(meta.note));
                     return (
                       <div
                         key={r.id}
-                        className={`flex items-center justify-between text-sm border-b py-2 last:border-0 ${
+                        className={`flex items-center justify-between gap-3 text-sm border-b py-2 last:border-0 ${
                           positive ? "border-l-2 border-l-emerald-500/60 ps-3" : "border-l-2 border-l-destructive/60 ps-3"
                         }`}
                       >
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <div className="font-medium">{label}</div>
                           <div className="text-xs text-muted-foreground">
                             {new Date(r.created_at).toLocaleString("fa-IR")}
                           </div>
+                          {details.length > 0 && (
+                            <div className="text-[11px] text-muted-foreground/90 mt-0.5 truncate">
+                              {details.join(" · ")}
+                            </div>
+                          )}
                         </div>
                         <span
-                          className={`font-bold tabular-nums ${
+                          className={`font-bold tabular-nums whitespace-nowrap ${
                             positive ? "text-emerald-600" : "text-destructive"
                           }`}
                         >

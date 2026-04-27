@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Upload as UploadIcon, Loader2, FileText, Sparkles, Wand2 } from "lucide-react";
+import { Upload as UploadIcon, Loader2, FileText, Sparkles, Wand2, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/lib/i18n";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { BookEditor } from "@/components/builder/BookEditor";
 
@@ -22,22 +23,45 @@ const Upload = () => {
   const [author, setAuthor] = useState("");
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
+  // Stage-based progress for the Word import flow.
+  // 0 idle · 1 uploading · 2 processing · 3 done
+  const [stage, setStage] = useState<0 | 1 | 2 | 3>(0);
+  const [progress, setProgress] = useState(0);
+  const fakeTickRef = useRef<number | null>(null);
+
+  // Animate the progress bar during the "processing" stage so the
+  // user sees movement even though we don't get real % from the
+  // edge function.
+  useEffect(() => {
+    if (stage !== 2) return;
+    fakeTickRef.current = window.setInterval(() => {
+      setProgress((p) => (p < 92 ? p + Math.max(0.5, (95 - p) / 30) : p));
+    }, 350) as unknown as number;
+    return () => { if (fakeTickRef.current) window.clearInterval(fakeTickRef.current); };
+  }, [stage]);
 
   const submitWord = async () => {
     if (!user) { nav("/auth"); return; }
     if (!file) { toast.error(lang === "fa" ? "یک فایل ورد انتخاب کنید" : "Pick a .docx file"); return; }
     if (!title.trim()) { toast.error(lang === "fa" ? "عنوان لازم است" : "Title required"); return; }
     setBusy(true);
+    setStage(1);
+    setProgress(5);
     try {
       // Sanitize filename: Storage keys must be ASCII-safe.
       const dot = file.name.lastIndexOf(".");
       const ext = (dot >= 0 ? file.name.slice(dot + 1) : "docx").toLowerCase().replace(/[^a-z0-9]/g, "") || "docx";
       const safeName = `book-${Date.now()}.${ext}`;
       const path = `${user.id}/${safeName}`;
+      // Supabase JS doesn't expose XHR progress, so we step the bar
+      // manually around the await.
+      setProgress(20);
       const up = await supabase.storage.from("book-uploads").upload(path, file, {
         contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
       if (up.error) throw up.error;
+      setProgress(45);
+      setStage(2);
 
       const { data, error } = await supabase.functions.invoke("word-import", {
         body: { path, title, author: author || (lang === "fa" ? "ناشناس" : "Unknown"), description },
@@ -45,12 +69,17 @@ const Upload = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
+      setStage(3);
+      setProgress(100);
       toast.success(
         (lang === "fa" ? "کتاب با " : "Imported with ") + (data?.chapters ?? 0) +
-        (lang === "fa" ? " فصل ساخته شد" : " chapters")
+        (lang === "fa" ? " فصل ساخته شد — در حال انتقال…" : " chapters — opening editor…")
       );
-      nav(`/edit/${data.book.id}`);
+      // Brief pause so the user sees the success state, then redirect.
+      setTimeout(() => nav(`/edit/${data.book.id}`), 700);
     } catch (e) {
+      setStage(0);
+      setProgress(0);
       toast.error(e instanceof Error ? e.message : "Failed");
     } finally {
       setBusy(false);
@@ -156,9 +185,24 @@ const Upload = () => {
                 <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="mt-2" />
               </div>
               <Button onClick={submitWord} disabled={busy} className="w-full bg-gradient-warm hover:opacity-90">
-                {busy ? <><Loader2 className="w-4 h-4 animate-spin me-2" /> {lang === "fa" ? "در حال پردازش…" : "Processing…"}</>
-                      : (lang === "fa" ? "بساز و باز کن" : "Create & Open")}
+                {stage === 1 ? <><Loader2 className="w-4 h-4 animate-spin me-2" /> {lang === "fa" ? "در حال بارگذاری فایل…" : "Uploading file…"}</>
+                  : stage === 2 ? <><Loader2 className="w-4 h-4 animate-spin me-2" /> {lang === "fa" ? "در حال پردازش متن…" : "Processing text…"}</>
+                  : stage === 3 ? <><CheckCircle2 className="w-4 h-4 me-2" /> {lang === "fa" ? "آماده شد — انتقال به ویرایشگر" : "Done — opening editor"}</>
+                  : (lang === "fa" ? "بساز و باز کن" : "Create & Open")}
               </Button>
+              {busy && (
+                <div className="space-y-2">
+                  <Progress value={progress} className="h-2" />
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>
+                      {stage === 1 && (lang === "fa" ? "۱/۳ بارگذاری فایل ورد" : "1/3 Uploading Word file")}
+                      {stage === 2 && (lang === "fa" ? "۲/۳ تحلیل و استخراج فصل‌ها (ممکن است چند ثانیه طول بکشد)" : "2/3 Parsing and extracting chapters")}
+                      {stage === 3 && (lang === "fa" ? "۳/۳ انتقال به ویرایشگر…" : "3/3 Opening editor…")}
+                    </span>
+                    <span className="tabular-nums">{Math.round(progress)}٪</span>
+                  </div>
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>

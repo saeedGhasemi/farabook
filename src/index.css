@@ -586,3 +586,9 @@
 /* Hide horizontal scrollbar but keep scrolling */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Tiptap editor surface — hide native selection callout on mobile so
+   our floating BubbleMenu isn't covered by the OS toolbar. */
+.tiptap-surface, .tiptap-surface * {
+  -webkit-touch-callout: none;
+}
