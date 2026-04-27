@@ -99,7 +99,10 @@ export const TextBookEditor = ({ initial }: Props) => {
     editorProps: {
       attributes: {
         dir: fa ? "rtl" : "ltr",
-        class: "prose prose-lg max-w-none focus:outline-none min-h-[60vh] leading-relaxed",
+        class: "prose prose-lg max-w-none focus:outline-none min-h-[60vh] leading-relaxed tiptap-surface",
+        // Disable iOS/Android native text-selection callout so it doesn't
+        // overlap our BubbleMenu. Users still get our custom toolbar.
+        style: "-webkit-touch-callout: none;",
       },
     },
     onUpdate: ({ editor }) => {
