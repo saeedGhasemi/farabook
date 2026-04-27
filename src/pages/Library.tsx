@@ -97,12 +97,6 @@ const Library = () => {
           className="text-4xl md:text-5xl font-display font-bold">
           {t("library_title")}
         </motion.h1>
-        <Link to="/upload">
-          <Button className="bg-gradient-warm hover:opacity-90 gap-2">
-            <BookOpen className="w-4 h-4" />
-            {lang === "fa" ? "ساخت کتاب از ورد" : "Import from Word"}
-          </Button>
-        </Link>
       </div>
 
       {rows.length === 0 ? (
