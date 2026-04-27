@@ -199,6 +199,20 @@ Deno.serve(async (req) => {
     }
     const u = { user: { id: claims.claims.sub as string } };
 
+    // Only publishers / admins may create books via this endpoint.
+    const { data: roleRows } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", u.user.id);
+    const allowedRoles = new Set(["publisher", "admin", "super_admin"]);
+    const canCreate = (roleRows || []).some((r: any) => allowedRoles.has(r.role));
+    if (!canCreate) {
+      return new Response(
+        JSON.stringify({ error: "publisher_role_required" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const path: string = body.path;
     const title: string = (body.title || "کتاب جدید").toString().slice(0, 200);
