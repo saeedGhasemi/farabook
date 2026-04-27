@@ -227,10 +227,9 @@ interface Props {
   onCreated?: (id: string) => void;
 }
 
-// New WYSIWYG live editor lives in LiveBookEditor.tsx. We re-export
-// it through the BookEditor name so Edit/Upload pages keep working
-// without any changes.
-export { LiveBookEditor as BookEditor } from "./LiveBookEditor";
+// New text-first editor (Tiptap). Edit/Upload pages import BookEditor
+// from here, so swapping the export switches the whole UX.
+export { TextBookEditor as BookEditor } from "./TextBookEditor";
 
 // Legacy (kept for reference, no longer rendered):
 const _LegacyBookEditor = ({ initial, onCreated }: Props) => {
