@@ -39,7 +39,7 @@ export const Navbar = () => {
     { value: "silver", label: lang === "fa" ? "نقره‌ای" : "Silver", swatch: "linear-gradient(135deg,#c8d0db,#8a96a8)" },
     { value: "sky", label: lang === "fa" ? "آبی آسمانی" : "Sky Blue", swatch: "linear-gradient(135deg,#7dd3fc,#0284c7)" },
     { value: "paper", label: lang === "fa" ? "کاغذ" : "Paper", swatch: "linear-gradient(135deg,#f5e9c8,#b8854a)" },
-    { value: "emerald", label: lang === "fa" ? "زمردی" : "Emerald", swatch: "linear-gradient(135deg,#6ee7b7,#0f766e)" },
+    { value: "midnight", label: lang === "fa" ? "شب مطالعه" : "Midnight Read", swatch: "linear-gradient(135deg,#f59e0b,#1e293b)" },
   ];
 
   const links = [
