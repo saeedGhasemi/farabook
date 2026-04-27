@@ -262,8 +262,13 @@ export const TextBookEditor = ({ initial }: Props) => {
         {/* Floating bubble toolbar (5 tools + AI) */}
         <BubbleMenu
           editor={editor}
-          options={{ placement: "top" }}
-          className="rounded-xl border bg-popover shadow-lg p-1 flex items-center gap-0.5"
+          options={{
+            // On mobile, the native selection callout sits above the
+            // selection — push our toolbar BELOW so they don't overlap.
+            placement: typeof window !== "undefined" && window.innerWidth < 768 ? "bottom" : "top",
+            offset: 12,
+          }}
+          className="rounded-xl border bg-popover shadow-lg p-1 flex items-center gap-0.5 max-w-[95vw] overflow-x-auto"
         >
           <button type="button" title="Bold" onClick={() => editor.chain().focus().toggleBold().run()} className={`p-1.5 rounded hover:bg-muted ${editor.isActive("bold") ? "bg-muted" : ""}`}>
             <Bold className="w-4 h-4" />
