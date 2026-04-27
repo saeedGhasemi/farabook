@@ -123,6 +123,7 @@ export const UserEarnings = ({ userId }: Props) => {
                 <TableBody>
                   {tx.map((t) => {
                     const amt = Number(t.amount);
+                    const positive = amt > 0;
                     const meta = (t.metadata || {}) as any;
                     return (
                       <TableRow key={t.id}>
@@ -130,12 +131,23 @@ export const UserEarnings = ({ userId }: Props) => {
                           {new Date(t.created_at).toLocaleString("fa-IR")}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={amt > 0 ? "default" : "secondary"} className="text-[10px]">
+                          <Badge
+                            className={`text-[11px] border-0 ${
+                              positive
+                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                                : "bg-destructive/15 text-destructive"
+                            }`}
+                          >
                             {REASON_FA[t.reason] || t.reason}
                           </Badge>
                         </TableCell>
-                        <TableCell className={`font-mono text-sm whitespace-nowrap ${amt < 0 ? "text-destructive" : "text-accent"}`}>
-                          {amt > 0 ? "+" : ""}{amt.toLocaleString("fa-IR")}
+                        <TableCell
+                          className={`text-sm font-bold whitespace-nowrap tabular-nums ${
+                            positive ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
+                          }`}
+                        >
+                          {positive ? "+" : "−"}
+                          {Math.abs(amt).toLocaleString("fa-IR")} اعتبار
                         </TableCell>
                         <TableCell className="text-[11px] text-muted-foreground max-w-[260px] truncate">
                           {meta.book_id ? `کتاب: ${String(meta.book_id).slice(0, 8)}…` : ""}
