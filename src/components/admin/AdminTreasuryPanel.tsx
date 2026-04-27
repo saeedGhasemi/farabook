@@ -49,6 +49,11 @@ export const AdminTreasuryPanel = () => {
   const [saving, setSaving] = useState(false);
   const [tx, setTx] = useState<any[]>([]);
   const [loadingTx, setLoadingTx] = useState(true);
+  const [filterDir, setFilterDir] = useState<"all" | "in" | "out">("all");
+  const [filterReason, setFilterReason] = useState<string>("all");
+  const [filterQuery, setFilterQuery] = useState("");
+  const [filterFrom, setFilterFrom] = useState<string>("");
+  const [filterTo, setFilterTo] = useState<string>("");
 
   const load = async () => {
     const [{ data: f }, { data: txs }] = await Promise.all([
