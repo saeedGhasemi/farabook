@@ -176,7 +176,7 @@ const Store = () => {
                   />
                 )}
                 {book.category && (
-                  <Badge className="absolute top-3 end-3 bg-primary text-primary-foreground border-0 shadow-md font-medium">{book.category}</Badge>
+                  <Badge className="absolute top-3 start-3 bg-primary text-primary-foreground border-0 shadow-md font-medium">{book.category}</Badge>
                 )}
                 {isDraft && (
                   <Badge className="absolute top-3 end-3 bg-accent text-accent-foreground border-0">
