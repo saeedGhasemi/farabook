@@ -9,6 +9,17 @@ const corsHeaders = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Hard gate: caller must present the SEED_SECRET. If the secret is
+  // not configured at all, we refuse to run rather than fall open.
+  const expected = Deno.env.get("SEED_SECRET");
+  const provided = req.headers.get("x-seed-secret") || "";
+  if (!expected || provided.length === 0 || provided !== expected) {
+    return new Response(
+      JSON.stringify({ error: "forbidden" }),
+      { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
   const url = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
