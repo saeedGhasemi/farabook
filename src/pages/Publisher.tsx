@@ -243,12 +243,12 @@ const Publisher = () => {
         </div>
         <div className="mb-8 rounded-2xl border bg-card/70 p-4 grid md:grid-cols-3 gap-3 text-sm">
           {[
-            { n: "۱", title: lang === "fa" ? "ویرایش محتوا" : "Edit content", body: lang === "fa" ? "دکمه «ویرایش متن و محتوا» فقط ادیتور کتاب را باز می‌کند." : "Edit content opens only the book editor." },
-            { n: "۲", title: lang === "fa" ? "قیمت و سهام" : "Price & shares", body: lang === "fa" ? "دکمه آبی «قیمت، سهام و انتشار» ویزارد قیمت‌گذاری و سهم‌بندی را باز می‌کند." : "The primary button opens pricing and revenue split." },
-            { n: "۳", title: lang === "fa" ? "انتشار نهایی" : "Final publish", body: lang === "fa" ? "بعد از ذخیره سهم‌بندی و پیش‌نمایش، دکمه نهایی فعال می‌شود." : "Final publish unlocks after split and preview are saved." },
+            { n: "۱", title: lang === "fa" ? "ویرایش محتوا" : "Edit content", body: lang === "fa" ? "دکمه «ویرایش متن و محتوا» فقط ادیتور کتاب را باز می‌کند." : "Edit content opens only the book editor.", color: "bg-stage-edit text-stage-edit-foreground" },
+            { n: "۲", title: lang === "fa" ? "قیمت و سهام" : "Price & shares", body: lang === "fa" ? "دکمه «مرحله بعد» ویزارد قیمت‌گذاری و سهم‌بندی را باز می‌کند." : "Next step opens the pricing and revenue split wizard.", color: "bg-stage-pricing text-stage-pricing-foreground" },
+            { n: "۳", title: lang === "fa" ? "انتشار نهایی" : "Final publish", body: lang === "fa" ? "بعد از ذخیره سهم‌بندی و پیش‌نمایش، دکمه نهایی فعال می‌شود." : "Final publish unlocks after split and preview are saved.", color: "bg-stage-published text-stage-published-foreground" },
           ].map((step) => (
             <div key={step.n} className="flex gap-3">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">{step.n}</span>
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${step.color}`}>{step.n}</span>
               <div>
                 <div className="font-semibold">{step.title}</div>
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{step.body}</p>
