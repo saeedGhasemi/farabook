@@ -60,6 +60,7 @@ export const Callout = Node.create({
   renderHTML({ HTMLAttributes }) {
     return ["div", mergeAttributes(HTMLAttributes, { "data-callout": HTMLAttributes.variant }), 0];
   },
+  addNodeView() { return ReactNodeViewRenderer(CalloutView); },
 });
 
 /* ------------------------------------------------------------------ */
