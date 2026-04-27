@@ -220,11 +220,12 @@ const Publisher = () => {
 
       {/* Stats (only for owner) */}
       {isMe && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+        <>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-5">
           {[
             { icon: BookOpen, label: lang === "fa" ? "کل" : "Total", value: stats.total, color: "text-primary" },
-            { icon: CheckCircle2, label: lang === "fa" ? "منتشرشده" : "Published", value: stats.published, color: "text-emerald-500" },
-            { icon: FileEdit, label: lang === "fa" ? "پیش‌نویس" : "Drafts", value: stats.drafts, color: "text-amber-500" },
+            { icon: CheckCircle2, label: lang === "fa" ? "در فروشگاه" : "In store", value: stats.published, color: "text-primary" },
+            { icon: FileEdit, label: lang === "fa" ? "آماده‌سازی" : "Preparing", value: stats.drafts, color: "text-accent" },
             { icon: Users, label: lang === "fa" ? "خوانندگان" : "Readers", value: stats.readers, color: "text-accent" },
           ].map((s, i) => (
             <motion.div
@@ -232,7 +233,7 @@ const Publisher = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="paper-card rounded-2xl p-5"
+              className="paper-card rounded-2xl p-4 md:p-5"
             >
               <s.icon className={`w-6 h-6 mb-2 ${s.color}`} />
               <div className="text-3xl font-display font-bold">{s.value}</div>
@@ -240,6 +241,22 @@ const Publisher = () => {
             </motion.div>
           ))}
         </div>
+        <div className="mb-8 rounded-2xl border bg-card/70 p-4 grid md:grid-cols-3 gap-3 text-sm">
+          {[
+            { n: "۱", title: lang === "fa" ? "ویرایش محتوا" : "Edit content", body: lang === "fa" ? "دکمه «ویرایش متن و محتوا» فقط ادیتور کتاب را باز می‌کند." : "Edit content opens only the book editor." },
+            { n: "۲", title: lang === "fa" ? "قیمت و سهام" : "Price & shares", body: lang === "fa" ? "دکمه آبی «قیمت، سهام و انتشار» ویزارد قیمت‌گذاری و سهم‌بندی را باز می‌کند." : "The primary button opens pricing and revenue split." },
+            { n: "۳", title: lang === "fa" ? "انتشار نهایی" : "Final publish", body: lang === "fa" ? "بعد از ذخیره سهم‌بندی و پیش‌نمایش، دکمه نهایی فعال می‌شود." : "Final publish unlocks after split and preview are saved." },
+          ].map((step) => (
+            <div key={step.n} className="flex gap-3">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">{step.n}</span>
+              <div>
+                <div className="font-semibold">{step.title}</div>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{step.body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        </>
       )}
 
       {/* Books grid */}
