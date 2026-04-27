@@ -57,9 +57,11 @@ const Publisher = () => {
   const { user, loading: authLoading } = useAuth();
   const { lang } = useI18n();
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
+  const forcePublic = searchParams.get("public") === "1";
 
-  const isMe = paramId === "me" || paramId === user?.id;
-  const targetId = isMe ? user?.id : paramId;
+  const isMe = !forcePublic && (paramId === "me" || paramId === user?.id);
+  const targetId = (paramId === "me") ? user?.id : paramId;
 
   const [books, setBooks] = useState<Book[]>([]);
   const [profile, setProfile] = useState<PublisherProfile | null>(null);
