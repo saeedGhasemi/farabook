@@ -228,75 +228,207 @@ export const AdminTreasuryPanel = () => {
         <CardHeader>
           <CardTitle>تراکنش‌های اخیر صندوق</CardTitle>
         </CardHeader>
-        <CardContent dir="rtl">
+        <CardContent dir="rtl" className="space-y-3">
+          {/* Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+            <div className="md:col-span-3">
+              <label className="text-[11px] text-muted-foreground mb-1 block">جهت تراکنش</label>
+              <Select value={filterDir} onValueChange={(v) => setFilterDir(v as any)}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">همه</SelectItem>
+                  <SelectItem value="in">واریز به صندوق (سبز)</SelectItem>
+                  <SelectItem value="out">برداشت از صندوق (قرمز)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-3">
+              <label className="text-[11px] text-muted-foreground mb-1 block">نوع رویداد</label>
+              <Select value={filterReason} onValueChange={setFilterReason}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">همه رویدادها</SelectItem>
+                  <SelectItem value="book_purchase">خرید کتاب</SelectItem>
+                  <SelectItem value="publisher_signup_fee">هزینه ناشر شدن</SelectItem>
+                  <SelectItem value="book_publish_fee">هزینه انتشار کتاب</SelectItem>
+                  <SelectItem value="editor_order_fee">هزینه سفارش ادیت</SelectItem>
+                  <SelectItem value="revenue_share">سهم فروش (همه)</SelectItem>
+                  <SelectItem value="admin_adjust">تنظیم دستی ادمین</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-[11px] text-muted-foreground mb-1 block">از تاریخ</label>
+              <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="h-9 text-sm" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-[11px] text-muted-foreground mb-1 block">تا تاریخ</label>
+              <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="h-9 text-sm" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-[11px] text-muted-foreground mb-1 block">جستجو</label>
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute top-1/2 -translate-y-1/2 start-2 text-muted-foreground" />
+                <Input
+                  value={filterQuery}
+                  onChange={(e) => setFilterQuery(e.target.value)}
+                  placeholder="کاربر، کتاب…"
+                  className="h-9 text-sm ps-7"
+                />
+              </div>
+            </div>
+          </div>
+
           {loadingTx ? (
             <div className="py-6 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
           ) : tx.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">هنوز تراکنشی ثبت نشده است.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-right">زمان</TableHead>
-                    <TableHead className="text-right">رویداد</TableHead>
-                    <TableHead className="text-right">جزئیات</TableHead>
-                    <TableHead className="text-right">مبلغ</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tx.slice(0, 80).map((t) => {
-                    const amt = Number(t.amount);
-                    const isTreasury = TREASURY_REASONS.has(t.reason);
-                    const reasonLabels: Record<string, string> = {
-                      book_purchase: "خرید کتاب",
-                      publisher_signup_fee: "هزینه ناشر شدن",
-                      book_publish_fee: "هزینه انتشار کتاب",
-                      editor_order_fee: "هزینه سفارش ادیت",
-                      revenue_share_publisher: "سهم فروش — ناشر",
-                      revenue_share_author: "سهم فروش — نویسنده",
-                      revenue_share_editor: "سهم فروش — ادیتور",
-                      seed_starter_credits: "اعتبار اولیه",
-                      admin_adjust: "تنظیم دستی ادمین",
-                    };
-                    const reasonFa = reasonLabels[t.reason] || t.reason;
-                    const userName = t.user_name || String(t.user_id).slice(0, 8);
-                    const buyerName = t.buyer_name;
-                    const bookTitle = t.book_title;
-                    return (
-                      <TableRow key={t.id}>
-                        <TableCell className="text-xs whitespace-nowrap">
-                          {new Date(t.created_at).toLocaleString("fa-IR")}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={isTreasury ? "default" : "secondary"} className="text-[10px] whitespace-nowrap">
-                            {reasonFa}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs leading-relaxed">
-                          {bookTitle && (
-                            <div className="font-medium truncate max-w-[260px]">📖 {bookTitle}</div>
-                          )}
-                          <div className="text-muted-foreground">
-                            {t.reason === "book_purchase"
-                              ? <>خریدار: <span className="font-medium text-foreground">{userName}</span></>
-                              : t.reason?.startsWith("revenue_share_")
-                                ? <>گیرنده: <span className="font-medium text-foreground">{userName}</span>{buyerName && <> · از خرید: {buyerName}</>}</>
-                                : <>کاربر: <span className="font-medium text-foreground">{userName}</span></>
-                            }
-                            {t.user_email && <span className="block text-[10px] opacity-70">{t.user_email}</span>}
-                          </div>
-                        </TableCell>
-                        <TableCell className={`font-mono text-sm whitespace-nowrap ${amt < 0 ? "text-destructive" : "text-accent"}`}>
-                          {amt > 0 ? "+" : ""}{amt.toLocaleString("fa-IR")}
-                        </TableCell>
+          ) : (() => {
+            const reasonLabels: Record<string, string> = {
+              book_purchase: "خرید کتاب",
+              publisher_signup_fee: "هزینه ناشر شدن",
+              book_publish_fee: "هزینه انتشار کتاب",
+              editor_order_fee: "هزینه سفارش ادیت",
+              revenue_share_publisher: "سهم فروش — ناشر",
+              revenue_share_author: "سهم فروش — نویسنده",
+              revenue_share_editor: "سهم فروش — ادیتور",
+              seed_starter_credits: "اعتبار اولیه",
+              admin_adjust: "تنظیم دستی ادمین",
+            };
+
+            // Compute treasury-perspective amount for each row
+            const rows = tx.map((t) => {
+              const amt = Number(t.amount || 0);
+              const r: string = t.reason || "";
+              let treasuryAmt = 0; // + means money in, - means money out
+              if (r === "book_purchase" && amt < 0 && fees) {
+                const cost = Math.abs(amt);
+                const fee = fees.book_purchase_mode === "percent"
+                  ? Math.round(cost * fees.book_purchase_value / 100)
+                  : Math.min(cost, fees.book_purchase_value);
+                treasuryAmt = fee;
+              } else if (r === "publisher_signup_fee" || r === "book_publish_fee" || r === "editor_order_fee") {
+                treasuryAmt = Math.abs(amt);
+              } else if (r.startsWith("revenue_share")) {
+                treasuryAmt = -Math.abs(amt);
+              } else {
+                treasuryAmt = amt; // fallback (admin_adjust etc.)
+              }
+              return { ...t, _treasuryAmt: treasuryAmt };
+            });
+
+            const filtered = rows.filter((t) => {
+              if (filterDir === "in" && t._treasuryAmt <= 0) return false;
+              if (filterDir === "out" && t._treasuryAmt >= 0) return false;
+              if (filterReason !== "all") {
+                if (filterReason === "revenue_share") {
+                  if (!String(t.reason || "").startsWith("revenue_share")) return false;
+                } else if (t.reason !== filterReason) {
+                  return false;
+                }
+              }
+              if (filterFrom) {
+                if (new Date(t.created_at) < new Date(filterFrom)) return false;
+              }
+              if (filterTo) {
+                const to = new Date(filterTo);
+                to.setHours(23, 59, 59, 999);
+                if (new Date(t.created_at) > to) return false;
+              }
+              if (filterQuery.trim()) {
+                const q = filterQuery.trim().toLowerCase();
+                const hay = [t.user_name, t.user_email, t.buyer_name, t.book_title, reasonLabels[t.reason] || t.reason]
+                  .filter(Boolean).join(" ").toLowerCase();
+                if (!hay.includes(q)) return false;
+              }
+              return true;
+            });
+
+            const totalIn = filtered.filter(r => r._treasuryAmt > 0).reduce((s, r) => s + r._treasuryAmt, 0);
+            const totalOut = filtered.filter(r => r._treasuryAmt < 0).reduce((s, r) => s + Math.abs(r._treasuryAmt), 0);
+
+            return (
+              <>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0">
+                    جمع واریز: +{totalIn.toLocaleString("fa-IR")} اعتبار
+                  </Badge>
+                  <Badge className="bg-destructive/15 text-destructive border-0">
+                    جمع برداشت: −{totalOut.toLocaleString("fa-IR")} اعتبار
+                  </Badge>
+                  <span className="text-muted-foreground">({filtered.length.toLocaleString("fa-IR")} ردیف)</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-right">زمان</TableHead>
+                        <TableHead className="text-right">رویداد</TableHead>
+                        <TableHead className="text-right">جزئیات</TableHead>
+                        <TableHead className="text-right">مبلغ صندوق</TableHead>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.slice(0, 200).map((t) => {
+                        const treasuryAmt = t._treasuryAmt as number;
+                        const positive = treasuryAmt > 0;
+                        const reasonFa = reasonLabels[t.reason] || t.reason;
+                        const userName = t.user_name || String(t.user_id).slice(0, 8);
+                        const buyerName = t.buyer_name;
+                        const bookTitle = t.book_title;
+                        return (
+                          <TableRow key={t.id}>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {new Date(t.created_at).toLocaleString("fa-IR")}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                className={`text-[11px] whitespace-nowrap border-0 ${
+                                  positive
+                                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                                    : treasuryAmt < 0
+                                      ? "bg-destructive/15 text-destructive"
+                                      : "bg-secondary text-secondary-foreground"
+                                }`}
+                              >
+                                {reasonFa}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs leading-relaxed">
+                              {bookTitle && (
+                                <div className="font-medium truncate max-w-[260px]">📖 {bookTitle}</div>
+                              )}
+                              <div className="text-muted-foreground">
+                                {t.reason === "book_purchase"
+                                  ? <>خریدار: <span className="font-medium text-foreground">{userName}</span></>
+                                  : t.reason?.startsWith("revenue_share_")
+                                    ? <>گیرنده: <span className="font-medium text-foreground">{userName}</span>{buyerName && <> · از خرید: {buyerName}</>}</>
+                                    : <>کاربر: <span className="font-medium text-foreground">{userName}</span></>
+                                }
+                                {t.user_email && <span className="block text-[10px] opacity-70">{t.user_email}</span>}
+                              </div>
+                            </TableCell>
+                            <TableCell
+                              className={`text-sm font-bold whitespace-nowrap tabular-nums ${
+                                positive ? "text-emerald-600 dark:text-emerald-400" : treasuryAmt < 0 ? "text-destructive" : "text-muted-foreground"
+                              }`}
+                            >
+                              {positive ? "+" : treasuryAmt < 0 ? "−" : ""}
+                              {Math.abs(treasuryAmt).toLocaleString("fa-IR")} اعتبار
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+                {filtered.length === 0 && (
+                  <p className="text-sm text-muted-foreground py-4 text-center">با این فیلترها نتیجه‌ای یافت نشد.</p>
+                )}
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
     </div>
