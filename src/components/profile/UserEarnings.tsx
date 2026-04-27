@@ -149,10 +149,15 @@ export const UserEarnings = ({ userId }: Props) => {
                           {positive ? "+" : "−"}
                           {Math.abs(amt).toLocaleString("fa-IR")} اعتبار
                         </TableCell>
-                        <TableCell className="text-[11px] text-muted-foreground max-w-[260px] truncate">
-                          {meta.book_id ? `کتاب: ${String(meta.book_id).slice(0, 8)}…` : ""}
-                          {meta.percent ? ` • ${meta.percent}%` : ""}
-                          {meta.complexity ? ` • ضریب ${meta.complexity}×` : ""}
+                        <TableCell className="text-[11px] text-muted-foreground max-w-[260px]">
+                          {meta.book_title
+                            ? <span>کتاب: <span className="text-foreground font-medium">{meta.book_title}</span></span>
+                            : meta.book_id
+                              ? <span>کتاب #{String(meta.book_id).slice(0, 6)}</span>
+                              : null}
+                          {meta.percent ? <span> · {meta.percent}٪ سهم</span> : null}
+                          {meta.complexity ? <span> · ضریب {meta.complexity}×</span> : null}
+                          {meta.note ? <div className="opacity-80">{meta.note}</div> : null}
                         </TableCell>
                       </TableRow>
                     );
