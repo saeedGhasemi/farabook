@@ -3,6 +3,9 @@ project_id = "uojmvqkuyqkskbsxypji"
 [functions.book-ai]
 verify_jwt = false
 
+[functions.book-suggest]
+verify_jwt = false
+
 [functions.book-chat]
 verify_jwt = false
 
