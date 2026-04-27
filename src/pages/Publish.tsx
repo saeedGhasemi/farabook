@@ -50,7 +50,7 @@ interface BookRow {
 const Publish = () => {
   const { id } = useParams();
   const nav = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { lang, dir } = useI18n();
   const Back = dir === "rtl" ? ArrowRight : ArrowLeft;
 
@@ -76,6 +76,7 @@ const Publish = () => {
   const [price, setPrice] = useState<number>(0);
   const [previewPages, setPreviewPages] = useState<number[]>([0]);
   const [sharesSaved, setSharesSaved] = useState(false);
+  const [saleMode, setSaleMode] = useState<"free" | "paid" | null>(null);
 
   // AI options
   const [genSummary, setGenSummary] = useState(true);
@@ -86,8 +87,8 @@ const Publish = () => {
   const [speaking, setSpeaking] = useState(false);
 
   // Step completion (the in-page wizard guide)
-  const priceStepDone = price === 0 || price > 0; // any explicit value (incl. 0/free) counts
-  const sharesStepDone = price === 0 || sharesSaved; // free books skip splits
+  const priceStepDone = saleMode === "free" || (saleMode === "paid" && price > 0);
+  const sharesStepDone = saleMode === "free" || (saleMode === "paid" && sharesSaved);
   const previewStepDone = (previewPages?.length ?? 0) > 0;
   const allStepsDone = priceStepDone && sharesStepDone && previewStepDone && !!title.trim();
 
@@ -98,12 +99,12 @@ const Publish = () => {
       href={`#${anchor}`}
       className={`flex items-start gap-3 rounded-xl border p-3 transition-all ${
         done
-          ? "border-emerald-500/30 bg-emerald-500/5"
+          ? "border-primary/30 bg-primary/5"
           : "border-border bg-background/40 hover:border-accent/40"
       }`}
     >
       <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-        done ? "bg-emerald-500 text-white" : "bg-secondary text-foreground/70"
+        done ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground/70"
       }`}>
         {done ? <CheckCircle2 className="w-4 h-4" /> : n}
       </div>
@@ -119,6 +120,7 @@ const Publish = () => {
 
   useEffect(() => {
     if (!id) return;
+    if (authLoading) return;
     if (!user) { nav("/auth"); return; }
     (async () => {
       const { data, error } = await supabase
@@ -148,11 +150,14 @@ const Publish = () => {
       setIsbn(b.isbn || "");
       setLanguage((b.language as any) || "fa");
       setTagsInput((b.tags || []).join(", "));
-      setPrice(Number(b.price) || 0);
+      const loadedPrice = Number(b.price) || 0;
+      setPrice(loadedPrice);
+      setSaleMode(b.status === "published" || b.first_published_paid ? (loadedPrice > 0 ? "paid" : "free") : (loadedPrice > 0 ? "paid" : null));
       setPreviewPages(b.preview_pages?.length ? b.preview_pages : [0]);
+      if (b.status === "published") setSharesSaved(true);
       setLoading(false);
     })();
-  }, [id, user, nav, lang]);
+  }, [id, user, authLoading, nav, lang]);
 
   const togglePreviewPage = (i: number) => {
     setPreviewPages((cur) =>
@@ -162,6 +167,10 @@ const Publish = () => {
 
   const openPublishConfirm = async () => {
     if (!book) return;
+    if (!allStepsDone) {
+      toast.error(lang === "fa" ? "ابتدا قیمت، سهم‌بندی و پیش‌نمایش را کامل کنید" : "Complete pricing, shares, and preview first");
+      return;
+    }
     if (!title.trim()) { toast.error(lang === "fa" ? "عنوان لازم است" : "Title required"); return; }
     // Already paid → skip confirm (no fee)
     if (book.first_published_paid) { setEstimatedFee(0); setEstimatedFactor(1); setConfirmOpen(true); return; }
@@ -169,7 +178,7 @@ const Publish = () => {
     setEstimatedFactor(factor);
     // Pull current fee settings
     const { data: fee } = await supabase.from("platform_fee_settings").select("book_publish_mode, book_publish_value").eq("id", 1).maybeSingle();
-    const base = Number(book.price) || 0;
+    const base = Number(price) || 0;
     const mode = (fee as any)?.book_publish_mode || "fixed";
     const value = Number((fee as any)?.book_publish_value || 50);
     const baseFee = mode === "percent" ? Math.round((base * value) / 100) : Math.round(value);
