@@ -161,6 +161,7 @@ export const TextBookEditor = ({ initial }: Props) => {
           title: title || initial.title,
           author: author || initial.author,
           pages: dbPages,
+          typography_preset: typography,
         })
         .eq("id", initial.id);
       if (error) throw error;
@@ -172,7 +173,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     } finally {
       setSaving(false);
     }
-  }, [isEdit, initial, user, pages, title, author, fa]);
+  }, [isEdit, initial, user, pages, title, author, typography, fa]);
 
   // Autosave
   const skipFirst = useRef(true);
@@ -182,7 +183,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     if (!dirty) return;
     const t = window.setTimeout(() => { void persist(false); }, 3500);
     return () => window.clearTimeout(t);
-  }, [pages, title, author, dirty, isEdit, persist]);
+  }, [pages, title, author, typography, dirty, isEdit, persist]);
 
   /* ---------------- Chapter actions ---------------- */
   const addChapter = () => {
