@@ -243,7 +243,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     setPages((ps) => {
       const next = ps.map((p, i) =>
         i === activeIdx
-          ? { ...p, doc: { type: "doc", content: head.length ? head : [{ type: "paragraph" }] } }
+          ? { ...p, doc: { type: "doc" as const, content: head.length ? head : [{ type: "paragraph" }] } }
           : p,
       );
       next.splice(activeIdx + 1, 0, newPage);
