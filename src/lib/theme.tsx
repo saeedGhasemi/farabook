@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
-export type Theme = "silver" | "sky" | "paper" | "emerald";
+export type Theme = "silver" | "sky" | "paper" | "midnight";
 
 interface Ctx {
   theme: Theme;

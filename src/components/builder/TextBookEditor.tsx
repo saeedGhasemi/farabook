@@ -9,10 +9,13 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
 import { TextAlign } from "@tiptap/extension-text-align";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Color } from "@tiptap/extension-color";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bold, Italic, Underline as UnderlineIcon, Heading2, Quote as QuoteIcon, Lightbulb,
   Image as ImageIcon, Sparkles, Plus, Trash2, BookOpen, Loader2, Save, Check, X,
+  Palette, Type as TypeIcon, SplitSquareVertical, Film, GalleryHorizontal, ListOrdered, Layers,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,6 +26,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Callout, Quote, ImageBlock, VideoBlock, GalleryBlock, TimelineBlock, ScrollyBlock,
@@ -32,6 +37,24 @@ import {
   dbPagesToTextPages, textPagesToDbPages, type TextPage,
 } from "@/lib/tiptap-doc";
 import { AiSuggestPanel } from "./AiSuggestPanel";
+
+const TYPOGRAPHY_PRESETS = [
+  { value: "editorial", label_fa: "روزنامه‌ای", label_en: "Editorial" },
+  { value: "academic", label_fa: "آکادمیک", label_en: "Academic" },
+  { value: "modern", label_fa: "مدرن", label_en: "Modern" },
+  { value: "playful", label_fa: "صمیمی", label_en: "Playful" },
+  { value: "elegant", label_fa: "نفیس", label_en: "Elegant" },
+];
+
+const TEXT_COLORS = [
+  { name: "Default", value: "" },
+  { name: "Primary", value: "hsl(var(--primary))" },
+  { name: "Accent", value: "hsl(var(--accent))" },
+  { name: "Success", value: "hsl(142 70% 38%)" },
+  { name: "Warning", value: "hsl(35 95% 50%)" },
+  { name: "Danger", value: "hsl(var(--destructive))" },
+  { name: "Muted", value: "hsl(var(--muted-foreground))" },
+];
 
 interface Initial {
   id?: string;
@@ -77,6 +100,7 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [showAi, setShowAi] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+  const [typography, setTypography] = useState<string>(initial?.typography_preset || "editorial");
 
   const { upload } = useImageUpload();
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -89,6 +113,8 @@ export const TextBookEditor = ({ initial }: Props) => {
         blockquote: false, // we use custom Quote
       }),
       Underline,
+      TextStyle,
+      Color.configure({ types: ["textStyle"] }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Placeholder.configure({
         placeholder: fa ? "اینجا بنویسید… با Enter پاراگراف بعدی." : "Write here… Enter for next paragraph.",
@@ -135,6 +161,7 @@ export const TextBookEditor = ({ initial }: Props) => {
           title: title || initial.title,
           author: author || initial.author,
           pages: dbPages,
+          typography_preset: typography,
         })
         .eq("id", initial.id);
       if (error) throw error;
@@ -146,7 +173,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     } finally {
       setSaving(false);
     }
-  }, [isEdit, initial, user, pages, title, author, fa]);
+  }, [isEdit, initial, user, pages, title, author, typography, fa]);
 
   // Autosave
   const skipFirst = useRef(true);
@@ -156,7 +183,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     if (!dirty) return;
     const t = window.setTimeout(() => { void persist(false); }, 3500);
     return () => window.clearTimeout(t);
-  }, [pages, title, author, dirty, isEdit, persist]);
+  }, [pages, title, author, typography, dirty, isEdit, persist]);
 
   /* ---------------- Chapter actions ---------------- */
   const addChapter = () => {
@@ -185,6 +212,56 @@ export const TextBookEditor = ({ initial }: Props) => {
     editor.chain().focus().insertContent({
       type: "image", attrs: { src: url, caption: "", hideCaption: false },
     }).run();
+  };
+
+  /** Split current chapter at the selection: everything from the selection
+   *  to the end becomes a brand-new chapter inserted after the current one. */
+  const splitChapterAtSelection = () => {
+    if (!editor) return;
+    const { from } = editor.state.selection;
+    const fullJson = editor.getJSON() as TextPage["doc"];
+    const blocks = (fullJson.content ?? []) as any[];
+    // Find which top-level block contains `from`
+    let pos = 1; // doc start = 0; first block content starts at 1
+    let splitIdx = blocks.length;
+    for (let i = 0; i < blocks.length; i++) {
+      const node = editor.state.doc.child(i);
+      const blockSize = node.nodeSize;
+      if (from < pos + blockSize) { splitIdx = i; break; }
+      pos += blockSize;
+    }
+    if (splitIdx >= blocks.length) {
+      toast.info(fa ? "ابتدا روی متن کلیک کنید تا محل شکست مشخص شود" : "Place the cursor where the new chapter should start");
+      return;
+    }
+    const head = blocks.slice(0, splitIdx);
+    const tail = blocks.slice(splitIdx);
+    const newPage: TextPage = {
+      title: fa ? `فصل ${pages.length + 1}` : `Chapter ${pages.length + 1}`,
+      doc: { type: "doc" as const, content: tail.length ? tail : [{ type: "paragraph" }] },
+    };
+    setPages((ps) => {
+      const next = ps.map((p, i) =>
+        i === activeIdx
+          ? { ...p, doc: { type: "doc" as const, content: head.length ? head : [{ type: "paragraph" }] } }
+          : p,
+      );
+      next.splice(activeIdx + 1, 0, newPage);
+      return next;
+    });
+    setDirty(true);
+    setTimeout(() => setActiveIdx(activeIdx + 1), 0);
+    toast.success(fa ? "فصل جدید ساخته شد" : "New chapter created");
+  };
+
+  /** Insert an interactive block at the cursor position. */
+  const insertInteractive = (kind: "video" | "gallery" | "timeline" | "scrollytelling") => {
+    if (!editor) return;
+    const attrs =
+      kind === "video" ? { src: "", caption: "" } :
+      kind === "gallery" ? { images: [], caption: "" } :
+      { title: "", steps: [] };
+    editor.chain().focus().insertContent({ type: kind, attrs }).run();
   };
 
   if (!editor) {
@@ -233,14 +310,58 @@ export const TextBookEditor = ({ initial }: Props) => {
 
       {/* ============ Main editor ============ */}
       <section className="min-w-0">
-        {/* Top bar: chapter title + save status + AI */}
+        {/* Top bar: chapter title + typography + insert menu + save */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           <Input
             value={activePage?.title ?? ""}
             onChange={(e) => renameChapter(activeIdx, e.target.value)}
             placeholder={fa ? "عنوان فصل" : "Chapter title"}
-            className="flex-1 min-w-[200px] text-lg font-display font-semibold border-0 border-b border-dashed rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary"
+            className="flex-1 min-w-[180px] text-lg font-display font-semibold border-0 border-b border-dashed rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary"
           />
+
+          {/* Typography preset selector */}
+          <Select value={typography} onValueChange={(v) => { setTypography(v); setDirty(true); }}>
+            <SelectTrigger className="h-8 w-[140px]" title={fa ? "تیپوگرافی" : "Typography"}>
+              <TypeIcon className="w-3.5 h-3.5 me-1" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TYPOGRAPHY_PRESETS.map((p) => (
+                <SelectItem key={p.value} value={p.value}>{fa ? p.label_fa : p.label_en}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Insert interactive block */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="outline" className="h-8" title={fa ? "افزودن عنصر تعاملی" : "Insert interactive"}>
+                <Layers className="w-3.5 h-3.5 me-1" /> {fa ? "تعاملی" : "Interactive"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-1.5">
+              <button type="button" onClick={() => fileRef.current?.click()} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                <ImageIcon className="w-4 h-4 text-accent" /> {fa ? "تصویر" : "Image"}
+              </button>
+              <button type="button" onClick={() => insertInteractive("video")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                <Film className="w-4 h-4 text-accent" /> {fa ? "ویدئو" : "Video"}
+              </button>
+              <button type="button" onClick={() => insertInteractive("gallery")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                <GalleryHorizontal className="w-4 h-4 text-accent" /> {fa ? "گالری تصاویر" : "Gallery"}
+              </button>
+              <button type="button" onClick={() => insertInteractive("timeline")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                <ListOrdered className="w-4 h-4 text-accent" /> {fa ? "تایم‌لاین" : "Timeline"}
+              </button>
+              <button type="button" onClick={() => insertInteractive("scrollytelling")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                <Layers className="w-4 h-4 text-accent" /> {fa ? "اسکرولی‌تلینگ" : "Scrollytelling"}
+              </button>
+              <div className="h-px bg-border my-1" />
+              <button type="button" onClick={splitChapterAtSelection} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                <SplitSquareVertical className="w-4 h-4 text-primary" /> {fa ? "فصل جدید از اینجا" : "New chapter here"}
+              </button>
+            </PopoverContent>
+          </Popover>
+
           <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
             {saving ? <><Loader2 className="w-3 h-3 animate-spin" /> {fa ? "ذخیره…" : "Saving…"}</> :
              dirty ? <span className="text-accent">●</span> :
@@ -250,21 +371,12 @@ export const TextBookEditor = ({ initial }: Props) => {
           <Button size="sm" variant="outline" className="h-8" onClick={() => persist(true)}>
             <Save className="w-3.5 h-3.5 me-1" /> {fa ? "ذخیره" : "Save"}
           </Button>
-          <Button
-            size="sm"
-            className="h-8 bg-accent text-accent-foreground hover:bg-accent/90"
-            onClick={() => setShowAi((v) => !v)}
-          >
-            <Sparkles className="w-3.5 h-3.5 me-1" /> {fa ? "دستیار هوشمند" : "AI assistant"}
-          </Button>
         </div>
 
-        {/* Floating bubble toolbar (5 tools + AI) */}
+        {/* Floating bubble toolbar (appears on selection) */}
         <BubbleMenu
           editor={editor}
           options={{
-            // On mobile, the native selection callout sits above the
-            // selection — push our toolbar BELOW so they don't overlap.
             placement: typeof window !== "undefined" && window.innerWidth < 768 ? "bottom" : "top",
             offset: 12,
           }}
@@ -279,6 +391,35 @@ export const TextBookEditor = ({ initial }: Props) => {
           <button type="button" title="Underline" onClick={() => editor.chain().focus().toggleUnderline().run()} className={`p-1.5 rounded hover:bg-muted ${editor.isActive("underline") ? "bg-muted" : ""}`}>
             <UnderlineIcon className="w-4 h-4" />
           </button>
+
+          {/* Text color picker */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button type="button" title={fa ? "رنگ متن" : "Text color"} className="p-1.5 rounded hover:bg-muted">
+                <Palette className="w-4 h-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2" side="top">
+              <div className="grid grid-cols-7 gap-1">
+                {TEXT_COLORS.map((c) => (
+                  <button
+                    key={c.name}
+                    type="button"
+                    title={c.name}
+                    onClick={() => {
+                      if (!c.value) editor.chain().focus().unsetColor().run();
+                      else editor.chain().focus().setColor(c.value).run();
+                    }}
+                    className="w-6 h-6 rounded-full border hover:scale-110 transition"
+                    style={{ background: c.value || "transparent", borderColor: c.value ? "transparent" : "hsl(var(--border))" }}
+                  >
+                    {!c.value && <X className="w-3 h-3 mx-auto text-muted-foreground" />}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
           <span className="w-px h-5 bg-border mx-1" />
           <button type="button" title={fa ? "تیتر" : "Heading"} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={`p-1.5 rounded hover:bg-muted ${editor.isActive("heading", { level: 2 }) ? "bg-muted" : ""}`}>
             <Heading2 className="w-4 h-4" />
@@ -289,8 +430,8 @@ export const TextBookEditor = ({ initial }: Props) => {
           <button type="button" title={fa ? "نقل‌قول" : "Quote"} onClick={() => editor.chain().focus().setNode("quote").run()} className={`p-1.5 rounded hover:bg-muted ${editor.isActive("quote") ? "bg-muted" : ""}`}>
             <QuoteIcon className="w-4 h-4" />
           </button>
-          <button type="button" title={fa ? "تصویر" : "Image"} onClick={() => fileRef.current?.click()} className="p-1.5 rounded hover:bg-muted">
-            <ImageIcon className="w-4 h-4" />
+          <button type="button" title={fa ? "فصل جدید از اینجا" : "New chapter here"} onClick={splitChapterAtSelection} className="p-1.5 rounded hover:bg-muted">
+            <SplitSquareVertical className="w-4 h-4" />
           </button>
           <span className="w-px h-5 bg-border mx-1" />
           <button
@@ -318,7 +459,19 @@ export const TextBookEditor = ({ initial }: Props) => {
         />
 
         {/* The actual editor */}
-        <div className="rounded-2xl border bg-card/50 px-4 md:px-8 py-6 md:py-8 shadow-paper">
+        <div className={`rounded-2xl border bg-card/50 px-4 md:px-8 py-6 md:py-8 shadow-paper typo-${typography}`}>
+          {/* Floating "AI assistant" toggle pinned to the editor (single source of truth) */}
+          <div className="flex justify-end mb-2 -mt-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={showAi ? "default" : "ghost"}
+              className="h-7 text-xs gap-1 text-accent hover:text-accent"
+              onClick={() => setShowAi((v) => !v)}
+            >
+              <Sparkles className="w-3.5 h-3.5" /> {fa ? "دستیار هوشمند صفحه" : "Page AI"}
+            </Button>
+          </div>
           <EditorContent editor={editor} />
         </div>
 
