@@ -246,18 +246,48 @@ const Credits = () => {
                 <p className="text-sm text-muted-foreground">تراکنشی وجود ندارد.</p>
               ) : (
                 <div className="space-y-1">
-                  {tx.map((r) => (
-                    <div key={r.id} className="flex items-center justify-between text-sm border-b py-2 last:border-0">
-                      <div>
-                        <div>{r.reason}</div>
-                        <div className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString("fa-IR")}</div>
+                  {tx.map((r) => {
+                    const amt = Number(r.amount);
+                    const positive = amt >= 0;
+                    const REASON_FA: Record<string, string> = {
+                      book_purchase: "خرید کتاب",
+                      revenue_share_publisher: "سهم ناشر از فروش",
+                      revenue_share_author: "سهم نویسنده از فروش",
+                      revenue_share_editor: "سهم ادیتور از فروش",
+                      publisher_signup_fee: "هزینه درخواست ناشر",
+                      book_publish_fee: "هزینه انتشار کتاب",
+                      editor_order_fee: "هزینه سفارش ادیت",
+                      credit_purchase_approved: "خرید اعتبار (تأیید شده)",
+                      admin_grant: "اعطای ادمین",
+                      admin_deduct: "کسر ادمین",
+                      seed_starter_credits: "اعتبار اولیه",
+                      admin_adjust: "تنظیم دستی ادمین",
+                    };
+                    const label = REASON_FA[r.reason] || r.reason;
+                    return (
+                      <div
+                        key={r.id}
+                        className={`flex items-center justify-between text-sm border-b py-2 last:border-0 ${
+                          positive ? "border-l-2 border-l-emerald-500/60 ps-3" : "border-l-2 border-l-destructive/60 ps-3"
+                        }`}
+                      >
+                        <div>
+                          <div className="font-medium">{label}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(r.created_at).toLocaleString("fa-IR")}
+                          </div>
+                        </div>
+                        <span
+                          className={`font-bold tabular-nums ${
+                            positive ? "text-emerald-600" : "text-destructive"
+                          }`}
+                        >
+                          {positive ? "+" : "−"}
+                          {Math.abs(amt).toLocaleString("fa-IR")} اعتبار
+                        </span>
                       </div>
-                      <span className={Number(r.amount) >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
-                        {Number(r.amount) >= 0 ? "+" : ""}
-                        {Number(r.amount).toLocaleString("fa-IR")}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
