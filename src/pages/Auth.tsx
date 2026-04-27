@@ -85,45 +85,47 @@ const Auth = () => {
             {mode === "signin" ? t("switch_signup") : t("switch_signin")}
           </button>
 
-          <div className="mt-6 pt-4 border-t border-border/40">
-            <p className="text-xs text-muted-foreground text-center mb-3">
-              {lang === "fa" ? "ورود سریع با کاربران تستی" : "Quick login with test users"}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { email: "user1@test.com", label: lang === "fa" ? "کاربر ۱" : "User 1", icon: "👤" },
-                { email: "user2@test.com", label: lang === "fa" ? "کاربر ۲" : "User 2", icon: "👤" },
-                { email: "publisher1@test.com", label: lang === "fa" ? "ناشر" : "Publisher", icon: "📚" },
-                { email: "editor1@test.com", label: lang === "fa" ? "ادیتور" : "Editor", icon: "✏️" },
-              ].map((u) => (
-                <Button
-                  key={u.email}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  onClick={async () => {
-                    setBusy(true);
-                    try {
-                      const { error } = await supabase.auth.signInWithPassword({
-                        email: u.email,
-                        password: "Test1234!",
-                      });
-                      if (error) throw error;
-                    } catch (err) {
-                      toast.error(err instanceof Error ? err.message : "Error");
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                  className="h-10 text-xs gap-1.5"
-                >
-                  <span>{u.icon}</span>
-                  <span className="truncate">{u.label}</span>
-                </Button>
-              ))}
+          {import.meta.env.DEV && (
+            <div className="mt-6 pt-4 border-t border-border/40">
+              <p className="text-xs text-muted-foreground text-center mb-3">
+                {lang === "fa" ? "ورود سریع با کاربران تستی (فقط محیط توسعه)" : "Quick login (dev only)"}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { email: "user1@test.com", label: lang === "fa" ? "کاربر ۱" : "User 1", icon: "👤" },
+                  { email: "user2@test.com", label: lang === "fa" ? "کاربر ۲" : "User 2", icon: "👤" },
+                  { email: "publisher1@test.com", label: lang === "fa" ? "ناشر" : "Publisher", icon: "📚" },
+                  { email: "editor1@test.com", label: lang === "fa" ? "ادیتور" : "Editor", icon: "✏️" },
+                ].map((u) => (
+                  <Button
+                    key={u.email}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={async () => {
+                      setBusy(true);
+                      try {
+                        const { error } = await supabase.auth.signInWithPassword({
+                          email: u.email,
+                          password: import.meta.env.VITE_DEV_SEED_PASSWORD || "",
+                        });
+                        if (error) throw error;
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Error");
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                    className="h-10 text-xs gap-1.5"
+                  >
+                    <span>{u.icon}</span>
+                    <span className="truncate">{u.label}</span>
+                  </Button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </motion.div>
     </main>
