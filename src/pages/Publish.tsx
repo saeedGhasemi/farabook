@@ -278,9 +278,9 @@ const Publish = () => {
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-6 flex items-center justify-between gap-3"
+        className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => nav(-1)}>
             <Back className="w-4 h-4 me-1.5" />
             {lang === "fa" ? "بازگشت" : "Back"}
@@ -288,12 +288,12 @@ const Publish = () => {
           <div>
             <h1 className="text-2xl md:text-3xl font-display font-bold flex items-center gap-2">
               <Rocket className="w-5 h-5 text-accent" />
-              {lang === "fa" ? "انتشار کتاب" : "Publish Book"}
+              {lang === "fa" ? "قیمت، سهام و انتشار" : "Price, shares & publish"}
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
               {lang === "fa"
-                ? "اطلاعات نهایی، قیمت و گزینه‌های هوش مصنوعی را تنظیم کنید."
-                : "Finalize metadata, price, and AI options."}
+                ? "بعد از پایان ویرایش محتوا، اینجا قیمت، فروشگاه و سهم ذینفع‌ها نهایی می‌شود."
+                : "After content editing, finalize price, storefront, and stakeholder shares here."}
             </p>
           </div>
         </div>
@@ -317,7 +317,7 @@ const Publish = () => {
           </h3>
           <span className="text-[11px] text-muted-foreground">
             {lang === "fa"
-              ? "وقتی هر سه قدم تیک خوردند، دکمه «انتشار» فعال می‌شود."
+              ? "اول قیمت یا رایگان بودن را انتخاب کنید، بعد سهم‌بندی را ذخیره کنید؛ دکمه نهایی فقط بعد از تکمیل فعال می‌شود."
               : "Publish unlocks when all three steps are checked."}
           </span>
         </div>
