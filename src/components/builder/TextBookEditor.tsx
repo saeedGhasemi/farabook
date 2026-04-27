@@ -238,7 +238,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     const tail = blocks.slice(splitIdx);
     const newPage: TextPage = {
       title: fa ? `فصل ${pages.length + 1}` : `Chapter ${pages.length + 1}`,
-      doc: { type: "doc", content: tail.length ? tail : [{ type: "paragraph" }] },
+      doc: { type: "doc" as const, content: tail.length ? tail : [{ type: "paragraph" }] },
     };
     setPages((ps) => {
       const next = ps.map((p, i) =>
