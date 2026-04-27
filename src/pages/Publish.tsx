@@ -502,20 +502,22 @@ const Publish = () => {
               ? "درصد سهم نویسنده و ادیتورها را تعیین و دکمه «ذخیره سهم‌بندی» را بزنید. درصد باقی‌مانده به‌صورت خودکار سهم ناشر (شما) خواهد بود. سهم پلتفرم از پیش از مجموع کسر شده است."
               : "Set the author/editor percentages and click Save. Whatever remains is the publisher's share. The platform fee is already reserved."}
           </p>
-          {price === 0 && (
+          {saleMode !== "paid" && (
             <div className="text-[11px] rounded-md border border-accent/30 bg-accent/5 px-2 py-1.5 text-accent">
               {lang === "fa"
-                ? "این کتاب رایگان است؛ نیازی به سهم‌بندی نیست."
-                : "This book is free — no revenue split needed."}
+                ? "اگر کتاب رایگان باشد، سهم‌بندی درآمد لازم نیست. برای کتاب پولی اول در قدم ۱ گزینه «کتاب فروشی / پولی» را انتخاب کنید."
+                : "Free books do not need revenue split. For a paid book, select Paid book in step 1 first."}
             </div>
           )}
-          <RevenueShareEditor
-            bookId={book.id}
-            publisherId={book.publisher_id || user!.id}
-            authorUserId={book.author_user_id}
-            lang={lang}
-            onSavedChange={() => setSharesSaved(true)}
-          />
+          {saleMode === "paid" ? (
+            <RevenueShareEditor
+              bookId={book.id}
+              publisherId={book.publisher_id || user!.id}
+              authorUserId={book.author_user_id}
+              lang={lang}
+              onSavedChange={() => setSharesSaved(true)}
+            />
+          ) : null}
         </section>
 
         {/* Preview pages */}
@@ -651,22 +653,22 @@ const Publish = () => {
             <p className="text-xs text-muted-foreground">
               {allStepsDone
                 ? (lang === "fa"
-                    ? "همه‌چیز آماده است. پس از انتشار، کتاب در فروشگاه قابل مشاهده می‌شود."
+                    ? "همه‌چیز آماده است. حالا دکمه نهایی انتشار فعال است."
                     : "Everything's ready. After publishing, your book becomes visible in the store.")
                 : (lang === "fa"
-                    ? `${[!priceStepDone && "۱) قیمت", !sharesStepDone && "۲) سهام", !previewStepDone && "۳) پیش‌نمایش"].filter(Boolean).join(" • ")} باقی مانده`
+                    ? `${[!priceStepDone && "۱) تعیین رایگان/پولی و قیمت", !sharesStepDone && "۲) ذخیره سهم‌بندی", !previewStepDone && "۳) پیش‌نمایش"].filter(Boolean).join(" • ")} باقی مانده`
                     : `Pending: ${[!priceStepDone && "Price", !sharesStepDone && "Shares", !previewStepDone && "Preview"].filter(Boolean).join(" • ")}`)}
             </p>
             <Button
               onClick={openPublishConfirm}
               disabled={busy || !allStepsDone}
               className="bg-gradient-warm hover:opacity-90 gap-2"
-              title={!allStepsDone ? (lang === "fa" ? "ابتدا سه قدم بالا را تکمیل کنید" : "Complete the 3 steps first") : undefined}
+              title={!allStepsDone ? (lang === "fa" ? "اول سه قدم قیمت، سهم‌بندی و پیش‌نمایش را تکمیل کنید" : "Complete price, shares, and preview first") : undefined}
             >
               {busy ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> {lang === "fa" ? "در حال انتشار…" : "Publishing…"}</>
               ) : (
-                <><Rocket className="w-4 h-4" /> {lang === "fa" ? "انتشار" : "Publish"}</>
+                <><Rocket className="w-4 h-4" /> {lang === "fa" ? "انتشار نهایی" : "Final publish"}</>
               )}
             </Button>
           </div>
