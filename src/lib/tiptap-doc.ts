@@ -246,3 +246,70 @@ const renderTextNodes = (nodes?: TextNode[]): string =>
       return t;
     })
     .join("");
+
+/* ------------------------------------------------------------------ */
+/* New doc → legacy blocks (so the existing Reader keeps working)     */
+/* ------------------------------------------------------------------ */
+
+const inlineToMarkdown = (nodes?: TextNode[]): string =>
+  (nodes ?? []).map((n) => {
+    let t = n.text;
+    for (const m of n.marks ?? []) {
+      if (m.type === "bold") t = `**${t}**`;
+      else if (m.type === "italic") t = `*${t}*`;
+      else if (m.type === "underline") t = `__${t}__`;
+    }
+    return t;
+  }).join("");
+
+const calloutIconFromVariant = (v: string): string => {
+  switch (v) {
+    case "tip": return "tip";
+    case "warning": return "warning";
+    case "success": return "success";
+    case "danger": return "danger";
+    case "question": return "question";
+    case "quote": return "quote";
+    case "note": return "note";
+    default: return "info";
+  }
+};
+
+/** Convert a Tiptap doc back to legacy block array for the Reader. */
+export const docToLegacyBlocks = (doc: TiptapDoc): any[] => {
+  const out: any[] = [];
+  for (const n of doc?.content ?? []) {
+    switch (n.type) {
+      case "paragraph": {
+        const t = inlineToMarkdown(n.content);
+        if (t.trim()) out.push({ type: "paragraph", text: t });
+        break;
+      }
+      case "heading":
+        out.push({ type: "heading", text: inlineToMarkdown(n.content) });
+        break;
+      case "quote":
+        out.push({ type: "quote", text: inlineToMarkdown(n.content), author: n.attrs?.author });
+        break;
+      case "callout":
+        out.push({ type: "callout", icon: calloutIconFromVariant(n.attrs.variant), text: inlineToMarkdown(n.content) });
+        break;
+      case "image":
+        out.push({ type: "image", src: n.attrs.src, caption: n.attrs.caption, hideCaption: n.attrs.hideCaption });
+        break;
+      case "gallery":
+        out.push({ type: "gallery", images: n.attrs.images, caption: n.attrs.caption });
+        break;
+      case "video":
+        out.push({ type: "video", src: n.attrs.src, caption: n.attrs.caption });
+        break;
+      case "timeline":
+        out.push({ type: "timeline", title: n.attrs.title, steps: n.attrs.steps });
+        break;
+      case "scrollytelling":
+        out.push({ type: "scrollytelling", title: n.attrs.title, steps: n.attrs.steps });
+        break;
+    }
+  }
+  return out;
+};
