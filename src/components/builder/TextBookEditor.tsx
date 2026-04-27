@@ -310,14 +310,58 @@ export const TextBookEditor = ({ initial }: Props) => {
 
       {/* ============ Main editor ============ */}
       <section className="min-w-0">
-        {/* Top bar: chapter title + save status + AI */}
+        {/* Top bar: chapter title + typography + insert menu + save */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           <Input
             value={activePage?.title ?? ""}
             onChange={(e) => renameChapter(activeIdx, e.target.value)}
             placeholder={fa ? "عنوان فصل" : "Chapter title"}
-            className="flex-1 min-w-[200px] text-lg font-display font-semibold border-0 border-b border-dashed rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary"
+            className="flex-1 min-w-[180px] text-lg font-display font-semibold border-0 border-b border-dashed rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary"
           />
+
+          {/* Typography preset selector */}
+          <Select value={typography} onValueChange={(v) => { setTypography(v); setDirty(true); }}>
+            <SelectTrigger className="h-8 w-[140px]" title={fa ? "تیپوگرافی" : "Typography"}>
+              <TypeIcon className="w-3.5 h-3.5 me-1" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TYPOGRAPHY_PRESETS.map((p) => (
+                <SelectItem key={p.value} value={p.value}>{fa ? p.label_fa : p.label_en}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Insert interactive block */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="outline" className="h-8" title={fa ? "افزودن عنصر تعاملی" : "Insert interactive"}>
+                <Layers className="w-3.5 h-3.5 me-1" /> {fa ? "تعاملی" : "Interactive"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-1.5">
+              <button type="button" onClick={() => fileRef.current?.click()} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                <ImageIcon className="w-4 h-4 text-accent" /> {fa ? "تصویر" : "Image"}
+              </button>
+              <button type="button" onClick={() => insertInteractive("video")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                <Film className="w-4 h-4 text-accent" /> {fa ? "ویدئو" : "Video"}
+              </button>
+              <button type="button" onClick={() => insertInteractive("gallery")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                <GalleryHorizontal className="w-4 h-4 text-accent" /> {fa ? "گالری تصاویر" : "Gallery"}
+              </button>
+              <button type="button" onClick={() => insertInteractive("timeline")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                <ListOrdered className="w-4 h-4 text-accent" /> {fa ? "تایم‌لاین" : "Timeline"}
+              </button>
+              <button type="button" onClick={() => insertInteractive("scrollytelling")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                <Layers className="w-4 h-4 text-accent" /> {fa ? "اسکرولی‌تلینگ" : "Scrollytelling"}
+              </button>
+              <div className="h-px bg-border my-1" />
+              <button type="button" onClick={splitChapterAtSelection} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                <SplitSquareVertical className="w-4 h-4 text-primary" /> {fa ? "فصل جدید از اینجا" : "New chapter here"}
+              </button>
+            </PopoverContent>
+          </Popover>
+
           <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
             {saving ? <><Loader2 className="w-3 h-3 animate-spin" /> {fa ? "ذخیره…" : "Saving…"}</> :
              dirty ? <span className="text-accent">●</span> :
@@ -327,21 +371,12 @@ export const TextBookEditor = ({ initial }: Props) => {
           <Button size="sm" variant="outline" className="h-8" onClick={() => persist(true)}>
             <Save className="w-3.5 h-3.5 me-1" /> {fa ? "ذخیره" : "Save"}
           </Button>
-          <Button
-            size="sm"
-            className="h-8 bg-accent text-accent-foreground hover:bg-accent/90"
-            onClick={() => setShowAi((v) => !v)}
-          >
-            <Sparkles className="w-3.5 h-3.5 me-1" /> {fa ? "دستیار هوشمند" : "AI assistant"}
-          </Button>
         </div>
 
-        {/* Floating bubble toolbar (5 tools + AI) */}
+        {/* Floating bubble toolbar (appears on selection) */}
         <BubbleMenu
           editor={editor}
           options={{
-            // On mobile, the native selection callout sits above the
-            // selection — push our toolbar BELOW so they don't overlap.
             placement: typeof window !== "undefined" && window.innerWidth < 768 ? "bottom" : "top",
             offset: 12,
           }}
@@ -356,6 +391,35 @@ export const TextBookEditor = ({ initial }: Props) => {
           <button type="button" title="Underline" onClick={() => editor.chain().focus().toggleUnderline().run()} className={`p-1.5 rounded hover:bg-muted ${editor.isActive("underline") ? "bg-muted" : ""}`}>
             <UnderlineIcon className="w-4 h-4" />
           </button>
+
+          {/* Text color picker */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button type="button" title={fa ? "رنگ متن" : "Text color"} className="p-1.5 rounded hover:bg-muted">
+                <Palette className="w-4 h-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2" side="top">
+              <div className="grid grid-cols-7 gap-1">
+                {TEXT_COLORS.map((c) => (
+                  <button
+                    key={c.name}
+                    type="button"
+                    title={c.name}
+                    onClick={() => {
+                      if (!c.value) editor.chain().focus().unsetColor().run();
+                      else editor.chain().focus().setColor(c.value).run();
+                    }}
+                    className="w-6 h-6 rounded-full border hover:scale-110 transition"
+                    style={{ background: c.value || "transparent", borderColor: c.value ? "transparent" : "hsl(var(--border))" }}
+                  >
+                    {!c.value && <X className="w-3 h-3 mx-auto text-muted-foreground" />}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
           <span className="w-px h-5 bg-border mx-1" />
           <button type="button" title={fa ? "تیتر" : "Heading"} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={`p-1.5 rounded hover:bg-muted ${editor.isActive("heading", { level: 2 }) ? "bg-muted" : ""}`}>
             <Heading2 className="w-4 h-4" />
@@ -366,8 +430,8 @@ export const TextBookEditor = ({ initial }: Props) => {
           <button type="button" title={fa ? "نقل‌قول" : "Quote"} onClick={() => editor.chain().focus().setNode("quote").run()} className={`p-1.5 rounded hover:bg-muted ${editor.isActive("quote") ? "bg-muted" : ""}`}>
             <QuoteIcon className="w-4 h-4" />
           </button>
-          <button type="button" title={fa ? "تصویر" : "Image"} onClick={() => fileRef.current?.click()} className="p-1.5 rounded hover:bg-muted">
-            <ImageIcon className="w-4 h-4" />
+          <button type="button" title={fa ? "فصل جدید از اینجا" : "New chapter here"} onClick={splitChapterAtSelection} className="p-1.5 rounded hover:bg-muted">
+            <SplitSquareVertical className="w-4 h-4" />
           </button>
           <span className="w-px h-5 bg-border mx-1" />
           <button
