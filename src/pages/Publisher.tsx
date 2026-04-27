@@ -243,12 +243,12 @@ const Publisher = () => {
         </div>
         <div className="mb-8 rounded-2xl border bg-card/70 p-4 grid md:grid-cols-3 gap-3 text-sm">
           {[
-            { n: "۱", title: lang === "fa" ? "ویرایش محتوا" : "Edit content", body: lang === "fa" ? "دکمه «ویرایش متن و محتوا» فقط ادیتور کتاب را باز می‌کند." : "Edit content opens only the book editor." },
-            { n: "۲", title: lang === "fa" ? "قیمت و سهام" : "Price & shares", body: lang === "fa" ? "دکمه آبی «قیمت، سهام و انتشار» ویزارد قیمت‌گذاری و سهم‌بندی را باز می‌کند." : "The primary button opens pricing and revenue split." },
-            { n: "۳", title: lang === "fa" ? "انتشار نهایی" : "Final publish", body: lang === "fa" ? "بعد از ذخیره سهم‌بندی و پیش‌نمایش، دکمه نهایی فعال می‌شود." : "Final publish unlocks after split and preview are saved." },
+            { n: "۱", title: lang === "fa" ? "ویرایش محتوا" : "Edit content", body: lang === "fa" ? "دکمه «ویرایش متن و محتوا» فقط ادیتور کتاب را باز می‌کند." : "Edit content opens only the book editor.", color: "bg-stage-edit text-stage-edit-foreground" },
+            { n: "۲", title: lang === "fa" ? "قیمت و سهام" : "Price & shares", body: lang === "fa" ? "دکمه «مرحله بعد» ویزارد قیمت‌گذاری و سهم‌بندی را باز می‌کند." : "Next step opens the pricing and revenue split wizard.", color: "bg-stage-pricing text-stage-pricing-foreground" },
+            { n: "۳", title: lang === "fa" ? "انتشار نهایی" : "Final publish", body: lang === "fa" ? "بعد از ذخیره سهم‌بندی و پیش‌نمایش، دکمه نهایی فعال می‌شود." : "Final publish unlocks after split and preview are saved.", color: "bg-stage-published text-stage-published-foreground" },
           ].map((step) => (
             <div key={step.n} className="flex gap-3">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">{step.n}</span>
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${step.color}`}>{step.n}</span>
               <div>
                 <div className="font-semibold">{step.title}</div>
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{step.body}</p>
@@ -284,13 +284,28 @@ const Publisher = () => {
             const s = salesStats[book.id];
             const sales = s?.count || 0;
             const earned = s?.toMe || 0;
+            const isPublished = book.status === "published";
+            // Stage classification: draft with no price = stage 1 (edit), draft with price = stage 2 (pricing), published = stage 3
+            const stage: 1 | 2 | 3 = isPublished ? 3 : (book.price && book.price > 0) ? 2 : 1;
+            const stageRing =
+              stage === 3 ? "ring-1 ring-stage-published/40 border-stage-published/30"
+              : stage === 2 ? "ring-1 ring-stage-pricing/40 border-stage-pricing/30"
+              : "ring-1 ring-stage-edit/30 border-stage-edit/20";
+            const stageBadge =
+              stage === 3 ? "bg-stage-published text-stage-published-foreground border-transparent"
+              : stage === 2 ? "bg-stage-pricing text-stage-pricing-foreground border-transparent"
+              : "bg-stage-edit text-stage-edit-foreground border-transparent";
+            const stageLabel =
+              stage === 3 ? (lang === "fa" ? "منتشر شده" : "Published")
+              : stage === 2 ? (lang === "fa" ? "قیمت‌گذاری" : "Pricing")
+              : (lang === "fa" ? "در حال ویرایش" : "Editing");
             return (
               <motion.div
                 key={book.id}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
-                className="paper-card rounded-2xl overflow-hidden grid md:grid-cols-[132px_1fr] group relative"
+                className={`paper-card rounded-2xl overflow-hidden grid md:grid-cols-[132px_1fr] group relative ${stageRing}`}
               >
                 <div className="relative aspect-[3/4] md:aspect-auto md:min-h-[190px] overflow-hidden bg-secondary">
                   {book.cover_url && (
@@ -306,7 +321,7 @@ const Publisher = () => {
                   <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <Badge variant={isDraft ? "outline" : "default"}>{statusLabel(book.status)}</Badge>
+                        <Badge className={stageBadge}>{stageLabel}</Badge>
                         {book.category && <Badge variant="secondary">{book.category}</Badge>}
                       </div>
                       <h3 className="font-display font-bold text-xl leading-tight line-clamp-2">{title}</h3>
@@ -345,15 +360,22 @@ const Publisher = () => {
                     {isMe ? (
                       <>
                         <Link to={`/edit/${book.id}`} className="flex-1 min-w-[150px]">
-                          <Button size="sm" variant="outline" className="gap-1.5 w-full">
+                          <Button size="sm" className="gap-1.5 w-full bg-stage-edit text-stage-edit-foreground hover:bg-stage-edit/90">
                             <Pencil className="w-3.5 h-3.5" /> {lang === "fa" ? "ویرایش متن و محتوا" : "Edit content"}
                           </Button>
                         </Link>
                         <Link to={`/publish/${book.id}`} className="flex-1 min-w-[170px]">
-                          <Button size="sm" className="gap-1.5 w-full bg-primary hover:bg-primary/90">
+                          <Button size="sm" className="gap-1.5 w-full bg-stage-pricing text-stage-pricing-foreground hover:bg-stage-pricing/90">
                             <Rocket className="w-3.5 h-3.5" /> {lang === "fa" ? "قیمت، سهام و انتشار" : "Price, shares & publish"}
                           </Button>
                         </Link>
+                        {isPublished && (
+                          <Link to={`/read/${book.id}`}>
+                            <Button size="sm" className="gap-1.5 bg-stage-published text-stage-published-foreground hover:bg-stage-published/90">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> {lang === "fa" ? "در فروشگاه" : "In store"}
+                            </Button>
+                          </Link>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"

@@ -115,6 +115,15 @@ const Edit = () => {
           variant="outline"
           size="sm"
           className="ms-auto h-8 gap-1.5"
+          onClick={() => id && window.open(`/read/${id}`, "_blank")}
+        >
+          <Eye className="w-4 h-4" />
+          <span className="hidden sm:inline">{lang === "fa" ? "پیش‌نمایش" : "Preview"}</span>
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5"
           onClick={() => setPreviewOpen(true)}
         >
           <Eye className="w-4 h-4" />
@@ -122,11 +131,11 @@ const Edit = () => {
         </Button>
         <Button
           size="sm"
-          className="h-8 gap-1.5 bg-gradient-warm hover:opacity-90"
+          className="h-8 gap-1.5 bg-stage-pricing text-stage-pricing-foreground hover:bg-stage-pricing/90"
           onClick={() => id && nav(`/publish/${id}`)}
         >
           <Rocket className="w-4 h-4" />
-          {lang === "fa" ? "قیمت، سهام و انتشار" : "Price, shares & publish"}
+          {lang === "fa" ? "مرحله بعد" : "Next step"}
         </Button>
       </motion.div>
 
