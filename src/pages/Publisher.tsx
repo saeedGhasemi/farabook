@@ -276,21 +276,23 @@ const Publisher = () => {
           )}
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="space-y-4">
           {books.map((book, i) => {
             const title = lang === "en" && book.title_en ? book.title_en : book.title;
             const isDraft = book.status === "draft";
             const readers = readerStats[book.id] ?? 0;
+            const s = salesStats[book.id];
+            const sales = s?.count || 0;
+            const earned = s?.toMe || 0;
             return (
               <motion.div
                 key={book.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
-                whileHover={{ y: -6 }}
-                className="paper-card rounded-2xl overflow-hidden flex flex-col group relative"
+                className="paper-card rounded-2xl overflow-hidden grid md:grid-cols-[132px_1fr] group relative"
               >
-                <div className="relative aspect-[3/4] overflow-hidden bg-secondary">
+                <div className="relative aspect-[3/4] md:aspect-auto md:min-h-[190px] overflow-hidden bg-secondary">
                   {book.cover_url && (
                     <img
                       src={resolveBookMedia(book.cover_url)}
@@ -299,63 +301,57 @@ const Publisher = () => {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
                   )}
-                  {book.category && (
-                    <Badge className="absolute top-3 start-3 glass-strong text-foreground border-0">{book.category}</Badge>
-                  )}
-                  <Badge className={`absolute top-3 end-3 border-0 ${
-                    isDraft ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"
-                  }`}>
-                    {isDraft
-                      ? (lang === "fa" ? "پیش‌نویس" : "Draft")
-                      : (lang === "fa" ? "منتشر شد" : "Live")}
-                  </Badge>
                 </div>
-                <div className="p-5 flex-1 flex flex-col gap-3">
-                  <div>
-                    <h3 className="font-display font-bold text-lg leading-tight line-clamp-2">{title}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">{book.author}</p>
+                <div className="p-4 md:p-5 flex flex-col gap-4 min-w-0">
+                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <Badge variant={isDraft ? "outline" : "default"}>{statusLabel(book.status)}</Badge>
+                        {book.category && <Badge variant="secondary">{book.category}</Badge>}
+                      </div>
+                      <h3 className="font-display font-bold text-xl leading-tight line-clamp-2">{title}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">{book.author}</p>
+                    </div>
+                    {isMe && (
+                      <div className="grid grid-cols-3 gap-2 lg:min-w-[270px]">
+                        <div className="rounded-xl border bg-background/40 p-2 text-center">
+                          <div className="text-sm font-bold">{readers.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}</div>
+                          <div className="text-[10px] text-muted-foreground">{lang === "fa" ? "خواننده" : "Readers"}</div>
+                        </div>
+                        <button type="button" onClick={() => setSalesDetailFor(book)} className="rounded-xl border bg-background/40 p-2 text-center hover:border-primary/40 transition-colors">
+                          <div className="text-sm font-bold">{sales.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}</div>
+                          <div className="text-[10px] text-muted-foreground">{lang === "fa" ? "فروش" : "Sales"}</div>
+                        </button>
+                        <button type="button" onClick={() => setSalesDetailFor(book)} className="rounded-xl border bg-primary/10 p-2 text-center hover:border-primary/40 transition-colors">
+                          <div className="text-sm font-bold text-primary">{earned.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}</div>
+                          <div className="text-[10px] text-muted-foreground">{lang === "fa" ? "سهم شما" : "Your share"}</div>
+                        </button>
+                      </div>
+                    )}
                   </div>
                   {isMe && (
                     <>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {readers}</span>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                        <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {readers.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}</span>
                         <span className="font-semibold text-primary">
                           {book.price === 0
                             ? (lang === "fa" ? "رایگان" : "Free")
-                            : `${book.price.toLocaleString()} ${lang === "fa" ? "ت" : "T"}`}
+                            : `${book.price.toLocaleString(lang === "fa" ? "fa-IR" : undefined)} ${lang === "fa" ? "تومان" : "Toman"}`}
                         </span>
                       </div>
-                      {/* Sales summary chip */}
-                      {(() => {
-                        const s = salesStats[book.id];
-                        const sales = s?.count || 0;
-                        const earned = s?.toMe || 0;
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => setSalesDetailFor(book)}
-                            className="text-start rounded-xl border border-accent/30 bg-accent/5 hover:bg-accent/10 transition-colors px-3 py-2 flex items-center justify-between gap-2"
-                          >
-                            <span className="flex items-center gap-1.5 text-xs">
-                              <TrendingUp className="w-3.5 h-3.5 text-accent" />
-                              <span className="font-semibold">{sales.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}</span>
-                              <span className="text-muted-foreground">{lang === "fa" ? "فروش" : "sales"}</span>
-                            </span>
-                            <span className="flex items-center gap-1 text-xs font-mono text-accent">
-                              <Coins className="w-3 h-3" />
-                              {earned.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}
-                            </span>
-                          </button>
-                        );
-                      })()}
                     </>
                   )}
-                  <div className="flex items-center gap-2 pt-2 mt-auto flex-wrap">
+                  <div className="flex items-center gap-2 pt-1 mt-auto flex-wrap">
                     {isMe ? (
                       <>
-                        <Link to={`/edit/${book.id}`} className="flex-1 min-w-[100px]">
+                        <Link to={`/edit/${book.id}`} className="flex-1 min-w-[150px]">
                           <Button size="sm" variant="outline" className="gap-1.5 w-full">
-                            <Pencil className="w-3.5 h-3.5" /> {lang === "fa" ? "ویرایش" : "Edit"}
+                            <Pencil className="w-3.5 h-3.5" /> {lang === "fa" ? "ویرایش متن و محتوا" : "Edit content"}
+                          </Button>
+                        </Link>
+                        <Link to={`/publish/${book.id}`} className="flex-1 min-w-[170px]">
+                          <Button size="sm" className="gap-1.5 w-full bg-primary hover:bg-primary/90">
+                            <Rocket className="w-3.5 h-3.5" /> {lang === "fa" ? "قیمت، سهام و انتشار" : "Price, shares & publish"}
                           </Button>
                         </Link>
                         <Button
@@ -367,14 +363,6 @@ const Publisher = () => {
                           <Eye className="w-3.5 h-3.5" />
                           {lang === "fa" ? "پیش‌نمایش" : "Preview"}
                         </Button>
-                        {isDraft && (
-                          <Link to={`/publish/${book.id}`}>
-                            <Button size="sm" className="gap-1.5 bg-gradient-warm">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              {lang === "fa" ? "انتشار" : "Publish"}
-                            </Button>
-                          </Link>
-                        )}
                         <Button
                           size="icon"
                           variant="ghost"
