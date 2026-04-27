@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Library, Store, LogIn, LogOut, Languages, Palette, Wand2, Briefcase, Menu, X, Shield, Coins, Mail, User as UserIcon } from "lucide-react";
+import { BookOpen, Library, Store, LogIn, LogOut, Languages, Palette, Briefcase, Menu, X, Shield, Coins, Mail, User as UserIcon } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoles } from "@/hooks/useRoles";
@@ -46,7 +46,7 @@ export const Navbar = () => {
     { to: "/", label: t("nav_home"), icon: BookOpen, show: true },
     { to: "/store", label: t("nav_store"), icon: Store, show: true },
     { to: "/library", label: t("nav_library"), icon: Library, show: !!user },
-    { to: "/upload", label: t("nav_builder"), icon: Wand2, show: isPublisher || isAdmin },
+    // Builder is reachable only from the publisher dashboard's "New book" button.
     { to: "/publisher/me", label: t("nav_publisher"), icon: Briefcase, show: isPublisher || isAdmin },
     { to: "/editor-requests", label: lang === "fa" ? "ادیتورها" : "Editors", icon: Mail, show: !!user },
     { to: "/credits", label: lang === "fa" ? "اعتبار" : "Credits", icon: Coins, show: !!user },
