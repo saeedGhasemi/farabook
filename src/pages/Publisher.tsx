@@ -210,11 +210,11 @@ const Publisher = () => {
               </Button>
             </Link>
             {user && (
-              <Link to={`/publisher/${user.id}`}>
+              <a href={`/publisher/${user.id}?public=1`} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" className="gap-2">
                   <ExternalLink className="w-4 h-4" /> {lang === "fa" ? "ویترین عمومی" : "Public view"}
                 </Button>
-              </Link>
+              </a>
             )}
           </div>
         ) : null}
