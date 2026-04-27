@@ -479,23 +479,25 @@ const AdminInner = () => {
       </div>
 
       <Tabs defaultValue="users" dir="rtl">
-        <TabsList className="glass">
-          <TabsTrigger value="users" className="gap-2">
-            <Users className="w-4 h-4" /> کاربران ({users.length})
-          </TabsTrigger>
-          <TabsTrigger value="credits" className="gap-2">
-            <CreditCard className="w-4 h-4" /> درخواست اعتبار ({credReqs.filter((r) => r.status === "pending").length})
-          </TabsTrigger>
-          <TabsTrigger value="publishers" className="gap-2">
-            <UserPlus className="w-4 h-4" /> درخواست ناشر ({pubReqs.filter((r) => r.status === "pending").length})
-          </TabsTrigger>
-          <TabsTrigger value="books" className="gap-2">
-            <BookCheck className="w-4 h-4" /> کتاب‌ها ({bookCounts.pending_review} در انتظار)
-          </TabsTrigger>
-          <TabsTrigger value="treasury" className="gap-2">
-            <Banknote className="w-4 h-4" /> صندوق درآمد
-          </TabsTrigger>
-        </TabsList>
+        <div className="-mx-3 md:mx-0 overflow-x-auto no-scrollbar">
+          <TabsList className="glass flex w-max min-w-full flex-nowrap gap-1 px-2">
+            <TabsTrigger value="users" className="gap-2 whitespace-nowrap shrink-0">
+              <Users className="w-4 h-4" /> کاربران ({users.length})
+            </TabsTrigger>
+            <TabsTrigger value="credits" className="gap-2 whitespace-nowrap shrink-0">
+              <CreditCard className="w-4 h-4" /> درخواست اعتبار ({credReqs.filter((r) => r.status === "pending").length})
+            </TabsTrigger>
+            <TabsTrigger value="publishers" className="gap-2 whitespace-nowrap shrink-0">
+              <UserPlus className="w-4 h-4" /> درخواست ناشر ({pubReqs.filter((r) => r.status === "pending").length})
+            </TabsTrigger>
+            <TabsTrigger value="books" className="gap-2 whitespace-nowrap shrink-0">
+              <BookCheck className="w-4 h-4" /> کتاب‌ها ({bookCounts.pending_review} در انتظار)
+            </TabsTrigger>
+            <TabsTrigger value="treasury" className="gap-2 whitespace-nowrap shrink-0">
+              <Banknote className="w-4 h-4" /> صندوق درآمد
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="treasury" className="mt-4">
           <AdminTreasuryPanel />
