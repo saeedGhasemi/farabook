@@ -179,6 +179,39 @@
     --shadow-glow: 0 0 40px hsl(35 80% 60% / 0.4);
   }
 
+  /* === EMERALD THEME — Calm reading-friendly green/teal === */
+  [data-theme="emerald"] {
+    --background: 150 30% 94%;
+    --foreground: 165 45% 12%;
+    --card: 150 40% 98%;
+    --card-foreground: 165 45% 12%;
+    --popover: 150 45% 98%;
+    --popover-foreground: 165 45% 12%;
+    --primary: 165 65% 28%;
+    --primary-foreground: 150 40% 98%;
+    --primary-glow: 160 70% 50%;
+    --secondary: 150 25% 88%;
+    --secondary-foreground: 165 45% 16%;
+    --muted: 150 20% 90%;
+    --muted-foreground: 160 18% 38%;
+    --accent: 158 75% 40%;
+    --accent-foreground: 150 40% 98%;
+    --border: 150 20% 80%;
+    --input: 150 20% 86%;
+    --ring: 158 75% 40%;
+    --gradient-paper: linear-gradient(145deg, hsl(150 50% 99%) 0%, hsl(150 30% 94%) 100%);
+    --gradient-warm: linear-gradient(135deg, hsl(160 70% 45%) 0%, hsl(170 70% 28%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(165 65% 30%) 0%, hsl(158 70% 45%) 50%, hsl(150 75% 70%) 100%);
+    --gradient-hero:
+      radial-gradient(ellipse 80% 60% at 30% 20%, hsl(160 70% 82% / 0.7) 0%, transparent 60%),
+      radial-gradient(ellipse 70% 60% at 70% 80%, hsl(150 60% 80% / 0.6) 0%, transparent 60%),
+      linear-gradient(180deg, hsl(150 40% 95%) 0%, hsl(155 30% 90%) 100%);
+    --glass-bg: hsla(150, 50%, 98%, 0.25);
+    --glass-bg-strong: hsla(150, 50%, 98%, 0.35);
+    --glass-border: hsla(150, 70%, 100%, 0.45);
+    --shadow-glow: 0 0 40px hsl(158 75% 50% / 0.4);
+  }
+
   .dark {
     --background: 222 25% 9%;
     --foreground: 220 20% 92%;

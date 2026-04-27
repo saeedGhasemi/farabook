@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Briefcase, Plus, Pencil, Trash2, Eye, BookOpen, Users, FileEdit,
@@ -57,9 +57,11 @@ const Publisher = () => {
   const { user, loading: authLoading } = useAuth();
   const { lang } = useI18n();
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
+  const forcePublic = searchParams.get("public") === "1";
 
-  const isMe = paramId === "me" || paramId === user?.id;
-  const targetId = isMe ? user?.id : paramId;
+  const isMe = !forcePublic && (paramId === "me" || paramId === user?.id);
+  const targetId = (paramId === "me") ? user?.id : paramId;
 
   const [books, setBooks] = useState<Book[]>([]);
   const [profile, setProfile] = useState<PublisherProfile | null>(null);
@@ -208,11 +210,11 @@ const Publisher = () => {
               </Button>
             </Link>
             {user && (
-              <Link to={`/publisher/${user.id}`}>
+              <a href={`/publisher/${user.id}?public=1`} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" className="gap-2">
                   <ExternalLink className="w-4 h-4" /> {lang === "fa" ? "ویترین عمومی" : "Public view"}
                 </Button>
-              </Link>
+              </a>
             )}
           </div>
         ) : null}
