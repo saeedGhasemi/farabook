@@ -50,7 +50,7 @@ interface BookRow {
 const Publish = () => {
   const { id } = useParams();
   const nav = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { lang, dir } = useI18n();
   const Back = dir === "rtl" ? ArrowRight : ArrowLeft;
 
@@ -76,6 +76,7 @@ const Publish = () => {
   const [price, setPrice] = useState<number>(0);
   const [previewPages, setPreviewPages] = useState<number[]>([0]);
   const [sharesSaved, setSharesSaved] = useState(false);
+  const [saleMode, setSaleMode] = useState<"free" | "paid" | null>(null);
 
   // AI options
   const [genSummary, setGenSummary] = useState(true);
@@ -86,8 +87,8 @@ const Publish = () => {
   const [speaking, setSpeaking] = useState(false);
 
   // Step completion (the in-page wizard guide)
-  const priceStepDone = price === 0 || price > 0; // any explicit value (incl. 0/free) counts
-  const sharesStepDone = price === 0 || sharesSaved; // free books skip splits
+  const priceStepDone = saleMode === "free" || (saleMode === "paid" && price > 0);
+  const sharesStepDone = saleMode === "free" || (saleMode === "paid" && sharesSaved);
   const previewStepDone = (previewPages?.length ?? 0) > 0;
   const allStepsDone = priceStepDone && sharesStepDone && previewStepDone && !!title.trim();
 
@@ -98,12 +99,12 @@ const Publish = () => {
       href={`#${anchor}`}
       className={`flex items-start gap-3 rounded-xl border p-3 transition-all ${
         done
-          ? "border-emerald-500/30 bg-emerald-500/5"
+          ? "border-primary/30 bg-primary/5"
           : "border-border bg-background/40 hover:border-accent/40"
       }`}
     >
       <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-        done ? "bg-emerald-500 text-white" : "bg-secondary text-foreground/70"
+        done ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground/70"
       }`}>
         {done ? <CheckCircle2 className="w-4 h-4" /> : n}
       </div>
@@ -119,6 +120,7 @@ const Publish = () => {
 
   useEffect(() => {
     if (!id) return;
+    if (authLoading) return;
     if (!user) { nav("/auth"); return; }
     (async () => {
       const { data, error } = await supabase
@@ -148,11 +150,14 @@ const Publish = () => {
       setIsbn(b.isbn || "");
       setLanguage((b.language as any) || "fa");
       setTagsInput((b.tags || []).join(", "));
-      setPrice(Number(b.price) || 0);
+      const loadedPrice = Number(b.price) || 0;
+      setPrice(loadedPrice);
+      setSaleMode(b.status === "published" || b.first_published_paid ? (loadedPrice > 0 ? "paid" : "free") : (loadedPrice > 0 ? "paid" : null));
       setPreviewPages(b.preview_pages?.length ? b.preview_pages : [0]);
+      if (b.status === "published") setSharesSaved(true);
       setLoading(false);
     })();
-  }, [id, user, nav, lang]);
+  }, [id, user, authLoading, nav, lang]);
 
   const togglePreviewPage = (i: number) => {
     setPreviewPages((cur) =>
@@ -162,6 +167,10 @@ const Publish = () => {
 
   const openPublishConfirm = async () => {
     if (!book) return;
+    if (!allStepsDone) {
+      toast.error(lang === "fa" ? "ابتدا قیمت، سهم‌بندی و پیش‌نمایش را کامل کنید" : "Complete pricing, shares, and preview first");
+      return;
+    }
     if (!title.trim()) { toast.error(lang === "fa" ? "عنوان لازم است" : "Title required"); return; }
     // Already paid → skip confirm (no fee)
     if (book.first_published_paid) { setEstimatedFee(0); setEstimatedFactor(1); setConfirmOpen(true); return; }
@@ -169,7 +178,7 @@ const Publish = () => {
     setEstimatedFactor(factor);
     // Pull current fee settings
     const { data: fee } = await supabase.from("platform_fee_settings").select("book_publish_mode, book_publish_value").eq("id", 1).maybeSingle();
-    const base = Number(book.price) || 0;
+    const base = Number(price) || 0;
     const mode = (fee as any)?.book_publish_mode || "fixed";
     const value = Number((fee as any)?.book_publish_value || 50);
     const baseFee = mode === "percent" ? Math.round((base * value) / 100) : Math.round(value);
@@ -269,9 +278,9 @@ const Publish = () => {
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-6 flex items-center justify-between gap-3"
+        className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => nav(-1)}>
             <Back className="w-4 h-4 me-1.5" />
             {lang === "fa" ? "بازگشت" : "Back"}
@@ -279,12 +288,12 @@ const Publish = () => {
           <div>
             <h1 className="text-2xl md:text-3xl font-display font-bold flex items-center gap-2">
               <Rocket className="w-5 h-5 text-accent" />
-              {lang === "fa" ? "انتشار کتاب" : "Publish Book"}
+              {lang === "fa" ? "قیمت، سهام و انتشار" : "Price, shares & publish"}
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
               {lang === "fa"
-                ? "اطلاعات نهایی، قیمت و گزینه‌های هوش مصنوعی را تنظیم کنید."
-                : "Finalize metadata, price, and AI options."}
+                ? "بعد از پایان ویرایش محتوا، اینجا قیمت، فروشگاه و سهم ذینفع‌ها نهایی می‌شود."
+                : "After content editing, finalize price, storefront, and stakeholder shares here."}
             </p>
           </div>
         </div>
@@ -308,7 +317,7 @@ const Publish = () => {
           </h3>
           <span className="text-[11px] text-muted-foreground">
             {lang === "fa"
-              ? "وقتی هر سه قدم تیک خوردند، دکمه «انتشار» فعال می‌شود."
+              ? "اول قیمت یا رایگان بودن را انتخاب کنید، بعد سهم‌بندی را ذخیره کنید؛ دکمه نهایی فقط بعد از تکمیل فعال می‌شود."
               : "Publish unlocks when all three steps are checked."}
           </span>
         </div>
@@ -440,14 +449,41 @@ const Publish = () => {
               ? "قیمت کتاب را به تومان وارد کنید. عدد ۰ یعنی کتاب رایگان منتشر می‌شود."
               : "Enter the book price in Toman. Use 0 to publish for free."}
           </p>
-          <div className="flex items-center gap-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => { setSaleMode("free"); setPrice(0); }}
+              className={`rounded-xl border p-4 text-start transition-all ${
+                saleMode === "free" ? "border-primary bg-primary/10" : "border-border bg-background/40 hover:border-primary/40"
+              }`}
+            >
+              <div className="font-semibold text-sm">{lang === "fa" ? "کتاب رایگان" : "Free book"}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {lang === "fa" ? "قیمت صفر می‌شود و سهم‌بندی درآمد لازم نیست." : "Price is zero and revenue split is skipped."}
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setSaleMode("paid"); if (price <= 0) setPrice(10000); setSharesSaved(false); }}
+              className={`rounded-xl border p-4 text-start transition-all ${
+                saleMode === "paid" ? "border-primary bg-primary/10" : "border-border bg-background/40 hover:border-primary/40"
+              }`}
+            >
+              <div className="font-semibold text-sm">{lang === "fa" ? "کتاب فروشی / پولی" : "Paid book"}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {lang === "fa" ? "قیمت را وارد کنید و بعد سهم نویسنده/ادیتور را ذخیره کنید." : "Enter price, then save author/editor shares."}
+              </p>
+            </button>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <Input
               type="number"
               min={0}
               step={1000}
               value={price}
-              onChange={(e) => setPrice(Number(e.target.value) || 0)}
-              className="max-w-[200px]"
+              disabled={saleMode === "free"}
+              onChange={(e) => { setSaleMode("paid"); setPrice(Number(e.target.value) || 0); setSharesSaved(false); }}
+              className="sm:max-w-[220px]"
             />
             <span className="text-sm text-muted-foreground">
               {lang === "fa" ? "تومان (۰ = رایگان)" : "Toman (0 = free)"}
@@ -466,20 +502,22 @@ const Publish = () => {
               ? "درصد سهم نویسنده و ادیتورها را تعیین و دکمه «ذخیره سهم‌بندی» را بزنید. درصد باقی‌مانده به‌صورت خودکار سهم ناشر (شما) خواهد بود. سهم پلتفرم از پیش از مجموع کسر شده است."
               : "Set the author/editor percentages and click Save. Whatever remains is the publisher's share. The platform fee is already reserved."}
           </p>
-          {price === 0 && (
+          {saleMode !== "paid" && (
             <div className="text-[11px] rounded-md border border-accent/30 bg-accent/5 px-2 py-1.5 text-accent">
               {lang === "fa"
-                ? "این کتاب رایگان است؛ نیازی به سهم‌بندی نیست."
-                : "This book is free — no revenue split needed."}
+                ? "اگر کتاب رایگان باشد، سهم‌بندی درآمد لازم نیست. برای کتاب پولی اول در قدم ۱ گزینه «کتاب فروشی / پولی» را انتخاب کنید."
+                : "Free books do not need revenue split. For a paid book, select Paid book in step 1 first."}
             </div>
           )}
-          <RevenueShareEditor
-            bookId={book.id}
-            publisherId={book.publisher_id || user!.id}
-            authorUserId={book.author_user_id}
-            lang={lang}
-            onSavedChange={() => setSharesSaved(true)}
-          />
+          {saleMode === "paid" ? (
+            <RevenueShareEditor
+              bookId={book.id}
+              publisherId={book.publisher_id || user!.id}
+              authorUserId={book.author_user_id}
+              lang={lang}
+              onSavedChange={() => setSharesSaved(true)}
+            />
+          ) : null}
         </section>
 
         {/* Preview pages */}
@@ -615,22 +653,22 @@ const Publish = () => {
             <p className="text-xs text-muted-foreground">
               {allStepsDone
                 ? (lang === "fa"
-                    ? "همه‌چیز آماده است. پس از انتشار، کتاب در فروشگاه قابل مشاهده می‌شود."
+                    ? "همه‌چیز آماده است. حالا دکمه نهایی انتشار فعال است."
                     : "Everything's ready. After publishing, your book becomes visible in the store.")
                 : (lang === "fa"
-                    ? `${[!priceStepDone && "۱) قیمت", !sharesStepDone && "۲) سهام", !previewStepDone && "۳) پیش‌نمایش"].filter(Boolean).join(" • ")} باقی مانده`
+                    ? `${[!priceStepDone && "۱) تعیین رایگان/پولی و قیمت", !sharesStepDone && "۲) ذخیره سهم‌بندی", !previewStepDone && "۳) پیش‌نمایش"].filter(Boolean).join(" • ")} باقی مانده`
                     : `Pending: ${[!priceStepDone && "Price", !sharesStepDone && "Shares", !previewStepDone && "Preview"].filter(Boolean).join(" • ")}`)}
             </p>
             <Button
               onClick={openPublishConfirm}
               disabled={busy || !allStepsDone}
               className="bg-gradient-warm hover:opacity-90 gap-2"
-              title={!allStepsDone ? (lang === "fa" ? "ابتدا سه قدم بالا را تکمیل کنید" : "Complete the 3 steps first") : undefined}
+              title={!allStepsDone ? (lang === "fa" ? "اول سه قدم قیمت، سهم‌بندی و پیش‌نمایش را تکمیل کنید" : "Complete price, shares, and preview first") : undefined}
             >
               {busy ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> {lang === "fa" ? "در حال انتشار…" : "Publishing…"}</>
               ) : (
-                <><Rocket className="w-4 h-4" /> {lang === "fa" ? "انتشار" : "Publish"}</>
+                <><Rocket className="w-4 h-4" /> {lang === "fa" ? "انتشار نهایی" : "Final publish"}</>
               )}
             </Button>
           </div>

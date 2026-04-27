@@ -3,7 +3,8 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Briefcase, Plus, Pencil, Trash2, Eye, BookOpen, Users, FileEdit,
-  CheckCircle2, ExternalLink, Loader2, Settings, TrendingUp, Coins, BarChart3,
+  CheckCircle2, ExternalLink, Loader2, Settings, BarChart3,
+  Rocket,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -164,33 +165,40 @@ const Publisher = () => {
   }
 
   const displayName = storefront?.display_name || profile?.display_name || (lang === "fa" ? "ناشر" : "Publisher");
+  const statusLabel = (status: string) => {
+    if (status === "published") return lang === "fa" ? "در فروشگاه" : "In store";
+    if (status === "draft") return lang === "fa" ? "در حال آماده‌سازی" : "Preparing";
+    return status;
+  };
 
   return (
-    <main className="container py-10 md:py-16 min-h-[calc(100vh-4rem)]">
+    <main className="container py-6 md:py-12 min-h-[calc(100vh-4rem)] overflow-x-hidden">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-strong rounded-3xl p-6 md:p-8 mb-10 flex flex-col md:flex-row md:items-center gap-6"
+        className="glass-strong rounded-2xl p-5 md:p-7 mb-6 md:mb-8 flex flex-col lg:flex-row lg:items-center gap-5"
       >
-        <div className="w-16 h-16 rounded-2xl bg-gradient-warm flex items-center justify-center text-primary-foreground shadow-glow shrink-0">
-          <Briefcase className="w-8 h-8" />
+        <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground shadow-glow shrink-0">
+          <Briefcase className="w-7 h-7" />
         </div>
         <div className="flex-1">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">
-            {isMe ? (lang === "fa" ? "داشبورد" : "Dashboard") : (lang === "fa" ? "ویترین ناشر" : "Publisher storefront")}
+          <p className="text-xs text-muted-foreground">
+            {isMe ? (lang === "fa" ? "مرکز کاری ناشر" : "Publisher workspace") : (lang === "fa" ? "ویترین ناشر" : "Publisher storefront")}
           </p>
           <h1 className="text-3xl md:text-4xl font-display font-bold mt-1">{displayName}</h1>
-          {!isMe && (
-            <p className="text-sm text-muted-foreground mt-1">
-              {stats.published} {lang === "fa" ? "کتاب منتشر شده" : "published books"}
-            </p>
-          )}
+          <p className="text-sm text-muted-foreground mt-2 max-w-2xl leading-relaxed">
+            {isMe
+              ? (lang === "fa"
+                  ? "اول محتوای کتاب را کامل کنید؛ سپس از دکمه «قیمت، سهام و انتشار» وارد ویزارد فروشگاه شوید و بعد از ذخیره سهم‌بندی، انتشار نهایی را بزنید."
+                  : "Finish content first, then use Price, shares & publish to open the storefront wizard and finalize publication.")
+              : `${stats.published} ${lang === "fa" ? "کتاب منتشر شده" : "published books"}`}
+          </p>
         </div>
         {isMe ? (
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap lg:justify-end">
             <Link to="/upload">
-              <Button className="gap-2 bg-gradient-warm hover:opacity-90">
+              <Button className="gap-2 bg-primary hover:bg-primary/90">
                 <Plus className="w-4 h-4" /> {lang === "fa" ? "کتاب جدید" : "New book"}
               </Button>
             </Link>
@@ -212,11 +220,12 @@ const Publisher = () => {
 
       {/* Stats (only for owner) */}
       {isMe && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+        <>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-5">
           {[
             { icon: BookOpen, label: lang === "fa" ? "کل" : "Total", value: stats.total, color: "text-primary" },
-            { icon: CheckCircle2, label: lang === "fa" ? "منتشرشده" : "Published", value: stats.published, color: "text-emerald-500" },
-            { icon: FileEdit, label: lang === "fa" ? "پیش‌نویس" : "Drafts", value: stats.drafts, color: "text-amber-500" },
+            { icon: CheckCircle2, label: lang === "fa" ? "در فروشگاه" : "In store", value: stats.published, color: "text-primary" },
+            { icon: FileEdit, label: lang === "fa" ? "آماده‌سازی" : "Preparing", value: stats.drafts, color: "text-accent" },
             { icon: Users, label: lang === "fa" ? "خوانندگان" : "Readers", value: stats.readers, color: "text-accent" },
           ].map((s, i) => (
             <motion.div
@@ -224,7 +233,7 @@ const Publisher = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              className="paper-card rounded-2xl p-5"
+              className="paper-card rounded-2xl p-4 md:p-5"
             >
               <s.icon className={`w-6 h-6 mb-2 ${s.color}`} />
               <div className="text-3xl font-display font-bold">{s.value}</div>
@@ -232,6 +241,22 @@ const Publisher = () => {
             </motion.div>
           ))}
         </div>
+        <div className="mb-8 rounded-2xl border bg-card/70 p-4 grid md:grid-cols-3 gap-3 text-sm">
+          {[
+            { n: "۱", title: lang === "fa" ? "ویرایش محتوا" : "Edit content", body: lang === "fa" ? "دکمه «ویرایش متن و محتوا» فقط ادیتور کتاب را باز می‌کند." : "Edit content opens only the book editor." },
+            { n: "۲", title: lang === "fa" ? "قیمت و سهام" : "Price & shares", body: lang === "fa" ? "دکمه آبی «قیمت، سهام و انتشار» ویزارد قیمت‌گذاری و سهم‌بندی را باز می‌کند." : "The primary button opens pricing and revenue split." },
+            { n: "۳", title: lang === "fa" ? "انتشار نهایی" : "Final publish", body: lang === "fa" ? "بعد از ذخیره سهم‌بندی و پیش‌نمایش، دکمه نهایی فعال می‌شود." : "Final publish unlocks after split and preview are saved." },
+          ].map((step) => (
+            <div key={step.n} className="flex gap-3">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">{step.n}</span>
+              <div>
+                <div className="font-semibold">{step.title}</div>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{step.body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        </>
       )}
 
       {/* Books grid */}
@@ -251,21 +276,23 @@ const Publisher = () => {
           )}
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="space-y-4">
           {books.map((book, i) => {
             const title = lang === "en" && book.title_en ? book.title_en : book.title;
             const isDraft = book.status === "draft";
             const readers = readerStats[book.id] ?? 0;
+            const s = salesStats[book.id];
+            const sales = s?.count || 0;
+            const earned = s?.toMe || 0;
             return (
               <motion.div
                 key={book.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
-                whileHover={{ y: -6 }}
-                className="paper-card rounded-2xl overflow-hidden flex flex-col group relative"
+                className="paper-card rounded-2xl overflow-hidden grid md:grid-cols-[132px_1fr] group relative"
               >
-                <div className="relative aspect-[3/4] overflow-hidden bg-secondary">
+                <div className="relative aspect-[3/4] md:aspect-auto md:min-h-[190px] overflow-hidden bg-secondary">
                   {book.cover_url && (
                     <img
                       src={resolveBookMedia(book.cover_url)}
@@ -274,63 +301,57 @@ const Publisher = () => {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
                   )}
-                  {book.category && (
-                    <Badge className="absolute top-3 start-3 glass-strong text-foreground border-0">{book.category}</Badge>
-                  )}
-                  <Badge className={`absolute top-3 end-3 border-0 ${
-                    isDraft ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"
-                  }`}>
-                    {isDraft
-                      ? (lang === "fa" ? "پیش‌نویس" : "Draft")
-                      : (lang === "fa" ? "منتشر شد" : "Live")}
-                  </Badge>
                 </div>
-                <div className="p-5 flex-1 flex flex-col gap-3">
-                  <div>
-                    <h3 className="font-display font-bold text-lg leading-tight line-clamp-2">{title}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">{book.author}</p>
+                <div className="p-4 md:p-5 flex flex-col gap-4 min-w-0">
+                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <Badge variant={isDraft ? "outline" : "default"}>{statusLabel(book.status)}</Badge>
+                        {book.category && <Badge variant="secondary">{book.category}</Badge>}
+                      </div>
+                      <h3 className="font-display font-bold text-xl leading-tight line-clamp-2">{title}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">{book.author}</p>
+                    </div>
+                    {isMe && (
+                      <div className="grid grid-cols-3 gap-2 lg:min-w-[270px]">
+                        <div className="rounded-xl border bg-background/40 p-2 text-center">
+                          <div className="text-sm font-bold">{readers.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}</div>
+                          <div className="text-[10px] text-muted-foreground">{lang === "fa" ? "خواننده" : "Readers"}</div>
+                        </div>
+                        <button type="button" onClick={() => setSalesDetailFor(book)} className="rounded-xl border bg-background/40 p-2 text-center hover:border-primary/40 transition-colors">
+                          <div className="text-sm font-bold">{sales.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}</div>
+                          <div className="text-[10px] text-muted-foreground">{lang === "fa" ? "فروش" : "Sales"}</div>
+                        </button>
+                        <button type="button" onClick={() => setSalesDetailFor(book)} className="rounded-xl border bg-primary/10 p-2 text-center hover:border-primary/40 transition-colors">
+                          <div className="text-sm font-bold text-primary">{earned.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}</div>
+                          <div className="text-[10px] text-muted-foreground">{lang === "fa" ? "سهم شما" : "Your share"}</div>
+                        </button>
+                      </div>
+                    )}
                   </div>
                   {isMe && (
                     <>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {readers}</span>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                        <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {readers.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}</span>
                         <span className="font-semibold text-primary">
                           {book.price === 0
                             ? (lang === "fa" ? "رایگان" : "Free")
-                            : `${book.price.toLocaleString()} ${lang === "fa" ? "ت" : "T"}`}
+                            : `${book.price.toLocaleString(lang === "fa" ? "fa-IR" : undefined)} ${lang === "fa" ? "تومان" : "Toman"}`}
                         </span>
                       </div>
-                      {/* Sales summary chip */}
-                      {(() => {
-                        const s = salesStats[book.id];
-                        const sales = s?.count || 0;
-                        const earned = s?.toMe || 0;
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => setSalesDetailFor(book)}
-                            className="text-start rounded-xl border border-accent/30 bg-accent/5 hover:bg-accent/10 transition-colors px-3 py-2 flex items-center justify-between gap-2"
-                          >
-                            <span className="flex items-center gap-1.5 text-xs">
-                              <TrendingUp className="w-3.5 h-3.5 text-accent" />
-                              <span className="font-semibold">{sales.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}</span>
-                              <span className="text-muted-foreground">{lang === "fa" ? "فروش" : "sales"}</span>
-                            </span>
-                            <span className="flex items-center gap-1 text-xs font-mono text-accent">
-                              <Coins className="w-3 h-3" />
-                              {earned.toLocaleString(lang === "fa" ? "fa-IR" : undefined)}
-                            </span>
-                          </button>
-                        );
-                      })()}
                     </>
                   )}
-                  <div className="flex items-center gap-2 pt-2 mt-auto flex-wrap">
+                  <div className="flex items-center gap-2 pt-1 mt-auto flex-wrap">
                     {isMe ? (
                       <>
-                        <Link to={`/edit/${book.id}`} className="flex-1 min-w-[100px]">
+                        <Link to={`/edit/${book.id}`} className="flex-1 min-w-[150px]">
                           <Button size="sm" variant="outline" className="gap-1.5 w-full">
-                            <Pencil className="w-3.5 h-3.5" /> {lang === "fa" ? "ویرایش" : "Edit"}
+                            <Pencil className="w-3.5 h-3.5" /> {lang === "fa" ? "ویرایش متن و محتوا" : "Edit content"}
+                          </Button>
+                        </Link>
+                        <Link to={`/publish/${book.id}`} className="flex-1 min-w-[170px]">
+                          <Button size="sm" className="gap-1.5 w-full bg-primary hover:bg-primary/90">
+                            <Rocket className="w-3.5 h-3.5" /> {lang === "fa" ? "قیمت، سهام و انتشار" : "Price, shares & publish"}
                           </Button>
                         </Link>
                         <Button
@@ -342,14 +363,6 @@ const Publisher = () => {
                           <Eye className="w-3.5 h-3.5" />
                           {lang === "fa" ? "پیش‌نمایش" : "Preview"}
                         </Button>
-                        {isDraft && (
-                          <Link to={`/publish/${book.id}`}>
-                            <Button size="sm" className="gap-1.5 bg-gradient-warm">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              {lang === "fa" ? "انتشار" : "Publish"}
-                            </Button>
-                          </Link>
-                        )}
                         <Button
                           size="icon"
                           variant="ghost"
