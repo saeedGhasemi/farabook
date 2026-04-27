@@ -794,32 +794,10 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
         )}
 
         {isEdit ? (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => initial?.id && window.open(`/read/${initial.id}`, "_blank")}
-              className="h-8"
-            >
-              <Eye className="w-3.5 h-3.5 me-1" />
-              <span className="hidden md:inline">{lang === "fa" ? "پیش‌نمایش" : "Preview"}</span>
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => persistDraft(true)} className="h-8">
-              <Save className="w-3.5 h-3.5 me-1" />
-              <span className="hidden md:inline">{lang === "fa" ? "ذخیره" : "Save"}</span>
-            </Button>
-            <Button
-              size="sm"
-              onClick={async () => {
-                await persistDraft(false);
-                if (initial?.id) nav(`/publish/${initial.id}`);
-              }}
-              className="bg-stage-pricing text-stage-pricing-foreground hover:bg-stage-pricing/90 h-8"
-            >
-              <Rocket className="w-3.5 h-3.5 me-1" />
-              <span className="hidden md:inline">{lang === "fa" ? "مرحله بعد" : "Next step"}</span>
-            </Button>
-          </>
+          <Button size="sm" variant="outline" onClick={() => persistDraft(true)} className="h-8">
+            <Save className="w-3.5 h-3.5 me-1" />
+            <span className="hidden md:inline">{lang === "fa" ? "ذخیره" : "Save"}</span>
+          </Button>
         ) : (
           <Button onClick={submitCreate} disabled={busy} size="sm" className="bg-gradient-warm h-8">
             {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> :
