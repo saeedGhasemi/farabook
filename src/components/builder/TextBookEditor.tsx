@@ -9,10 +9,13 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
 import { TextAlign } from "@tiptap/extension-text-align";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Color } from "@tiptap/extension-color";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bold, Italic, Underline as UnderlineIcon, Heading2, Quote as QuoteIcon, Lightbulb,
   Image as ImageIcon, Sparkles, Plus, Trash2, BookOpen, Loader2, Save, Check, X,
+  Palette, Type as TypeIcon, SplitSquareVertical, Film, GalleryHorizontal, ListOrdered, Layers,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
