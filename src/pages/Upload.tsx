@@ -23,22 +23,45 @@ const Upload = () => {
   const [author, setAuthor] = useState("");
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
+  // Stage-based progress for the Word import flow.
+  // 0 idle · 1 uploading · 2 processing · 3 done
+  const [stage, setStage] = useState<0 | 1 | 2 | 3>(0);
+  const [progress, setProgress] = useState(0);
+  const fakeTickRef = useRef<number | null>(null);
+
+  // Animate the progress bar during the "processing" stage so the
+  // user sees movement even though we don't get real % from the
+  // edge function.
+  useEffect(() => {
+    if (stage !== 2) return;
+    fakeTickRef.current = window.setInterval(() => {
+      setProgress((p) => (p < 92 ? p + Math.max(0.5, (95 - p) / 30) : p));
+    }, 350) as unknown as number;
+    return () => { if (fakeTickRef.current) window.clearInterval(fakeTickRef.current); };
+  }, [stage]);
 
   const submitWord = async () => {
     if (!user) { nav("/auth"); return; }
     if (!file) { toast.error(lang === "fa" ? "یک فایل ورد انتخاب کنید" : "Pick a .docx file"); return; }
     if (!title.trim()) { toast.error(lang === "fa" ? "عنوان لازم است" : "Title required"); return; }
     setBusy(true);
+    setStage(1);
+    setProgress(5);
     try {
       // Sanitize filename: Storage keys must be ASCII-safe.
       const dot = file.name.lastIndexOf(".");
       const ext = (dot >= 0 ? file.name.slice(dot + 1) : "docx").toLowerCase().replace(/[^a-z0-9]/g, "") || "docx";
       const safeName = `book-${Date.now()}.${ext}`;
       const path = `${user.id}/${safeName}`;
+      // Supabase JS doesn't expose XHR progress, so we step the bar
+      // manually around the await.
+      setProgress(20);
       const up = await supabase.storage.from("book-uploads").upload(path, file, {
         contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
       if (up.error) throw up.error;
+      setProgress(45);
+      setStage(2);
 
       const { data, error } = await supabase.functions.invoke("word-import", {
         body: { path, title, author: author || (lang === "fa" ? "ناشناس" : "Unknown"), description },
@@ -46,12 +69,17 @@ const Upload = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
+      setStage(3);
+      setProgress(100);
       toast.success(
         (lang === "fa" ? "کتاب با " : "Imported with ") + (data?.chapters ?? 0) +
-        (lang === "fa" ? " فصل ساخته شد" : " chapters")
+        (lang === "fa" ? " فصل ساخته شد — در حال انتقال…" : " chapters — opening editor…")
       );
-      nav(`/edit/${data.book.id}`);
+      // Brief pause so the user sees the success state, then redirect.
+      setTimeout(() => nav(`/edit/${data.book.id}`), 700);
     } catch (e) {
+      setStage(0);
+      setProgress(0);
       toast.error(e instanceof Error ? e.message : "Failed");
     } finally {
       setBusy(false);
