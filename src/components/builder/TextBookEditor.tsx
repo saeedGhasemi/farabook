@@ -459,7 +459,19 @@ export const TextBookEditor = ({ initial }: Props) => {
         />
 
         {/* The actual editor */}
-        <div className="rounded-2xl border bg-card/50 px-4 md:px-8 py-6 md:py-8 shadow-paper">
+        <div className={`rounded-2xl border bg-card/50 px-4 md:px-8 py-6 md:py-8 shadow-paper typo-${typography}`}>
+          {/* Floating "AI assistant" toggle pinned to the editor (single source of truth) */}
+          <div className="flex justify-end mb-2 -mt-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={showAi ? "default" : "ghost"}
+              className="h-7 text-xs gap-1 text-accent hover:text-accent"
+              onClick={() => setShowAi((v) => !v)}
+            >
+              <Sparkles className="w-3.5 h-3.5" /> {fa ? "دستیار هوشمند صفحه" : "Page AI"}
+            </Button>
+          </div>
           <EditorContent editor={editor} />
         </div>
 
