@@ -100,6 +100,7 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [showAi, setShowAi] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+  const [typography, setTypography] = useState<string>(initial?.typography_preset || "editorial");
 
   const { upload } = useImageUpload();
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -112,6 +113,8 @@ export const TextBookEditor = ({ initial }: Props) => {
         blockquote: false, // we use custom Quote
       }),
       Underline,
+      TextStyle,
+      Color.configure({ types: ["textStyle"] }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Placeholder.configure({
         placeholder: fa ? "اینجا بنویسید… با Enter پاراگراف بعدی." : "Write here… Enter for next paragraph.",
