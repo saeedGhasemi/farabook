@@ -449,14 +449,41 @@ const Publish = () => {
               ? "قیمت کتاب را به تومان وارد کنید. عدد ۰ یعنی کتاب رایگان منتشر می‌شود."
               : "Enter the book price in Toman. Use 0 to publish for free."}
           </p>
-          <div className="flex items-center gap-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => { setSaleMode("free"); setPrice(0); }}
+              className={`rounded-xl border p-4 text-start transition-all ${
+                saleMode === "free" ? "border-primary bg-primary/10" : "border-border bg-background/40 hover:border-primary/40"
+              }`}
+            >
+              <div className="font-semibold text-sm">{lang === "fa" ? "کتاب رایگان" : "Free book"}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {lang === "fa" ? "قیمت صفر می‌شود و سهم‌بندی درآمد لازم نیست." : "Price is zero and revenue split is skipped."}
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setSaleMode("paid"); if (price <= 0) setPrice(10000); setSharesSaved(false); }}
+              className={`rounded-xl border p-4 text-start transition-all ${
+                saleMode === "paid" ? "border-primary bg-primary/10" : "border-border bg-background/40 hover:border-primary/40"
+              }`}
+            >
+              <div className="font-semibold text-sm">{lang === "fa" ? "کتاب فروشی / پولی" : "Paid book"}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {lang === "fa" ? "قیمت را وارد کنید و بعد سهم نویسنده/ادیتور را ذخیره کنید." : "Enter price, then save author/editor shares."}
+              </p>
+            </button>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <Input
               type="number"
               min={0}
               step={1000}
               value={price}
-              onChange={(e) => setPrice(Number(e.target.value) || 0)}
-              className="max-w-[200px]"
+              disabled={saleMode === "free"}
+              onChange={(e) => { setSaleMode("paid"); setPrice(Number(e.target.value) || 0); setSharesSaved(false); }}
+              className="sm:max-w-[220px]"
             />
             <span className="text-sm text-muted-foreground">
               {lang === "fa" ? "تومان (۰ = رایگان)" : "Toman (0 = free)"}
