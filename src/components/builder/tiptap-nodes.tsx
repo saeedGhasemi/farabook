@@ -3,7 +3,7 @@
 // blocks (image/video/gallery/timeline/scrollytelling) are atom nodes
 // with a small inline preview + delete button.
 import { Node, mergeAttributes } from "@tiptap/core";
-import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
+import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { resolveBookMedia } from "@/lib/book-media";
 import { Trash2, Image as ImageIcon, Film, GalleryHorizontal, ListOrdered, Lightbulb, AlertTriangle, Info, CheckCircle2, ShieldAlert, Pencil, HelpCircle, Quote as QuoteIcon } from "lucide-react";
@@ -38,10 +38,7 @@ const CalloutView = (props: NodeViewProps) => {
     >
       <div className="flex items-start gap-2">
         <Icon className="w-4 h-4 mt-1 shrink-0 opacity-70" />
-        <div className="flex-1 min-w-0 [&>p]:my-0 [&>p]:leading-relaxed text-[0.95em]" >
-          {/* @ts-expect-error -- Tiptap renders children via contentEditable */}
-          <span data-tiptap-content />
-        </div>
+        <NodeViewContent className="flex-1 min-w-0 text-[0.95em] leading-relaxed [&_p]:my-0" />
       </div>
     </NodeViewWrapper>
   );
