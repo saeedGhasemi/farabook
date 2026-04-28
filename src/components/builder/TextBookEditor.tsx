@@ -314,48 +314,89 @@ export const TextBookEditor = ({ initial }: Props) => {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-accent" /></div>;
   }
 
+  const sidebarCol = chaptersCollapsed ? "44px" : "220px";
+  const aiCol = "340px";
+
   return (
     <div
-      className={`grid grid-cols-1 gap-4 px-3 md:px-4 py-3 ${
-        showAi ? "lg:grid-cols-[220px_1fr_340px]" : "lg:grid-cols-[260px_1fr]"
-      }`}
+      className={`grid grid-cols-1 gap-4 px-3 md:px-4 py-3`}
+      style={{
+        gridTemplateColumns:
+          typeof window !== "undefined" && window.innerWidth >= 1024
+            ? showAi
+              ? `${sidebarCol} 1fr ${aiCol}`
+              : `${sidebarCol} 1fr`
+            : undefined,
+      }}
       dir={fa ? "rtl" : "ltr"}
     >
-      {/* ============ Chapter sidebar ============ */}
+      {/* ============ Chapter sidebar (collapsible) ============ */}
       <aside className="lg:sticky lg:top-20 lg:self-start space-y-2">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-sm font-semibold flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-accent" /> {fa ? "فصل‌ها" : "Chapters"}</h3>
-          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={addChapter}>
-            <Plus className="w-3.5 h-3.5 me-1" /> {fa ? "افزودن" : "Add"}
-          </Button>
-        </div>
-        <div className="space-y-1 max-h-[60vh] overflow-y-auto pe-1">
-          {pages.map((p, i) => (
-            <div
-              key={i}
-              className={`group flex items-center gap-1 rounded-lg border px-2 py-1.5 transition ${
-                i === activeIdx ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/40"
-              }`}
+        {chaptersCollapsed ? (
+          <div className="flex flex-col items-center gap-2">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              onClick={() => setChaptersCollapsed(false)}
+              title={fa ? "نمایش فصل‌ها" : "Show chapters"}
             >
-              <button
-                type="button"
-                onClick={() => setActiveIdx(i)}
-                className="flex-1 min-w-0 text-start text-sm truncate"
-              >
-                <span className="text-[10px] text-muted-foreground me-1">{i + 1}.</span>
-                {p.title || (fa ? "بدون عنوان" : "Untitled")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setPendingDelete(i)}
-                className="opacity-0 group-hover:opacity-100 transition text-destructive p-1"
-                title={fa ? "حذف فصل" : "Delete chapter"}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              {fa ? <ChevronsLeft className="w-4 h-4" /> : <ChevronsRight className="w-4 h-4" />}
+            </Button>
+            <div className="text-[10px] text-muted-foreground writing-mode-vertical" style={{ writingMode: "vertical-rl" }}>
+              {fa ? "فصل‌ها" : "Chapters"} ({pages.length})
             </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-1 gap-1">
+              <h3 className="text-sm font-semibold flex items-center gap-1.5 min-w-0 truncate">
+                <BookOpen className="w-4 h-4 text-accent shrink-0" /> {fa ? "فصل‌ها" : "Chapters"}
+              </h3>
+              <div className="flex items-center gap-0.5 shrink-0">
+                <Button size="sm" variant="ghost" className="h-7 px-2" onClick={addChapter} title={fa ? "افزودن فصل" : "Add chapter"}>
+                  <Plus className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={() => setChaptersCollapsed(true)}
+                  title={fa ? "جمع کردن" : "Collapse"}
+                >
+                  {fa ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-1 max-h-[60vh] overflow-y-auto pe-1">
+              {pages.map((p, i) => (
+                <div
+                  key={i}
+                  className={`group flex items-center gap-1 rounded-lg border px-2 py-1.5 transition ${
+                    i === activeIdx ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/40"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setActiveIdx(i)}
+                    className="flex-1 min-w-0 text-start text-sm truncate"
+                  >
+                    <span className="text-[10px] text-muted-foreground me-1">{i + 1}.</span>
+                    {p.title || (fa ? "بدون عنوان" : "Untitled")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingDelete(i)}
+                    className="opacity-0 group-hover:opacity-100 transition text-destructive p-1"
+                    title={fa ? "حذف فصل" : "Delete chapter"}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </aside>
 
       {/* ============ Main editor ============ */}
