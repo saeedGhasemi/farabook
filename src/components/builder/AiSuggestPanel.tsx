@@ -334,6 +334,7 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
       if (error) throw error;
       const list = (data?.suggestions ?? []) as Suggestion[];
       setSuggestions(list);
+      setGenFingerprint(computeDocFingerprint(editor));
       window.dispatchEvent(new Event(CREDITS_REFRESH_EVENT));
       if (data?.cost) toast.success(fa ? `${data.cost} اعتبار کسر شد` : `${data.cost} credits charged`);
       if (!list.length) setError(fa ? "پیشنهاد جدیدی پیدا نشد." : "No suggestions found.");
