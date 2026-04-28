@@ -363,8 +363,41 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
       accepted: Array.from(accepted.entries()),
       rejected: Array.from(rejected),
       error,
+      fingerprint: genFingerprint ?? undefined,
     });
-  }, [chapterKey, suggestions, accepted, rejected, error]);
+  }, [chapterKey, suggestions, accepted, rejected, error, genFingerprint]);
+
+  // Watch the editor for substantial content changes after suggestions
+  // were generated. We compare the current fingerprint to the one captured
+  // at generation time, debounced so typing doesn't thrash. When they
+  // diverge, drop the cached suggestions so the user knows they need to
+  // regenerate against the new text.
+  useEffect(() => {
+    if (!editor || !genFingerprint || suggestions.length === 0) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const check = () => {
+      const fp = computeDocFingerprint(editor);
+      if (fp === genFingerprint) return;
+      // Content drifted — invalidate.
+      setSuggestions([]);
+      setAccepted(new Map());
+      setRejected(new Set());
+      setGenFingerprint(null);
+      setError(fa
+        ? "محتوای فصل تغییر کرده است. برای پیشنهادهای جدید روی «به‌روزرسانی» بزنید."
+        : "Chapter content changed. Click Refresh for fresh suggestions.");
+      if (chapterKey) suggestionCache.delete(chapterKey);
+    };
+    const handler = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(check, 600);
+    };
+    editor.on("transaction", handler);
+    return () => {
+      if (timer) clearTimeout(timer);
+      editor.off("transaction", handler);
+    };
+  }, [editor, genFingerprint, suggestions.length, chapterKey, fa]);
 
   const enrichWithImages = async (s: Suggestion): Promise<Suggestion> => {
     if (s.op !== "insert_timeline" && s.op !== "insert_scrollytelling") return s;
