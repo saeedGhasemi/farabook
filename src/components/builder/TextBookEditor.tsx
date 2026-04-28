@@ -174,21 +174,32 @@ export const TextBookEditor = ({ initial }: Props) => {
     },
     onUpdate: ({ editor }) => {
       const json = editor.getJSON() as TextPage["doc"];
-      setPages((ps) => ps.map((p, i) => (i === activeIdx ? { ...p, doc: json } : p)));
+      // Mutate-in-place for the active page reference to avoid spreading
+      // every page array on every keystroke (very expensive for big books).
+      setPages((ps) => {
+        const next = ps.slice();
+        const cur = next[activeIdx];
+        if (cur) next[activeIdx] = { ...cur, doc: json };
+        return next;
+      });
       setDirty(true);
-      forceTick((n) => n + 1);
     },
-    onSelectionUpdate: () => forceTick((n) => n + 1),
-    onTransaction: () => forceTick((n) => n + 1),
+    // Only re-render the toolbar when the selection changes — not on every
+    // transaction. Transactions fire many times per keystroke and the
+    // resulting cascade was crashing the live preview on long chapters.
+    onSelectionUpdate: () => forceTick((n) => (n + 1) % 1024),
   });
 
+  // When the active chapter changes, swap content into the editor. We
+  // intentionally skip the per-render JSON.stringify diff (O(n) on the
+  // whole document) and rely on `activeIdx` as the trigger.
+  const lastLoadedIdxRef = useRef<number>(-1);
   useEffect(() => {
     if (!editor) return;
-    const current = editor.getJSON();
+    if (lastLoadedIdxRef.current === activeIdx) return;
+    lastLoadedIdxRef.current = activeIdx;
     const target = pages[activeIdx]?.doc;
-    if (target && JSON.stringify(current) !== JSON.stringify(target)) {
-      editor.commands.setContent(target as any, { emitUpdate: false });
-    }
+    if (target) editor.commands.setContent(target as any, { emitUpdate: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIdx, editor]);
 
