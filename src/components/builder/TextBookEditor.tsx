@@ -314,7 +314,12 @@ export const TextBookEditor = ({ initial }: Props) => {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4 px-3 md:px-4 py-3" dir={fa ? "rtl" : "ltr"}>
+    <div
+      className={`grid grid-cols-1 gap-4 px-3 md:px-4 py-3 ${
+        showAi ? "lg:grid-cols-[220px_1fr_340px]" : "lg:grid-cols-[260px_1fr]"
+      }`}
+      dir={fa ? "rtl" : "ltr"}
+    >
       {/* ============ Chapter sidebar ============ */}
       <aside className="lg:sticky lg:top-20 lg:self-start space-y-2">
         <div className="flex items-center justify-between mb-1">
@@ -574,25 +579,26 @@ export const TextBookEditor = ({ initial }: Props) => {
         <div className={`rounded-2xl border bg-card/50 px-4 md:px-8 py-6 md:py-8 shadow-paper typo-${typography}`}>
           <EditorContent editor={editor} />
         </div>
-
-        {/* AI suggestions panel */}
-        <AnimatePresence>
-          {showAi && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              className="mt-4"
-            >
-              <AiSuggestPanel
-                editor={editor}
-                lang={fa ? "fa" : "en"}
-                onClose={() => setShowAi(false)}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
       </section>
+
+      {/* ============ AI side panel ============ */}
+      <AnimatePresence>
+        {showAi && (
+          <motion.aside
+            initial={{ opacity: 0, x: fa ? -20 : 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: fa ? -20 : 20 }}
+            className="lg:sticky lg:top-20 lg:self-start min-w-0"
+          >
+            <AiSuggestPanel
+              editor={editor}
+              lang={fa ? "fa" : "en"}
+              onClose={() => setShowAi(false)}
+              bookId={initial?.id}
+            />
+          </motion.aside>
+        )}
+      </AnimatePresence>
 
       {/* Confirm chapter delete */}
       <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>

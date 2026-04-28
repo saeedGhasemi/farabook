@@ -657,3 +657,13 @@
 .tiptap-surface, .tiptap-surface * {
   -webkit-touch-callout: none;
 }
+
+/* AI suggestion target highlight: flashes when user clicks "Find" on a suggestion */
+@keyframes ai-target-flash {
+  0%, 100% { background-color: transparent; box-shadow: none; }
+  20%, 70% { background-color: hsl(var(--accent) / 0.18); box-shadow: 0 0 0 4px hsl(var(--accent) / 0.18); }
+}
+.ai-target-flash {
+  animation: ai-target-flash 1.5s ease-out;
+  border-radius: 6px;
+}

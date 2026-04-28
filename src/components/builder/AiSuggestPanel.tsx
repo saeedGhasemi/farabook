@@ -1,15 +1,27 @@
-// AI suggestions panel: auto-fetches on open, lists each suggestion
-// with Accept / Reject buttons + "Apply all". Mutations go through
-// the Tiptap editor directly so undo (Ctrl+Z) reverts them.
-import { useEffect, useState } from "react";
+// AI suggestions side-panel. Two main improvements vs the old panel:
+//  1) Each suggestion has a "Find" button that scrolls the editor to the
+//     target text and briefly highlights it — so the user no longer has
+//     to scroll back and forth manually.
+//  2) Before generating AI images for interactive blocks (timeline /
+//     scrollytelling), we count how many images would be generated and
+//     ask the user to confirm the credit cost.
+import { useEffect, useMemo, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import {
   Sparkles, Loader2, X, Check, Type, Quote as QuoteIcon, Lightbulb,
-  Heading2, SplitSquareVertical, ListOrdered, Layers, RefreshCw,
+  Heading2, SplitSquareVertical, ListOrdered, Layers, RefreshCw, Eye,
+  Image as ImageIcon, Coins,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAiCosts } from "@/hooks/useAiCosts";
+import { useCredits } from "@/hooks/useCredits";
+import { CREDITS_REFRESH_EVENT } from "@/lib/credits-bus";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type SuggestionOp =
   | "make_callout" | "make_quote" | "make_heading"
@@ -34,19 +46,19 @@ interface Props {
   editor: Editor;
   lang: "fa" | "en";
   onClose: () => void;
+  bookId?: string;
 }
 
 const opMeta: Record<SuggestionOp, { Icon: any; label_fa: string; label_en: string }> = {
-  make_callout:        { Icon: Lightbulb,           label_fa: "تبدیل به بلوک", label_en: "Convert to block" },
-  make_quote:          { Icon: QuoteIcon,           label_fa: "تبدیل به نقل‌قول", label_en: "Convert to quote" },
-  make_heading:        { Icon: Heading2,            label_fa: "تبدیل به تیتر", label_en: "Convert to heading" },
-  emphasize:           { Icon: Type,                label_fa: "تأکید روی عبارت", label_en: "Emphasize phrase" },
+  make_callout:        { Icon: Lightbulb,           label_fa: "بلوک نکته", label_en: "Callout block" },
+  make_quote:          { Icon: QuoteIcon,           label_fa: "نقل‌قول", label_en: "Quote" },
+  make_heading:        { Icon: Heading2,            label_fa: "تیتر", label_en: "Heading" },
+  emphasize:           { Icon: Type,                label_fa: "تأکید", label_en: "Emphasize" },
   split_paragraph:     { Icon: SplitSquareVertical, label_fa: "شکستن پاراگراف", label_en: "Split paragraph" },
-  insert_timeline:     { Icon: ListOrdered,         label_fa: "افزودن تایم‌لاین", label_en: "Insert timeline" },
-  insert_scrollytelling:{Icon: Layers,              label_fa: "افزودن اسکرولی‌تلینگ", label_en: "Insert scrollytelling" },
+  insert_timeline:     { Icon: ListOrdered,         label_fa: "تایم‌لاین", label_en: "Timeline" },
+  insert_scrollytelling:{Icon: Layers,              label_fa: "اسکرولی‌تلینگ", label_en: "Scrollytelling" },
 };
 
-/** Find a text range in the doc that exactly matches `needle`. */
 const findRange = (editor: Editor, needle: string): [number, number] | null => {
   if (!needle) return null;
   const text = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n", " ");
@@ -73,8 +85,27 @@ const findRange = (editor: Editor, needle: string): [number, number] | null => {
   return [from, to];
 };
 
+/** Scroll the editor to a target text and briefly highlight it. */
+const focusTarget = (editor: Editor, needle?: string) => {
+  if (!needle) return false;
+  const range = findRange(editor, needle);
+  if (!range) return false;
+  const [from, to] = range;
+  editor.chain().focus().setTextSelection({ from, to }).run();
+  // Find DOM node and scroll it into view
+  try {
+    const dom = (editor.view as any).domAtPos(from)?.node as Node | undefined;
+    const el = (dom?.nodeType === 3 ? dom.parentElement : (dom as Element)) as HTMLElement | null;
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ai-target-flash");
+      setTimeout(() => el.classList.remove("ai-target-flash"), 1500);
+    }
+  } catch { /* ignore */ }
+  return true;
+};
+
 const applySuggestion = (editor: Editor, s: Suggestion): boolean => {
-  // Insertion ops can work even without target match (insert at end)
   if (s.op === "insert_timeline" || s.op === "insert_scrollytelling") {
     const steps = (s.steps || []).map((st) => ({
       marker: st.marker || "",
@@ -120,27 +151,34 @@ const applySuggestion = (editor: Editor, s: Suggestion): boolean => {
   }
 };
 
-export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
+const countImageSteps = (s: Suggestion) =>
+  (s.steps || []).filter((st) => !st.image && st.image_prompt).length;
+
+export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
   const fa = lang === "fa";
+  const { costs } = useAiCosts();
+  const { credits, refresh: refreshCredits } = useCredits();
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  // accepted: idx -> history size mark at accept time. If user undoes
-  // past that mark, we drop the entry so the suggestion becomes pending
-  // again (shown with Accept/Reject buttons).
   const [accepted, setAccepted] = useState<Map<number, number>>(new Map());
   const [rejected, setRejected] = useState<Set<number>>(new Set());
   const [busyIdx, setBusyIdx] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const done = new Set<number>([...accepted.keys(), ...rejected]);
+  // Confirmation dialog for image generation cost
+  const [confirmState, setConfirmState] = useState<
+    | { kind: "single"; idx: number; imageCount: number }
+    | { kind: "all"; imageCount: number; itemCount: number }
+    | null
+  >(null);
+
+  const done = useMemo(() => new Set<number>([...accepted.keys(), ...rejected]), [accepted, rejected]);
 
   const getHistorySize = () => {
     const h: any = (editor.state as any).history$?.done;
     return h?.eventCount ?? h?.items?.length ?? 0;
   };
 
-  // React to undo/redo: if the editor's history shrinks past a saved
-  // accept-marker, treat that suggestion as "not applied" again.
   useEffect(() => {
     if (!editor) return;
     const handler = () => {
@@ -172,12 +210,20 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
         setError(fa ? "متن این صفحه خیلی کوتاه است. ابتدا چند پاراگراف بنویسید." : "Page text is too short.");
         return;
       }
+      if (credits < costs.text_suggest) {
+        setError(fa
+          ? `برای دریافت پیشنهادها به ${costs.text_suggest} اعتبار نیاز دارید. اعتبار شما: ${credits}`
+          : `Need ${costs.text_suggest} credits, you have ${credits}`);
+        return;
+      }
       const { data, error } = await supabase.functions.invoke("book-suggest", {
-        body: { text, lang },
+        body: { text, lang, book_id: bookId || null },
       });
       if (error) throw error;
       const list = (data?.suggestions ?? []) as Suggestion[];
       setSuggestions(list);
+      window.dispatchEvent(new Event(CREDITS_REFRESH_EVENT));
+      if (data?.cost) toast.success(fa ? `${data.cost} اعتبار کسر شد` : `${data.cost} credits charged`);
       if (!list.length) setError(fa ? "پیشنهاد جدیدی پیدا نشد." : "No suggestions found.");
     } catch (e: any) {
       setError(e?.message || (fa ? "خطا در دریافت پیشنهادها" : "Failed to fetch suggestions"));
@@ -192,8 +238,6 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** For interactive inserts, generate one AI image per step that has an
-   *  image_prompt before inserting the block. Mutates a copy. */
   const enrichWithImages = async (s: Suggestion): Promise<Suggestion> => {
     if (s.op !== "insert_timeline" && s.op !== "insert_scrollytelling") return s;
     if (!s.steps?.length) return s;
@@ -202,7 +246,7 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
         if (st.image || !st.image_prompt) return st;
         try {
           const { data, error } = await supabase.functions.invoke("book-image-gen", {
-            body: { prompt: `${st.image_prompt}. Style: clean modern editorial illustration, soft palette, no text.`, lang },
+            body: { prompt: `${st.image_prompt}. Style: clean modern editorial illustration, soft palette, no text.`, lang, book_id: bookId || null },
           });
           if (error) throw error;
           if (data?.url) return { ...st, image: data.url as string };
@@ -215,7 +259,7 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
     return { ...s, steps: enriched };
   };
 
-  const accept = async (idx: number) => {
+  const performAccept = async (idx: number) => {
     if (busyIdx !== null) return;
     setBusyIdx(idx);
     try {
@@ -228,14 +272,35 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
       }
       const mark = getHistorySize();
       setAccepted((prev) => { const next = new Map(prev); next.set(idx, mark); return next; });
+      window.dispatchEvent(new Event(CREDITS_REFRESH_EVENT));
+      void refreshCredits();
     } finally {
       setBusyIdx(null);
     }
   };
+
+  const accept = (idx: number) => {
+    const s = suggestions[idx];
+    const imageCount = countImageSteps(s);
+    if (imageCount > 0) {
+      const total = imageCount * costs.image_gen;
+      if (credits < total) {
+        toast.error(fa
+          ? `این کار به ${total} اعتبار برای ${imageCount} تصویر نیاز دارد.`
+          : `Need ${total} credits for ${imageCount} images.`);
+        return;
+      }
+      setConfirmState({ kind: "single", idx, imageCount });
+      return;
+    }
+    void performAccept(idx);
+  };
+
   const reject = (idx: number) => {
     setRejected((prev) => { const s = new Set(prev); s.add(idx); return s; });
   };
-  const applyAll = async () => {
+
+  const performApplyAll = async () => {
     let applied = 0;
     for (let i = 0; i < suggestions.length; i++) {
       if (done.has(i)) continue;
@@ -249,149 +314,231 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
       }
     }
     setBusyIdx(null);
+    void refreshCredits();
+    window.dispatchEvent(new Event(CREDITS_REFRESH_EVENT));
     toast.success(fa ? `${applied} پیشنهاد اعمال شد` : `${applied} suggestions applied`);
   };
 
+  const applyAll = () => {
+    const pending = suggestions.filter((_, i) => !done.has(i));
+    const imageCount = pending.reduce((n, s) => n + countImageSteps(s), 0);
+    if (imageCount > 0) {
+      const total = imageCount * costs.image_gen;
+      if (credits < total) {
+        toast.error(fa
+          ? `اعمال همه به ${total} اعتبار برای ${imageCount} تصویر نیاز دارد.`
+          : `Need ${total} credits for ${imageCount} images.`);
+        return;
+      }
+      setConfirmState({ kind: "all", imageCount, itemCount: pending.length });
+      return;
+    }
+    void performApplyAll();
+  };
+
+  const Icon = Sparkles;
+
   return (
-    <div className="rounded-2xl border bg-card/80 p-4 shadow-paper">
-      <div className="flex items-center gap-2 mb-3">
-        <Sparkles className="w-4 h-4 text-accent" />
-        <h3 className="text-sm font-semibold">{fa ? "دستیار هوشمند صفحه" : "Page AI assistant"}</h3>
-        <p className="text-xs text-muted-foreground hidden sm:block">
-          {fa ? "تحلیل متن و پیشنهاد بلوک‌ها و عناصر تعاملی." : "Analyzes text and proposes blocks & interactive elements."}
-        </p>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 ms-auto"
-          title={fa ? "بازخوانی" : "Refresh"}
-          onClick={fetchSuggestions}
-          disabled={loading}
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
-          <X className="w-4 h-4" />
-        </Button>
-      </div>
-
-      {loading && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground py-6">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          {fa ? "در حال تحلیل متن صفحه…" : "Analyzing page text…"}
+    <>
+      <div className="rounded-2xl border bg-card/95 backdrop-blur p-3 shadow-paper flex flex-col max-h-[calc(100vh-7rem)]">
+        <div className="flex items-center gap-2 mb-2 shrink-0">
+          <Icon className="w-4 h-4 text-accent" />
+          <h3 className="text-sm font-semibold flex-1">{fa ? "دستیار هوشمند" : "AI assistant"}</h3>
+          <Button variant="ghost" size="icon" className="h-7 w-7" title={fa ? "بازخوانی" : "Refresh"} onClick={fetchSuggestions} disabled={loading}>
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+            <X className="w-4 h-4" />
+          </Button>
         </div>
-      )}
 
-      {!loading && error && (
-        <div className="text-sm text-muted-foreground py-2">
-          {error}
+        {/* Cost reminder banner */}
+        <div className="rounded-lg bg-muted/40 border text-[11px] px-2 py-1.5 mb-2 flex items-center gap-2 shrink-0">
+          <Coins className="w-3 h-3 text-accent" />
+          <span className="text-muted-foreground">
+            {fa
+              ? `پیشنهاد متنی: ${costs.text_suggest} • هر تصویر: ${costs.image_gen} اعتبار`
+              : `Text: ${costs.text_suggest} • Image: ${costs.image_gen} credits`}
+          </span>
         </div>
-      )}
 
-      {!loading && suggestions.length > 0 && (
-        <>
-          <div className="flex items-center gap-2 mb-3">
-            <Button
-              size="sm"
-              onClick={applyAll}
-              className="bg-stage-published text-stage-published-foreground hover:bg-stage-published/90"
-              disabled={done.size === suggestions.length || busyIdx !== null}
-            >
-              {busyIdx !== null ? <Loader2 className="w-3.5 h-3.5 me-1 animate-spin" /> : <Check className="w-3.5 h-3.5 me-1" />}
-              {fa ? "اعمال همه" : "Apply all"}
-            </Button>
-            <span className="text-xs text-muted-foreground ms-auto">
-              {done.size}/{suggestions.length} {fa ? "بررسی شد" : "reviewed"}
-            </span>
+        {loading && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground py-6">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            {fa ? "در حال تحلیل…" : "Analyzing…"}
           </div>
+        )}
 
-          <ul className="space-y-2">
-            {suggestions.map((s, i) => {
-              const meta = opMeta[s.op];
-              const Icon = meta?.Icon ?? Sparkles;
-              const isDone = done.has(i);
-              const isInsert = s.op === "insert_timeline" || s.op === "insert_scrollytelling";
-              return (
-                <li
-                  key={i}
-                  className={`rounded-xl border p-3 transition ${
-                    isDone ? "opacity-50 bg-muted/30" : "bg-background/60"
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    <Icon className="w-4 h-4 mt-0.5 text-accent shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold mb-1 flex items-center gap-1.5 flex-wrap">
-                        <span>{fa ? meta?.label_fa : meta?.label_en}</span>
-                        {s.variant && <span className="text-[10px] uppercase text-muted-foreground">{s.variant}</span>}
-                        {s.mark && <span className="text-[10px] uppercase text-muted-foreground">{s.mark}</span>}
-                        {isInsert && s.steps?.length ? (
-                          <span className="text-[10px] text-accent">
-                            {fa ? `${s.steps.length} گام` : `${s.steps.length} steps`}
-                          </span>
-                        ) : null}
-                        {isInsert && s.steps?.some((st) => st.image_prompt || st.image) ? (
-                          <span className="text-[10px] text-primary">
-                            {fa ? "+ تصاویر AI" : "+ AI images"}
-                          </span>
-                        ) : null}
+        {!loading && error && (
+          <div className="text-xs text-muted-foreground py-2">{error}</div>
+        )}
+
+        {!loading && suggestions.length > 0 && (
+          <>
+            <div className="flex items-center gap-2 mb-2 shrink-0">
+              <Button
+                size="sm"
+                onClick={applyAll}
+                className="bg-stage-published text-stage-published-foreground hover:bg-stage-published/90 h-7"
+                disabled={done.size === suggestions.length || busyIdx !== null}
+              >
+                {busyIdx !== null ? <Loader2 className="w-3.5 h-3.5 me-1 animate-spin" /> : <Check className="w-3.5 h-3.5 me-1" />}
+                {fa ? "اعمال همه" : "Apply all"}
+              </Button>
+              <span className="text-xs text-muted-foreground ms-auto">
+                {done.size}/{suggestions.length}
+              </span>
+            </div>
+
+            <ul className="space-y-2 overflow-y-auto pe-1 flex-1 min-h-0">
+              {suggestions.map((s, i) => {
+                const meta = opMeta[s.op];
+                const ItemIcon = meta?.Icon ?? Sparkles;
+                const isDone = done.has(i);
+                const isInsert = s.op === "insert_timeline" || s.op === "insert_scrollytelling";
+                const imgCount = countImageSteps(s);
+                return (
+                  <li
+                    key={i}
+                    className={`rounded-xl border p-2.5 transition ${
+                      isDone ? "opacity-50 bg-muted/30" : "bg-background/60 hover:bg-background/80"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <ItemIcon className="w-4 h-4 mt-0.5 text-accent shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[11px] font-semibold mb-0.5 flex items-center gap-1 flex-wrap">
+                          <span>{fa ? meta?.label_fa : meta?.label_en}</span>
+                          {s.variant && <span className="text-[10px] uppercase text-muted-foreground">{s.variant}</span>}
+                          {s.mark && <span className="text-[10px] uppercase text-muted-foreground">{s.mark}</span>}
+                          {imgCount > 0 && (
+                            <span className="text-[10px] text-primary inline-flex items-center gap-0.5">
+                              <ImageIcon className="w-2.5 h-2.5" />
+                              {imgCount}× = {imgCount * costs.image_gen}
+                            </span>
+                          )}
+                        </div>
+                        {isInsert && s.title && (
+                          <p className="text-xs font-semibold text-foreground mb-0.5" dir="auto">{s.title}</p>
+                        )}
+                        {s.target_text && (
+                          <button
+                            type="button"
+                            className="text-xs text-foreground/80 line-clamp-2 leading-relaxed mb-0.5 text-start hover:text-accent transition"
+                            dir="auto"
+                            onClick={() => {
+                              if (!focusTarget(editor, s.target_text)) {
+                                toast.error(fa ? "متن مرجع پیدا نشد" : "Target not found");
+                              }
+                            }}
+                            title={fa ? "نمایش در متن" : "Show in text"}
+                          >
+                            “{s.target_text}”
+                          </button>
+                        )}
+                        <p className="text-[10px] text-muted-foreground">{s.reason}</p>
+                        {busyIdx === i && (
+                          <p className="text-[10px] text-accent mt-1 flex items-center gap-1">
+                            <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                            {fa ? "در حال اعمال…" : "Applying…"}
+                          </p>
+                        )}
                       </div>
-                      {isInsert && s.title && (
-                        <p className="text-sm font-semibold text-foreground mb-1" dir="auto">{s.title}</p>
-                      )}
-                      {s.target_text && (
-                        <p className="text-sm text-foreground/90 line-clamp-2 leading-relaxed mb-1" dir="auto">
-                          “{s.target_text}”
-                        </p>
-                      )}
-                      {isInsert && s.steps && s.steps.length > 0 && (
-                        <ul className="text-[11px] text-muted-foreground mt-1 space-y-0.5 ps-3 list-disc">
-                          {s.steps.slice(0, 3).map((st, k) => (
-                            <li key={k} className="line-clamp-1">
-                              {st.marker ? `${st.marker} — ` : ""}{st.title}
-                            </li>
-                          ))}
-                          {s.steps.length > 3 && <li className="opacity-60">…</li>}
-                        </ul>
-                      )}
-                      <p className="text-[11px] text-muted-foreground mt-1">{s.reason}</p>
-                      {busyIdx === i && (
-                        <p className="text-[11px] text-accent mt-1 flex items-center gap-1">
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          {fa ? "در حال تولید تصاویر و اعمال…" : "Generating images & applying…"}
-                        </p>
+                      {!isDone && (
+                        <div className="flex flex-col gap-1 shrink-0">
+                          {s.target_text && (
+                            <Button
+                              size="sm" variant="ghost" className="h-6 w-6 p-0"
+                              onClick={() => focusTarget(editor, s.target_text)}
+                              title={fa ? "نمایش در متن" : "Find"}
+                            >
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            className="h-6 w-6 p-0 bg-stage-published text-stage-published-foreground hover:bg-stage-published/90"
+                            onClick={() => accept(i)}
+                            disabled={busyIdx !== null}
+                            title={fa ? "تأیید و اعمال" : "Accept"}
+                          >
+                            {busyIdx === i ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                          </Button>
+                          <Button
+                            size="sm" variant="outline" className="h-6 w-6 p-0"
+                            onClick={() => reject(i)}
+                            disabled={busyIdx !== null}
+                            title={fa ? "رد" : "Reject"}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
                       )}
                     </div>
-                    {!isDone && (
-                      <div className="flex flex-col gap-1 shrink-0">
-                        <Button
-                          size="sm"
-                          className="h-7 px-2 bg-stage-published text-stage-published-foreground hover:bg-stage-published/90"
-                          onClick={() => accept(i)}
-                          disabled={busyIdx !== null}
-                          title={fa ? "تأیید و اعمال" : "Accept"}
-                        >
-                          {busyIdx === i ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2"
-                          onClick={() => reject(i)}
-                          disabled={busyIdx !== null}
-                          title={fa ? "رد" : "Reject"}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+      </div>
+
+      <AlertDialog open={!!confirmState} onOpenChange={(o) => { if (!o) setConfirmState(null); }}>
+        <AlertDialogContent dir={fa ? "rtl" : "ltr"}>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ImageIcon className="w-4 h-4 text-accent" />
+              {fa ? "تأیید تولید تصویر هوش مصنوعی" : "Confirm AI image generation"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                {confirmState && (
+                  <>
+                    <p>
+                      {fa
+                        ? `این عمل ${confirmState.imageCount} تصویر تولید می‌کند.`
+                        : `This will generate ${confirmState.imageCount} image(s).`}
+                    </p>
+                    <div className="rounded-lg bg-accent/5 border border-accent/20 p-3 text-xs space-y-1">
+                      <div className="flex justify-between">
+                        <span>{fa ? "هر تصویر" : "Per image"}</span>
+                        <span className="font-mono">{costs.image_gen} {fa ? "اعتبار" : "credits"}</span>
                       </div>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      )}
-    </div>
+                      <div className="flex justify-between font-semibold border-t pt-1">
+                        <span>{fa ? "هزینه کل" : "Total"}</span>
+                        <span className="font-mono text-accent">
+                          −{confirmState.imageCount * costs.image_gen} {fa ? "اعتبار" : "credits"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>{fa ? "اعتبار شما پس از این" : "Balance after"}</span>
+                        <span className="font-mono">
+                          {(credits - confirmState.imageCount * costs.image_gen).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{fa ? "انصراف" : "Cancel"}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-stage-published text-stage-published-foreground hover:bg-stage-published/90"
+              onClick={() => {
+                const s = confirmState;
+                setConfirmState(null);
+                if (!s) return;
+                if (s.kind === "single") void performAccept(s.idx);
+                else void performApplyAll();
+              }}
+            >
+              {fa ? "تأیید و اجرا" : "Confirm & run"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
