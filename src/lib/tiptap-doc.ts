@@ -296,8 +296,9 @@ const sanitizeCssValue = (value: string): string =>
  *  Color is encoded as `[c=COLOR]text[/c]` and gets parsed back into a
  *  <span style="color:..."> on the reader side. */
 const inlineToMarkdown = (nodes?: TextNode[]): string =>
-  (nodes ?? []).map((n) => {
-    let t = n.text;
+  (nodes ?? []).map((n: any) => {
+    if (n?.type === "hardBreak") return "\n";
+    let t = n.text ?? "";
     let color: string | undefined;
     let href: string | undefined;
     for (const m of n.marks ?? []) {
