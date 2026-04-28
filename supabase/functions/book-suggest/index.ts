@@ -91,6 +91,7 @@ Avoid repetition. Focus on key points, definitions, examples, processes, and int
                             marker: { type: "string" },
                             title: { type: "string" },
                             description: { type: "string" },
+                            image_prompt: { type: "string", description: "ENGLISH short visual description (clean illustration, soft colors) for AI image generation of this step" },
                           },
                         },
                       },
