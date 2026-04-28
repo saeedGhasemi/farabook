@@ -376,13 +376,16 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
           </Button>
         </div>
 
-        {/* Cost reminder banner */}
-        <div className="rounded-lg bg-muted/40 border text-[11px] px-2 py-1.5 mb-2 flex items-center gap-2 shrink-0">
+        {/* Cost + balance reminder banner */}
+        <div className="rounded-lg bg-muted/40 border text-[11px] px-2 py-1.5 mb-2 flex items-center gap-2 shrink-0 flex-wrap">
           <Coins className="w-3 h-3 text-accent" />
           <span className="text-muted-foreground">
             {fa
-              ? `پیشنهاد متنی: ${costs.text_suggest} • هر تصویر: ${costs.image_gen} اعتبار`
-              : `Text: ${costs.text_suggest} • Image: ${costs.image_gen} credits`}
+              ? `متنی: ${costs.text_suggest} • تصویر: ${costs.image_gen}`
+              : `Text: ${costs.text_suggest} • Image: ${costs.image_gen}`}
+          </span>
+          <span className="ms-auto font-mono text-foreground">
+            {fa ? "اعتبار شما:" : "Balance:"} {credits.toLocaleString()}
           </span>
         </div>
 
@@ -394,7 +397,17 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
         )}
 
         {!loading && error && (
-          <div className="text-xs text-muted-foreground py-2">{error}</div>
+          <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground space-y-2">
+            <p>{error}</p>
+            <Button
+              size="sm"
+              className="w-full h-8 bg-stage-published text-stage-published-foreground hover:bg-stage-published/90"
+              onClick={() => { void refreshCredits(); void fetchSuggestions(); }}
+            >
+              <RefreshCw className="w-3.5 h-3.5 me-1.5" />
+              {fa ? "ادامه بده / تلاش دوباره" : "Continue / Try again"}
+            </Button>
+          </div>
         )}
 
         {!loading && suggestions.length > 0 && (
