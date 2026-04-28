@@ -382,10 +382,21 @@
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  [dir="rtl"] .drop-cap::first-letter {
-    font-family: 'Vazirmatn', serif;
-    font-size: 2.8em;
-    margin-block-start: 0.1em;
+  /* Drop cap is an English typographic convention — disable for RTL/Persian */
+  [dir="rtl"] .drop-cap::first-letter,
+  [dir="rtl"] .typo-elegant p::first-letter,
+  [dir="rtl"] .typo-magazine p:first-of-type::first-letter {
+    float: none;
+    font-size: inherit;
+    line-height: inherit;
+    font-weight: inherit;
+    margin: 0;
+    padding: 0;
+    color: inherit;
+    background: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    -webkit-text-fill-color: currentColor;
   }
 
   /* === Pull quote === */
