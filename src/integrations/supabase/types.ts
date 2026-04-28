@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage_log: {
+        Row: {
+          book_id: string | null
+          created_at: string
+          credits_charged: number
+          id: string
+          metadata: Json
+          model: string | null
+          operation: string
+          usd_cost: number
+          user_id: string
+        }
+        Insert: {
+          book_id?: string | null
+          created_at?: string
+          credits_charged?: number
+          id?: string
+          metadata?: Json
+          model?: string | null
+          operation: string
+          usd_cost?: number
+          user_id: string
+        }
+        Update: {
+          book_id?: string | null
+          created_at?: string
+          credits_charged?: number
+          id?: string
+          metadata?: Json
+          model?: string | null
+          operation?: string
+          usd_cost?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       book_comments: {
         Row: {
           body: string
@@ -482,6 +518,10 @@ export type Database = {
       }
       platform_fee_settings: {
         Row: {
+          ai_image_gen_cost: number
+          ai_image_gen_usd: number
+          ai_text_suggest_cost: number
+          ai_text_suggest_usd: number
           book_publish_mode: string
           book_publish_value: number
           book_purchase_mode: string
@@ -495,6 +535,10 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          ai_image_gen_cost?: number
+          ai_image_gen_usd?: number
+          ai_text_suggest_cost?: number
+          ai_text_suggest_usd?: number
           book_publish_mode?: string
           book_publish_value?: number
           book_purchase_mode?: string
@@ -508,6 +552,10 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          ai_image_gen_cost?: number
+          ai_image_gen_usd?: number
+          ai_text_suggest_cost?: number
+          ai_text_suggest_usd?: number
           book_publish_mode?: string
           book_publish_value?: number
           book_purchase_mode?: string
@@ -785,6 +833,22 @@ export type Database = {
         }[]
       }
       admin_purge_user: { Args: { _user_id: string }; Returns: undefined }
+      admin_recent_ai_usage: {
+        Args: { _limit?: number }
+        Returns: {
+          book_id: string
+          book_title: string
+          created_at: string
+          credits_charged: number
+          id: string
+          metadata: Json
+          model: string
+          operation: string
+          usd_cost: number
+          user_id: string
+          user_name: string
+        }[]
+      }
       admin_recent_transactions: {
         Args: { _limit?: number }
         Returns: {
@@ -813,6 +877,10 @@ export type Database = {
       admin_update_platform_fees: {
         Args: { _settings: Json }
         Returns: {
+          ai_image_gen_cost: number
+          ai_image_gen_usd: number
+          ai_text_suggest_cost: number
+          ai_text_suggest_usd: number
           book_publish_mode: string
           book_publish_value: number
           book_purchase_mode: string
@@ -835,6 +903,15 @@ export type Database = {
       can_edit_book: {
         Args: { _book_id: string; _user_id: string }
         Returns: boolean
+      }
+      charge_ai_usage: {
+        Args: {
+          _book_id: string
+          _metadata?: Json
+          _model?: string
+          _operation: string
+        }
+        Returns: Json
       }
       compute_fee: {
         Args: { _base: number; _mode: string; _value: number }
