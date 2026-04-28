@@ -124,13 +124,47 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
   const fa = lang === "fa";
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [done, setDone] = useState<Set<number>>(new Set());
+  // accepted: idx -> history size mark at accept time. If user undoes
+  // past that mark, we drop the entry so the suggestion becomes pending
+  // again (shown with Accept/Reject buttons).
+  const [accepted, setAccepted] = useState<Map<number, number>>(new Map());
+  const [rejected, setRejected] = useState<Set<number>>(new Set());
+  const [busyIdx, setBusyIdx] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const done = new Set<number>([...accepted.keys(), ...rejected]);
+
+  const getHistorySize = () => {
+    const h: any = (editor.state as any).history$?.done;
+    return h?.eventCount ?? h?.items?.length ?? 0;
+  };
+
+  // React to undo/redo: if the editor's history shrinks past a saved
+  // accept-marker, treat that suggestion as "not applied" again.
+  useEffect(() => {
+    if (!editor) return;
+    const handler = () => {
+      const histSize = getHistorySize();
+      setAccepted((prev) => {
+        if (!prev.size) return prev;
+        let changed = false;
+        const next = new Map(prev);
+        for (const [idx, mark] of prev) {
+          if (histSize < mark) { next.delete(idx); changed = true; }
+        }
+        return changed ? next : prev;
+      });
+    };
+    editor.on("transaction", handler);
+    return () => { editor.off("transaction", handler); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
 
   const fetchSuggestions = async () => {
     setLoading(true);
     setSuggestions([]);
-    setDone(new Set());
+    setAccepted(new Map());
+    setRejected(new Set());
     setError(null);
     try {
       const text = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n", " ");
@@ -158,24 +192,63 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const accept = (idx: number) => {
-    const ok = applySuggestion(editor, suggestions[idx]);
-    if (!ok) {
-      toast.error(fa ? "اعمال این پیشنهاد ممکن نشد" : "Could not apply suggestion");
-      return;
+  /** For interactive inserts, generate one AI image per step that has an
+   *  image_prompt before inserting the block. Mutates a copy. */
+  const enrichWithImages = async (s: Suggestion): Promise<Suggestion> => {
+    if (s.op !== "insert_timeline" && s.op !== "insert_scrollytelling") return s;
+    if (!s.steps?.length) return s;
+    const enriched = await Promise.all(
+      s.steps.map(async (st) => {
+        if (st.image || !st.image_prompt) return st;
+        try {
+          const { data, error } = await supabase.functions.invoke("book-image-gen", {
+            body: { prompt: `${st.image_prompt}. Style: clean modern editorial illustration, soft palette, no text.`, lang },
+          });
+          if (error) throw error;
+          if (data?.url) return { ...st, image: data.url as string };
+        } catch (e) {
+          console.warn("image gen failed:", e);
+        }
+        return st;
+      }),
+    );
+    return { ...s, steps: enriched };
+  };
+
+  const accept = async (idx: number) => {
+    if (busyIdx !== null) return;
+    setBusyIdx(idx);
+    try {
+      const s = await enrichWithImages(suggestions[idx]);
+      setSuggestions((prev) => prev.map((x, i) => (i === idx ? s : x)));
+      const ok = applySuggestion(editor, s);
+      if (!ok) {
+        toast.error(fa ? "اعمال این پیشنهاد ممکن نشد" : "Could not apply suggestion");
+        return;
+      }
+      const mark = getHistorySize();
+      setAccepted((prev) => { const next = new Map(prev); next.set(idx, mark); return next; });
+    } finally {
+      setBusyIdx(null);
     }
-    setDone((prev) => { const s = new Set(prev); s.add(idx); return s; });
   };
   const reject = (idx: number) => {
-    setDone((prev) => { const s = new Set(prev); s.add(idx); return s; });
+    setRejected((prev) => { const s = new Set(prev); s.add(idx); return s; });
   };
-  const applyAll = () => {
+  const applyAll = async () => {
     let applied = 0;
-    suggestions.forEach((s, i) => {
-      if (done.has(i)) return;
-      if (applySuggestion(editor, s)) applied++;
-    });
-    setDone(new Set(suggestions.map((_, i) => i)));
+    for (let i = 0; i < suggestions.length; i++) {
+      if (done.has(i)) continue;
+      setBusyIdx(i);
+      const s = await enrichWithImages(suggestions[i]);
+      setSuggestions((prev) => prev.map((x, k) => (k === i ? s : x)));
+      if (applySuggestion(editor, s)) {
+        const mark = getHistorySize();
+        setAccepted((prev) => { const next = new Map(prev); next.set(i, mark); return next; });
+        applied++;
+      }
+    }
+    setBusyIdx(null);
     toast.success(fa ? `${applied} پیشنهاد اعمال شد` : `${applied} suggestions applied`);
   };
 
