@@ -652,6 +652,7 @@ export const TextBookEditor = ({ initial }: Props) => {
               lang={fa ? "fa" : "en"}
               onClose={() => setShowAi(false)}
               bookId={initial?.id}
+              chapterKey={`${initial?.id ?? "new"}:${activeIdx}`}
             />
           </motion.aside>
         )}
