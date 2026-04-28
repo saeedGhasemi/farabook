@@ -29,6 +29,8 @@ interface Book {
   ambient_theme: string | null;
   typography_preset?: string | null;
   pages: Page[];
+  price?: number;
+  publisher_id?: string | null;
 }
 
 const ambientSrc: Record<string, string> = {
@@ -92,14 +94,38 @@ const Reader = () => {
   // Load book
   useEffect(() => {
     if (!id) return;
-    supabase.from("books").select("*").eq("id", id).maybeSingle()
-      .then(({ data }) => {
-        if (!data) { nav("/library"); return; }
-        const pages = Array.isArray(data.pages) ? data.pages : [];
-        setBook({ ...data, pages: pages as unknown as Page[] });
-        if (data.ambient_theme && data.ambient_theme !== "paper") setAmbient(data.ambient_theme);
-      });
-  }, [id, nav]);
+    (async () => {
+      const { data } = await supabase.from("books").select("*").eq("id", id).maybeSingle();
+      if (!data) {
+        toast.error(lang === "fa" ? "کتاب یافت نشد" : "Book not found");
+        nav("/store");
+        return;
+      }
+      // Gate paid books: require login & ownership (publisher/editor/owner)
+      const isPaid = Number(data.price ?? 0) > 0;
+      if (isPaid) {
+        if (!user) {
+          toast.error(lang === "fa" ? "برای مطالعه این کتاب وارد شوید" : "Please sign in to read this book");
+          nav("/auth");
+          return;
+        }
+        const isOwner = data.publisher_id === user.id;
+        if (!isOwner) {
+          const { data: ub } = await supabase
+            .from("user_books").select("id")
+            .eq("user_id", user.id).eq("book_id", id).maybeSingle();
+          if (!ub) {
+            toast.error(lang === "fa" ? "ابتدا این کتاب را خریداری کنید" : "Please purchase this book first");
+            nav("/store");
+            return;
+          }
+        }
+      }
+      const pages = Array.isArray(data.pages) ? data.pages : [];
+      setBook({ ...data, pages: pages as unknown as Page[] });
+      if (data.ambient_theme && data.ambient_theme !== "paper") setAmbient(data.ambient_theme);
+    })();
+  }, [id, nav, user, lang]);
 
   // Load progress
   useEffect(() => {
