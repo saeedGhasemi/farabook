@@ -736,6 +736,28 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
         </motion.div>
       );
 
+    case "list": {
+      const ListTag = block.ordered ? "ol" : "ul";
+      return (
+        <motion.div {...fade}>
+          <ListTag
+            className={`my-4 ps-6 space-y-1.5 text-foreground/90 leading-relaxed ${
+              block.ordered
+                ? "list-decimal marker:text-accent marker:font-bold"
+                : "list-disc marker:text-accent"
+            }`}
+            style={{ fontSize: `${fontSize}px`, lineHeight: 1.75 }}
+          >
+            {block.items.map((it, i) => (
+              <li key={i} className="ps-1">
+                {renderWithHighlights(it, savedHighlights, onHighlightClick)}
+              </li>
+            ))}
+          </ListTag>
+        </motion.div>
+      );
+    }
+
     default:
       return null;
   }
