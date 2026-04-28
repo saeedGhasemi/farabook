@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
+import { BookCardSkeleton } from "@/components/store/BookCardSkeleton";
 import { bookCreditCost, purchaseBookWithCredits } from "@/lib/purchase";
 import { ConfirmTransactionDialog } from "@/components/ConfirmTransactionDialog";
 import { useCredits } from "@/hooks/useCredits";
@@ -42,6 +43,7 @@ const Store = () => {
   const { credits } = useCredits();
   const [searchParams, setSearchParams] = useSearchParams();
   const [books, setBooks] = useState<Book[]>([]);
+  const [booksLoading, setBooksLoading] = useState(true);
   const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
   const [owned, setOwned] = useState<Set<string>>(new Set());
   const [q, setQ] = useState(searchParams.get("q") ?? "");
@@ -51,10 +53,14 @@ const Store = () => {
   const [confirmBuy, setConfirmBuy] = useState<Book | null>(null);
 
   const reload = () => {
+    setBooksLoading(true);
     supabase.from("books")
       .select("id, title, title_en, author, publisher, publisher_id, status, category, cover_url, description, price, ambient_theme")
       .order("created_at", { ascending: false })
-      .then(({ data }) => setBooks((data as Book[]) ?? []));
+      .then(({ data }) => {
+        setBooks((data as Book[]) ?? []);
+        setBooksLoading(false);
+      });
     supabase.from("book_comments").select("book_id, rating")
       .then(({ data }) => {
         const map: Record<string, { sum: number; count: number }> = {};
@@ -151,7 +157,11 @@ const Store = () => {
       </motion.div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filtered.map((book, i) => {
+        {booksLoading && books.length === 0
+          ? Array.from({ length: 8 }).map((_, i) => (
+              <BookCardSkeleton key={`sk-${i}`} variant="grid" index={i} />
+            ))
+          : filtered.map((book, i) => {
           const isOwned = owned.has(book.id);
           const isOwner = !!user && book.publisher_id === user.id;
           const isDraft = book.status === "draft";
@@ -253,6 +263,11 @@ const Store = () => {
           );
         })}
       </div>
+      {!booksLoading && filtered.length === 0 && (
+        <div className="text-center text-muted-foreground py-16">
+          {lang === "fa" ? "کتابی یافت نشد." : "No books found."}
+        </div>
+      )}
 
       <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
         <AlertDialogContent>
