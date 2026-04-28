@@ -475,10 +475,36 @@ export const TextBookEditor = ({ initial }: Props) => {
             </TbBtn>
             <TbSep />
 
-            {/* Block elements */}
-            <TbBtn title={fa ? "نکته" : "Callout"} active={editor.isActive("callout")} onClick={() => editor.chain().focus().setNode("callout", { variant: "info" }).run()}>
-              <Lightbulb className="w-4 h-4" />
-            </TbBtn>
+            {/* Block elements: callout variants popover */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button type="button" title={fa ? "بلوک نکته/تعریف/مثال" : "Callout blocks"} className="p-1.5 rounded-md hover:bg-muted flex items-center gap-1 shrink-0">
+                  <Lightbulb className="w-4 h-4" />
+                  <span className="text-xs hidden md:inline">{fa ? "بلوک" : "Block"}</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-1.5">
+                {[
+                  { v: "info", fa: "نکته", en: "Info" },
+                  { v: "tip", fa: "ایده", en: "Tip" },
+                  { v: "warning", fa: "هشدار", en: "Warning" },
+                  { v: "success", fa: "نکته مهم", en: "Success" },
+                  { v: "danger", fa: "خطر", en: "Danger" },
+                  { v: "question", fa: "سؤال", en: "Question" },
+                  { v: "definition", fa: "تعریف", en: "Definition" },
+                  { v: "example", fa: "مثال", en: "Example" },
+                ].map((c) => (
+                  <button
+                    key={c.v}
+                    type="button"
+                    onClick={() => editor.chain().focus().setNode("callout", { variant: c.v }).run()}
+                    className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start"
+                  >
+                    <Lightbulb className="w-4 h-4 text-accent" /> {fa ? c.fa : c.en}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
             <TbBtn title={fa ? "نقل‌قول" : "Quote"} active={editor.isActive("quote")} onClick={() => editor.chain().focus().setNode("quote").run()}>
               <QuoteIcon className="w-4 h-4" />
             </TbBtn>
