@@ -60,8 +60,22 @@ type CacheEntry = {
   accepted: Array<[number, number]>;
   rejected: number[];
   error: string | null;
+  /** Lightweight fingerprint of the chapter text at the time suggestions
+   *  were generated. If the current doc no longer matches, the cache is
+   *  considered stale and discarded so the user doesn't see suggestions
+   *  pointing at text that has changed substantially. */
+  fingerprint?: string;
 };
 const suggestionCache: Map<string, CacheEntry> = new Map();
+
+/** Cheap, stable fingerprint: length + djb2-style hash of the plain text.
+ *  Sensitive to any character change, but ignores prosemirror node ids. */
+const computeDocFingerprint = (editor: Editor): string => {
+  const text = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n", " ");
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return `${text.length}:${(h >>> 0).toString(36)}`;
+};
 
 const opMeta: Record<SuggestionOp, { Icon: any; label_fa: string; label_en: string }> = {
   make_callout:        { Icon: Lightbulb,           label_fa: "بلوک نکته", label_en: "Callout block" },
@@ -236,8 +250,16 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
   const fa = lang === "fa";
   const { costs } = useAiCosts();
   const { credits, refresh: refreshCredits } = useCredits();
-  // Restore from per-chapter cache when remounting for the same chapter.
-  const cached = chapterKey ? suggestionCache.get(chapterKey) : undefined;
+  // Restore from per-chapter cache when remounting for the same chapter,
+  // but only if the chapter content fingerprint still matches. If the
+  // user has made substantial edits since the suggestions were generated,
+  // we drop the stale cache so they don't see mismatched suggestions.
+  const currentFingerprint = useMemo(() => computeDocFingerprint(editor), [editor]);
+  const rawCached = chapterKey ? suggestionCache.get(chapterKey) : undefined;
+  const cached = rawCached && rawCached.fingerprint === currentFingerprint ? rawCached : undefined;
+  if (chapterKey && rawCached && !cached) {
+    suggestionCache.delete(chapterKey);
+  }
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>(cached?.suggestions ?? []);
   const [accepted, setAccepted] = useState<Map<number, number>>(
@@ -248,6 +270,12 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
   );
   const [busyIdx, setBusyIdx] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(cached?.error ?? null);
+  // Fingerprint of the doc when the current suggestion list was generated.
+  // Used to detect when the chapter content has drifted enough that the
+  // cached suggestions are no longer valid.
+  const [genFingerprint, setGenFingerprint] = useState<string | null>(
+    cached?.fingerprint ?? null,
+  );
 
   // Confirmation dialog for image generation cost
   const [confirmState, setConfirmState] = useState<
@@ -306,6 +334,7 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
       if (error) throw error;
       const list = (data?.suggestions ?? []) as Suggestion[];
       setSuggestions(list);
+      setGenFingerprint(computeDocFingerprint(editor));
       window.dispatchEvent(new Event(CREDITS_REFRESH_EVENT));
       if (data?.cost) toast.success(fa ? `${data.cost} اعتبار کسر شد` : `${data.cost} credits charged`);
       if (!list.length) setError(fa ? "پیشنهاد جدیدی پیدا نشد." : "No suggestions found.");
@@ -334,8 +363,41 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
       accepted: Array.from(accepted.entries()),
       rejected: Array.from(rejected),
       error,
+      fingerprint: genFingerprint ?? undefined,
     });
-  }, [chapterKey, suggestions, accepted, rejected, error]);
+  }, [chapterKey, suggestions, accepted, rejected, error, genFingerprint]);
+
+  // Watch the editor for substantial content changes after suggestions
+  // were generated. We compare the current fingerprint to the one captured
+  // at generation time, debounced so typing doesn't thrash. When they
+  // diverge, drop the cached suggestions so the user knows they need to
+  // regenerate against the new text.
+  useEffect(() => {
+    if (!editor || !genFingerprint || suggestions.length === 0) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const check = () => {
+      const fp = computeDocFingerprint(editor);
+      if (fp === genFingerprint) return;
+      // Content drifted — invalidate.
+      setSuggestions([]);
+      setAccepted(new Map());
+      setRejected(new Set());
+      setGenFingerprint(null);
+      setError(fa
+        ? "محتوای فصل تغییر کرده است. برای پیشنهادهای جدید روی «به‌روزرسانی» بزنید."
+        : "Chapter content changed. Click Refresh for fresh suggestions.");
+      if (chapterKey) suggestionCache.delete(chapterKey);
+    };
+    const handler = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(check, 600);
+    };
+    editor.on("transaction", handler);
+    return () => {
+      if (timer) clearTimeout(timer);
+      editor.off("transaction", handler);
+    };
+  }, [editor, genFingerprint, suggestions.length, chapterKey, fa]);
 
   const enrichWithImages = async (s: Suggestion): Promise<Suggestion> => {
     if (s.op !== "insert_timeline" && s.op !== "insert_scrollytelling") return s;
@@ -371,6 +433,9 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
       }
       const mark = getHistorySize();
       setAccepted((prev) => { const next = new Map(prev); next.set(idx, mark); return next; });
+      // Re-baseline the fingerprint so our own edit doesn't trip the
+      // "content changed" invalidator.
+      setGenFingerprint(computeDocFingerprint(editor));
       window.dispatchEvent(new Event(CREDITS_REFRESH_EVENT));
       void refreshCredits();
     } finally {
@@ -413,6 +478,7 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
       }
     }
     setBusyIdx(null);
+    setGenFingerprint(computeDocFingerprint(editor));
     void refreshCredits();
     window.dispatchEvent(new Event(CREDITS_REFRESH_EVENT));
     toast.success(fa ? `${applied} پیشنهاد اعمال شد` : `${applied} suggestions applied`);
