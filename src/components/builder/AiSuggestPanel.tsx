@@ -108,6 +108,47 @@ const findRange = (editor: Editor, needle: string): [number, number] | null => {
   return [from, to];
 };
 
+const attrsForNode = (nodeType: any, attrs: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(attrs).filter(([key]) => key in nodeType.attrs));
+
+const convertExactRangeToBlock = (
+  editor: Editor,
+  from: number,
+  to: number,
+  blockName: "callout" | "quote" | "heading",
+  attrs: Record<string, unknown> = {},
+): boolean => {
+  const { state, view } = editor;
+  const $from = state.doc.resolve(from);
+  const $to = state.doc.resolve(to);
+  if (!$from.sameParent($to) || !$from.parent.isTextblock) return false;
+
+  const parent = $from.parent;
+  const depth = $from.depth;
+  const parentStart = $from.before(depth);
+  const parentEnd = $from.after(depth);
+  const contentStart = $from.start(depth);
+  const fromOffset = Math.max(0, from - contentStart);
+  const toOffset = Math.min(parent.content.size, to - contentStart);
+  if (toOffset <= fromOffset) return false;
+
+  const targetType = state.schema.nodes[blockName];
+  if (!targetType) return false;
+
+  const before = parent.content.cut(0, fromOffset);
+  const selected = parent.content.cut(fromOffset, toOffset);
+  const after = parent.content.cut(toOffset, parent.content.size);
+  const nodes: any[] = [];
+  if (before.size) nodes.push(parent.type.create(parent.attrs, before, parent.marks));
+  nodes.push(targetType.create(attrsForNode(targetType, { ...attrs, dir: parent.attrs?.dir }), selected));
+  if (after.size) nodes.push(parent.type.create(parent.attrs, after, parent.marks));
+
+  const tr = state.tr.replaceWith(parentStart, parentEnd, nodes).scrollIntoView();
+  view.dispatch(tr);
+  view.focus();
+  return true;
+};
+
 /** Scroll the editor to a target text and briefly highlight it. */
 const focusTarget = (editor: Editor, needle?: string) => {
   if (!needle) return false;
@@ -156,16 +197,16 @@ const applySuggestion = (editor: Editor, s: Suggestion): boolean => {
   const chain = editor.chain().focus().setTextSelection({ from, to });
   switch (s.op) {
     case "make_callout":
-      return chain.setNode("callout", { variant: s.variant || "info" }).run();
+      return convertExactRangeToBlock(editor, from, to, "callout", { variant: s.variant || "info" });
     case "make_quote":
-      return chain.setNode("quote").run();
+      return convertExactRangeToBlock(editor, from, to, "quote");
     case "make_heading":
-      return chain.setNode("heading", { level: s.level ?? 2 }).run();
+      return convertExactRangeToBlock(editor, from, to, "heading", { level: s.level ?? 2 });
     case "emphasize": {
       const m = s.mark || "bold";
-      if (m === "bold") return chain.toggleBold().run();
-      if (m === "italic") return chain.toggleItalic().run();
-      return chain.toggleUnderline().run();
+      if (m === "bold") return chain.setBold().run();
+      if (m === "italic") return chain.setItalic().run();
+      return chain.setUnderline().run();
     }
     case "split_paragraph":
       return chain.setTextSelection({ from: to, to }).splitBlock().run();
