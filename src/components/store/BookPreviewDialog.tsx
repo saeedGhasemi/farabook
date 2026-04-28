@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { speakSmart, stopSpeak } from "@/lib/tts";
-import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
+import { resolveBookCover } from "@/lib/book-media";
 import { BookComments } from "@/components/BookComments";
 import { BlockRenderer, type Block } from "@/components/reader/BlockRenderer";
 import { toast } from "sonner";
@@ -38,7 +38,7 @@ interface Props {
   onBuy: () => void;
 }
 
-interface PageBlock extends Partial<Block> { type: string; text?: string; src?: string; caption?: string }
+type PageBlock = Partial<Block> & { type: string; text?: string; src?: string; caption?: string };
 interface PageRow { title?: string; blocks?: PageBlock[] }
 
 const blocksToText = (blocks: PageBlock[] = []) =>
