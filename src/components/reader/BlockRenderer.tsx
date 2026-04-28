@@ -750,15 +750,16 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
       return (
         <motion.div {...fade}>
           <ListTag
+            dir={block.dir}
             className={`my-4 ps-6 space-y-1.5 text-foreground/90 leading-relaxed ${
               block.ordered
                 ? "list-decimal marker:text-accent marker:font-bold"
                 : "list-disc marker:text-accent"
             }`}
-            style={{ fontSize: `${fontSize}px`, lineHeight: 1.75 }}
+            style={textBlockStyle(block, { fontSize: `${fontSize}px`, lineHeight: 1.75 })}
           >
             {block.items.map((it, i) => (
-              <li key={i} className="ps-1">
+              <li key={i} className="ps-1" dir={block.itemAttrs?.[i]?.dir} style={textBlockStyle(block.itemAttrs?.[i] ?? {})}>
                 {renderWithHighlights(it, savedHighlights, onHighlightClick)}
               </li>
             ))}
