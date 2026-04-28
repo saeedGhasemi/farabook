@@ -80,6 +80,7 @@ const applySuggestion = (editor: Editor, s: Suggestion): boolean => {
       marker: st.marker || "",
       title: st.title || "",
       description: st.description || "",
+      image: st.image || "",
     }));
     if (!steps.length) return false;
     const nodeType = s.op === "insert_timeline" ? "timeline" : "scrollytelling";
