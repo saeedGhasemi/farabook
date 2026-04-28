@@ -139,6 +139,7 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [showAi, setShowAi] = useState(false);
+  const [chaptersCollapsed, setChaptersCollapsed] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [typography, setTypography] = useState<string>(initial?.typography_preset || "editorial");
   // Force re-render of toolbar on selection change to reflect active states
