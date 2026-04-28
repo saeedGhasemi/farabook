@@ -80,7 +80,7 @@ const convertAnchors = (s: string): string => {
       if (url.includes("dummy-citation.com/citation")) {
         const target = dummyCitationTarget(url);
         if (!label || label === url || label.includes("dummy-citation.com/citation")) {
-          return target ? ` ${url}` : "";
+          return target ? `[${label || target}](${target})` : "";
         }
         return target ? `[${label}](${target})` : label;
       }
