@@ -77,6 +77,7 @@ const Library = () => {
         }));
 
       setRows([...ownedRows, ...virtualRows]);
+      setRowsLoading(false);
     })();
   }, [user]);
 
@@ -101,7 +102,13 @@ const Library = () => {
         </motion.h1>
       </div>
 
-      {rows.length === 0 ? (
+      {rowsLoading && rows.length === 0 ? (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <BookCardSkeleton key={`sk-${i}`} variant="row" index={i} />
+          ))}
+        </div>
+      ) : rows.length === 0 ? (
         <div className="glass-strong rounded-3xl p-16 text-center max-w-xl mx-auto">
           <BookOpen className="w-14 h-14 mx-auto text-muted-foreground mb-4" />
           <p className="text-lg text-muted-foreground mb-6">{t("library_empty")}</p>
