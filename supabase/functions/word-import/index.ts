@@ -21,8 +21,31 @@ type Block =
 
 interface Page { title: string; blocks: Block[]; }
 
+// Escape characters that have meaning in our markdown-ish inline syntax
+// so they don't accidentally form links/colors/bold from the doc text itself.
+const escapeInline = (s: string) =>
+  s.replace(/([\[\]()*_])/g, "\\$1");
+
+// Convert <a href="URL">label</a> into the markdown form [label](URL) which
+// the reader's BlockRenderer recognizes. Run BEFORE stripping tags so the
+// href survives and bare URLs aren't shown in place of clickable links.
+const convertAnchors = (s: string): string => {
+  return s.replace(
+    /<a\b[^>]*?href\s*=\s*"([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi,
+    (_m, href: string, inner: string) => {
+      const label = inner.replace(/<\/?[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      const url = href.trim();
+      if (!url) return label;
+      // Skip empty or anchor-only links — just keep the text
+      if (url.startsWith("#")) return label;
+      const safeLabel = label || url;
+      return `[${safeLabel}](${url})`;
+    },
+  );
+};
+
 const stripTags = (s: string) =>
-  s.replace(/<\/?[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  convertAnchors(s).replace(/<\/?[^>]+>/g, "").replace(/\s+/g, " ").trim();
 
 // Find Persian/English figure or table label like "شکل ۹–۱" / "Figure 9.1" / "جدول ۲-۱"
 const FIG_RE = /^(شکل|تصویر|نگاره|figure|fig\.?)\s*[\d\u06F0-\u06F9۰-۹]+([.\-\u2013\u2014][\d\u06F0-\u06F9۰-۹]+)?/i;
