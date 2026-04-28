@@ -110,7 +110,7 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
           rel="noreferrer"
           className="text-accent underline-offset-2 hover:underline"
         >
-          {linkM[1]}
+          {renderInlineMarkdown(linkM[1], `${key}-a`)}
         </a>
       );
     }
