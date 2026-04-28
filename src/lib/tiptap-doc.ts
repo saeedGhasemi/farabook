@@ -24,7 +24,8 @@ export type Mark =
   | { type: "bold" }
   | { type: "italic" }
   | { type: "underline" }
-  | { type: "textStyle"; attrs?: { color?: string } };
+  | { type: "textStyle"; attrs?: { color?: string } }
+  | { type: "link"; attrs?: { href?: string } };
 
 export interface TextNode {
   type: "text";
@@ -84,15 +85,18 @@ export const isTiptapPage = (p: unknown): p is { title: string; doc: TiptapDoc }
 /* Inline text helpers                                                */
 /* ------------------------------------------------------------------ */
 
-/** Convert plain text (with light **bold** / *italic* / __under__) to text nodes. */
+/** Convert plain text (with light **bold** / *italic* / __under__ / [link](url)) to text nodes. */
 export const textToNodes = (text: string): TextNode[] => {
   if (!text) return [];
   const out: TextNode[] = [];
-  const re = /(\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*)/g;
+  const re = /(\[[^\]\n]+\]\([^\)\s]+\)|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*)/g;
   const parts = text.split(re);
   for (const p of parts) {
     if (!p) continue;
-    if (p.startsWith("**") && p.endsWith("**") && p.length > 4) {
+    const linkM = /^\[([^\]\n]+)\]\(([^\)\s]+)\)$/.exec(p);
+    if (linkM) {
+      out.push({ type: "text", text: linkM[1], marks: [{ type: "link", attrs: { href: linkM[2] } }] });
+    } else if (p.startsWith("**") && p.endsWith("**") && p.length > 4) {
       out.push({ type: "text", text: p.slice(2, -2), marks: [{ type: "bold" }] });
     } else if (p.startsWith("__") && p.endsWith("__") && p.length > 4) {
       out.push({ type: "text", text: p.slice(2, -2), marks: [{ type: "underline" }] });
@@ -295,15 +299,19 @@ const inlineToMarkdown = (nodes?: TextNode[]): string =>
   (nodes ?? []).map((n) => {
     let t = n.text;
     let color: string | undefined;
+    let href: string | undefined;
     for (const m of n.marks ?? []) {
       if (m.type === "bold") t = `**${t}**`;
       else if (m.type === "italic") t = `*${t}*`;
       else if (m.type === "underline") t = `__${t}__`;
       else if (m.type === "textStyle" && (m as any).attrs?.color) {
         color = (m as any).attrs.color as string;
+      } else if (m.type === "link" && (m as any).attrs?.href) {
+        href = (m as any).attrs.href as string;
       }
     }
     if (color) t = `[c=${color}]${t}[/c]`;
+    if (href) t = `[${t}](${href})`;
     return t;
   }).join("");
 

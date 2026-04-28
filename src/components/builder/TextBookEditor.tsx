@@ -7,6 +7,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import { Extension } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
+import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { TextAlign } from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
@@ -158,6 +159,7 @@ export const TextBookEditor = ({ initial }: Props) => {
       Underline,
       TextStyle,
       Color.configure({ types: ["textStyle"] }),
+      Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       TextDirection,
       Placeholder.configure({
