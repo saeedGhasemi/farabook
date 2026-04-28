@@ -761,7 +761,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
             style={textBlockStyle(block, { fontSize: `${fontSize}px`, lineHeight: 1.75 })}
           >
             {block.items.map((it, i) => (
-              <li key={i} className="ps-1" dir={block.itemAttrs?.[i]?.dir} style={textBlockStyle(block.itemAttrs?.[i] ?? {})}>
+              <li key={i} className="ps-1 whitespace-pre-line" dir={block.itemAttrs?.[i]?.dir} style={textBlockStyle(block.itemAttrs?.[i] ?? {})}>
                 {renderWithHighlights(it, savedHighlights, onHighlightClick)}
               </li>
             ))}
