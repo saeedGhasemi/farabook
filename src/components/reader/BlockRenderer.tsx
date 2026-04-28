@@ -73,17 +73,17 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
   // Order matters — color spans first (they may wrap other inline marks),
   // then bold (**), italic (*), underline, links, urls.
   const re =
-    /(\[c=[^\]\n]+\][^\[\n]+\[\/c\]|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
+    /(\[c=[^\]\n]+\][\s\S]*?\[\/c\]|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
   const parts = text.split(re);
   return parts.map((p, i) => {
     const key = `${baseKey}-${i}`;
     if (!p) return null;
     // Color span
-    const colorM = /^\[c=([^\]\n]+)\]([^\[\n]+)\[\/c\]$/.exec(p);
+    const colorM = /^\[c=([^\]\n]+)\]([\s\S]*?)\[\/c\]$/.exec(p);
     if (colorM) {
       return (
-        <span key={key} style={{ color: colorM[1] }}>
-          {colorM[2]}
+        <span key={key} style={{ color: safeInlineColor(colorM[1]) }}>
+          {renderInlineMarkdown(colorM[2], `${key}-c`)}
         </span>
       );
     }
