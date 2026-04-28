@@ -11,7 +11,7 @@ import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { resolveBookMedia } from "@/lib/book-media";
+import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 
 interface Book {
   id: string;
@@ -177,8 +177,12 @@ const Landing = () => {
             <div className="md:col-span-2 relative aspect-[3/4] md:aspect-auto bg-secondary">
               {featured.cover_url && (
                 <img
-                  src={resolveBookMedia(featured.cover_url)}
+                  src={resolveBookCover(featured.cover_url, { width: 800, quality: 78 })}
+                  srcSet={`${resolveBookCover(featured.cover_url, { width: 600, quality: 75 })} 600w, ${resolveBookCover(featured.cover_url, { width: 900, quality: 78 })} 900w, ${resolveBookCover(featured.cover_url, { width: 1200, quality: 80 })} 1200w`}
+                  sizes="(max-width: 768px) 100vw, 40vw"
                   alt={titleOf(featured)}
+                  loading="eager"
+                  decoding="async"
                   className="w-full h-full object-cover"
                 />
               )}
@@ -351,9 +355,14 @@ const BookRow = ({
             <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-secondary book-shadow">
               {b.cover_url && (
                 <img
-                  src={resolveBookMedia(b.cover_url)}
+                  src={resolveBookCover(b.cover_url, { width: 480, quality: 70 })}
+                  srcSet={`${resolveBookCover(b.cover_url, { width: 320, quality: 65 })} 320w, ${resolveBookCover(b.cover_url, { width: 480, quality: 70 })} 480w`}
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
                   alt={title}
                   loading="lazy"
+                  decoding="async"
+                  width={480}
+                  height={640}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
               )}

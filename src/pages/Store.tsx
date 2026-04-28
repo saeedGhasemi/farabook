@@ -13,13 +13,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { resolveBookMedia } from "@/lib/book-media";
+import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
 import { bookCreditCost, purchaseBookWithCredits } from "@/lib/purchase";
 import { ConfirmTransactionDialog } from "@/components/ConfirmTransactionDialog";
 import { useCredits } from "@/hooks/useCredits";
 
-const resolveCover = (s: string | null) => resolveBookMedia(s);
 
 interface Book {
   id: string;
@@ -169,7 +168,8 @@ const Store = () => {
               <div className="relative aspect-[3/4] overflow-hidden bg-secondary">
                 {book.cover_url && (
                   <img
-                    src={resolveCover(book.cover_url)}
+                    src={resolveBookCover(book.cover_url, { width: 480, quality: 70 })}
+                    srcSet={`${resolveBookCover(book.cover_url, { width: 320, quality: 65 })} 320w, ${resolveBookCover(book.cover_url, { width: 480, quality: 70 })} 480w, ${resolveBookCover(book.cover_url, { width: 720, quality: 75 })} 720w`}
                     alt={title}
                     loading="lazy"
                     decoding="async"

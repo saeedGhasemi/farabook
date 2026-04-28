@@ -13,7 +13,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { resolveBookMedia } from "@/lib/book-media";
+import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 import { bookCreditCost } from "@/lib/purchase";
 
 interface Row {
@@ -125,7 +125,9 @@ const Library = () => {
                 <Link to={`/read/${r.books.id}`} className="flex w-full">
                   <div className="w-32 flex-shrink-0 aspect-[3/4] overflow-hidden bg-secondary relative">
                     {r.books.cover_url && (
-                      <img src={resolveBookMedia(r.books.cover_url)} alt={title}
+                      <img src={resolveBookCover(r.books.cover_url, { width: 256, quality: 65 })}
+                        srcSet={`${resolveBookCover(r.books.cover_url, { width: 200, quality: 60 })} 200w, ${resolveBookCover(r.books.cover_url, { width: 320, quality: 70 })} 320w`}
+                        alt={title}
                         loading="lazy" decoding="async" width={256} height={342}
                         sizes="128px"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
