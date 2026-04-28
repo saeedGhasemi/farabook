@@ -299,15 +299,19 @@ const inlineToMarkdown = (nodes?: TextNode[]): string =>
   (nodes ?? []).map((n) => {
     let t = n.text;
     let color: string | undefined;
+    let href: string | undefined;
     for (const m of n.marks ?? []) {
       if (m.type === "bold") t = `**${t}**`;
       else if (m.type === "italic") t = `*${t}*`;
       else if (m.type === "underline") t = `__${t}__`;
       else if (m.type === "textStyle" && (m as any).attrs?.color) {
         color = (m as any).attrs.color as string;
+      } else if (m.type === "link" && (m as any).attrs?.href) {
+        href = (m as any).attrs.href as string;
       }
     }
     if (color) t = `[c=${color}]${t}[/c]`;
+    if (href) t = `[${t}](${href})`;
     return t;
   }).join("");
 
