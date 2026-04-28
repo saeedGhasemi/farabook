@@ -125,7 +125,9 @@ const Library = () => {
                 <Link to={`/read/${r.books.id}`} className="flex w-full">
                   <div className="w-32 flex-shrink-0 aspect-[3/4] overflow-hidden bg-secondary relative">
                     {r.books.cover_url && (
-                      <img src={resolveBookMedia(r.books.cover_url)} alt={title} loading="lazy"
+                      <img src={resolveBookMedia(r.books.cover_url)} alt={title}
+                        loading="lazy" decoding="async" width={256} height={342}
+                        sizes="128px"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                     )}
                     {isDraft && (

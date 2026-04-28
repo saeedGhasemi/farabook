@@ -6,6 +6,7 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { resolveBookMedia } from "@/lib/book-media";
+import { uploadOptimizedImage } from "@/lib/image-optim";
 import {
   Trash2, Image as ImageIcon, Film, GalleryHorizontal, ListOrdered,
   Lightbulb, AlertTriangle, Info, CheckCircle2, ShieldAlert, Pencil,
@@ -25,7 +26,13 @@ import { Textarea } from "@/components/ui/textarea";
 /* ------------------------------------------------------------------ */
 
 const uploadToBookMedia = async (userId: string, file: File): Promise<string | null> => {
-  const ext = file.name.split(".").pop() || "jpg";
+  // Images go through the optimizer (downscale + WebP/JPEG re-encode, keeps original).
+  if (/^image\//i.test(file.type)) {
+    const url = await uploadOptimizedImage(userId, file, "edit", { maxEdge: 1600, quality: 0.82 });
+    if (!url) toast.error("بارگذاری ناموفق بود");
+    return url;
+  }
+  const ext = file.name.split(".").pop() || "bin";
   const key = `${userId}/edit/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const { error } = await supabase.storage.from("book-media").upload(key, file, { contentType: file.type });
   if (error) { toast.error(error.message); return null; }

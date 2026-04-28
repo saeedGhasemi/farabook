@@ -172,6 +172,10 @@ const Store = () => {
                     src={resolveCover(book.cover_url)}
                     alt={title}
                     loading="lazy"
+                    decoding="async"
+                    width={480}
+                    height={640}
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
                 )}

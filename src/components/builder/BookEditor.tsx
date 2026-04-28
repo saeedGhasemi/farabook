@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { uploadOptimizedImage } from "@/lib/image-optim";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                              */
@@ -361,7 +362,14 @@ const _LegacyBookEditor = ({ initial, onCreated }: Props) => {
     prefix = "edit",
   ): Promise<string | null> => {
     if (!user) return null;
-    const ext = file.name.split(".").pop() || "jpg";
+    if (/^image\//i.test(file.type)) {
+      const url = await uploadOptimizedImage(user.id, file, prefix, {
+        maxEdge: prefix === "covers" ? 1200 : 1600, quality: 0.82,
+      });
+      if (!url) toast.error(lang === "fa" ? "بارگذاری ناموفق" : "Upload failed");
+      return url;
+    }
+    const ext = file.name.split(".").pop() || "bin";
     const key = `${user.id}/${prefix}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const { error } = await supabase.storage
       .from("book-media")
