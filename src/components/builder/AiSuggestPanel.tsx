@@ -255,9 +255,10 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
     }
   };
 
-  // Auto-fetch on mount — single click flow
+  // Auto-fetch on mount — single click flow. Refresh credit balance
+  // first so the confirmation dialog shows the right number.
   useEffect(() => {
-    void fetchSuggestions();
+    void (async () => { await refreshCredits(); await fetchSuggestions(); })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
