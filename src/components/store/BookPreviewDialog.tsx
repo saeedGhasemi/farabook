@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { speakSmart, stopSpeak } from "@/lib/tts";
-import { resolveBookMedia } from "@/lib/book-media";
+import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 import { BookComments } from "@/components/BookComments";
 import { toast } from "sonner";
 
@@ -134,8 +134,10 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
             <div className="flex items-start gap-4">
               {book.cover_url && (
                 <img
-                  src={resolveBookMedia(book.cover_url)}
+                  src={resolveBookCover(book.cover_url, { width: 200, quality: 75 })}
                   alt={book.title}
+                  loading="lazy"
+                  decoding="async"
                   className="w-20 h-28 object-cover rounded-lg shadow-md flex-shrink-0"
                 />
               )}
