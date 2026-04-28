@@ -283,11 +283,11 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
     return { ...s, steps: enriched };
   };
 
-  const performAccept = async (idx: number) => {
+  const performAccept = async (idx: number, withImages = true) => {
     if (busyIdx !== null) return;
     setBusyIdx(idx);
     try {
-      const s = await enrichWithImages(suggestions[idx]);
+      const s = withImages ? await enrichWithImages(suggestions[idx]) : suggestions[idx];
       setSuggestions((prev) => prev.map((x, i) => (i === idx ? s : x)));
       const ok = applySuggestion(editor, s);
       if (!ok) {
