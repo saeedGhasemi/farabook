@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Info, Sparkles, Quote as QuoteIcon, ChevronLeft, ChevronRight, Play, Pause, Plus, X, Lightbulb, AlertTriangle, CheckCircle2, ShieldAlert, Pencil, HelpCircle } from "lucide-react";
+import { Info, Sparkles, Quote as QuoteIcon, ChevronLeft, ChevronRight, Play, Pause, Plus, X, Lightbulb, AlertTriangle, CheckCircle2, ShieldAlert, Pencil, HelpCircle, BookMarked } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { resolveBookMedia } from "@/lib/book-media";
 import { Timeline, type TimelineStep } from "./Timeline";
@@ -46,7 +46,7 @@ export type Block =
   | { type: "gallery"; images: string[]; caption?: string }
   | { type: "slideshow"; images: { src: string; caption?: string }[]; autoplay?: boolean; interval?: number; hideCaption?: boolean }
   | { type: "video"; src: string; poster?: string; caption?: string }
-  | { type: "callout"; icon?: "info" | "sparkle" | "tip" | "warning" | "success" | "danger" | "note" | "question" | "quote"; text: string }
+  | { type: "callout"; icon?: "info" | "sparkle" | "tip" | "warning" | "success" | "danger" | "note" | "question" | "quote" | "definition" | "example"; text: string }
   | { type: "table"; caption?: string; tableNumber?: string; headers: string[]; rows: string[][] }
   | { type: "references"; items: { id?: string; text: string; url?: string }[] }
   | { type: "timeline"; title?: string; steps: TimelineStep[] }
@@ -695,6 +695,8 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
         note:     { Icon: Pencil,       cls: "bg-muted/60 border-border",                iconCls: "text-muted-foreground" },
         question: { Icon: HelpCircle,   cls: "bg-[hsl(var(--hl-blue)/0.18)] border-[hsl(var(--hl-blue)/0.45)]",   iconCls: "text-[hsl(var(--hl-blue))]" },
         quote:    { Icon: QuoteIcon,    cls: "bg-[hsl(var(--hl-pink)/0.15)] border-[hsl(var(--hl-pink)/0.4)]",    iconCls: "text-[hsl(var(--hl-pink))]" },
+        definition: { Icon: BookMarked, cls: "bg-[hsl(270_60%_55%/0.12)] border-[hsl(270_60%_55%/0.4)]",          iconCls: "text-[hsl(270_60%_55%)]" },
+        example:    { Icon: Sparkles,   cls: "bg-[hsl(170_60%_42%/0.12)] border-[hsl(170_60%_42%/0.4)]",          iconCls: "text-[hsl(170_60%_42%)]" },
       };
       const v = variants[block.icon || "info"] || variants.info;
       const Icon = v.Icon;

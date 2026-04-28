@@ -36,7 +36,7 @@ export interface HeadingNode { type: "heading"; attrs: { level: 1 | 2 | 3 }; con
 export interface QuoteNode { type: "quote"; attrs?: { author?: string }; content?: TextNode[] }
 export interface CalloutNode {
   type: "callout";
-  attrs: { variant: "info" | "tip" | "note" | "warning" | "success" | "danger" | "question" | "quote" };
+  attrs: { variant: "info" | "tip" | "note" | "warning" | "success" | "danger" | "question" | "quote" | "definition" | "example" };
   content?: TextNode[];
 }
 export interface ImageNode {
@@ -133,6 +133,8 @@ const calloutVariant = (icon?: string): CalloutNode["attrs"]["variant"] => {
     case "question": return "question";
     case "quote": return "quote";
     case "note": return "note";
+    case "definition": return "definition";
+    case "example": return "example";
     default: return "info";
   }
 };
@@ -273,6 +275,8 @@ const calloutIconFromVariant = (v: string): string => {
     case "question": return "question";
     case "quote": return "quote";
     case "note": return "note";
+    case "definition": return "definition";
+    case "example": return "example";
     default: return "info";
   }
 };

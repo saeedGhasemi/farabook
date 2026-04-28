@@ -27,26 +27,30 @@ Deno.serve(async (req) => {
 
     const fa = lang === "fa";
     const sys = fa
-      ? `تو یک ویراستار باهوش هستی که می‌خواهی یک متن خشک کتاب را به صفحه‌ای جذاب و آموزشی تبدیل کنی.
-بر اساس متن داده‌شده، حداکثر ۶ پیشنهاد دقیق برای ارتقای صفحه بده. هر پیشنهاد باید:
-- روی یک جمله یا عبارتِ دقیقاً موجود در متن اعمال شود (target_text باید عیناً در متن باشد، حتی یک حرف فرق نکند).
+      ? `تو یک ویراستار باهوش هستی که می‌خواهی یک متن خشک کتاب را به صفحه‌ای جذاب، تعاملی و آموزشی تبدیل کنی.
+بر اساس متن داده‌شده، حداکثر ۸ پیشنهاد دقیق برای ارتقای صفحه بده. هر پیشنهاد باید:
+- وقتی روی متن موجود اعمال می‌شود، target_text باید عیناً (حتی یک حرف فرق نکند) در متن باشد.
 - یکی از این عملیات‌ها باشد:
-  • make_callout: تبدیل آن جمله به یک «نکته/مهم/هشدار/سؤال» (variant را خودت انتخاب کن).
+  • make_callout: تبدیل آن جمله به یک بلوک (variant: info|tip|note|warning|success|danger|question|definition|example).
   • make_quote: تبدیل به نقل‌قول.
   • make_heading: تبدیل به تیتر بخش (level=2 یا 3).
   • emphasize: bold/italic/underline کردن یک عبارت کوتاه (۲ تا ۸ کلمه).
-  • split_paragraph: شکستن یک پاراگراف طولانی به دو پاراگراف برای خوانایی بهتر.
-از تکرار اجتناب کن. روی نکات کلیدی، تعاریف، هشدارها، سؤالات و جملات قابل‌نقل‌قول تمرکز کن.`
-      : `You are a thoughtful editor turning dry book text into an engaging, educational page.
-Given the text, return up to 6 precise suggestions to upgrade it. Each must:
-- Apply to a sentence or phrase that EXISTS verbatim in the text (target_text must match exactly).
-- Be one of these operations:
-  • make_callout: turn the sentence into a callout (info/tip/note/warning/success/danger/question).
-  • make_quote: turn into a blockquote.
-  • make_heading: turn into a section heading (level 2 or 3).
-  • emphasize: bold/italic/underline a short phrase (2-8 words).
-  • split_paragraph: split a long paragraph into two for readability.
-Avoid repetition. Focus on key points, definitions, warnings, questions, quotable lines.`;
+  • split_paragraph: شکستن یک پاراگراف طولانی به دو پاراگراف.
+  • insert_timeline: اگر متن شامل مراحل، توالی زمانی یا فرآیند است، یک تایم‌لاین پیشنهاد بده. در این حالت target_text آخرین جمله‌ای است که تایم‌لاین بعدش درج شود، و فیلد steps با ۳ تا ۶ گام (هر گام: marker, title, description) را پر کن.
+  • insert_scrollytelling: اگر متن شامل توضیح مرحله‌به‌مرحله یک مفهوم/پدیده است، یک اسکرولی‌تلینگ پیشنهاد بده با ۳ تا ۵ گام (هر گام: title, description). target_text = جمله‌ای که قبل از آن درج شود.
+از تکرار اجتناب کن. روی نکات کلیدی، تعاریف، مثال‌ها، فرآیندها، و موارد قابل تبدیل به تعامل تمرکز کن.`
+      : `You are an editor turning dry book text into an engaging, interactive, educational page.
+Return up to 8 precise suggestions. Each must:
+- If acting on text, target_text must match a substring verbatim.
+- Be one of:
+  • make_callout (variant: info|tip|note|warning|success|danger|question|definition|example)
+  • make_quote
+  • make_heading (level 2 or 3)
+  • emphasize (mark: bold|italic|underline) — short phrase 2-8 words
+  • split_paragraph
+  • insert_timeline — if the text describes stages/process/chronology. Provide steps[3-6] each with marker, title, description. target_text = sentence after which to insert.
+  • insert_scrollytelling — if the text walks through a concept step-by-step. Provide steps[3-5] each with title, description. target_text = sentence after which to insert.
+Avoid repetition. Focus on key points, definitions, examples, processes, and interactive opportunities.`;
 
     const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -65,30 +69,34 @@ Avoid repetition. Focus on key points, definitions, warnings, questions, quotabl
             parameters: {
               type: "object",
               properties: {
-                typography_preset: {
-                  type: "string",
-                  description: "Suggested typography preset: editorial | modern | classic | playful",
-                },
+                typography_preset: { type: "string" },
                 suggestions: {
                   type: "array",
                   items: {
                     type: "object",
                     properties: {
-                      op: {
-                        type: "string",
-                        description: "One of: make_callout | make_quote | make_heading | emphasize | split_paragraph",
+                      op: { type: "string", description: "make_callout|make_quote|make_heading|emphasize|split_paragraph|insert_timeline|insert_scrollytelling" },
+                      target_text: { type: "string" },
+                      variant: { type: "string", description: "callout variant" },
+                      level: { type: "number" },
+                      mark: { type: "string" },
+                      split_after: { type: "string" },
+                      title: { type: "string", description: "Optional title for inserted block" },
+                      steps: {
+                        type: "array",
+                        description: "Steps for insert_timeline / insert_scrollytelling",
+                        items: {
+                          type: "object",
+                          properties: {
+                            marker: { type: "string" },
+                            title: { type: "string" },
+                            description: { type: "string" },
+                          },
+                        },
                       },
-                      target_text: { type: "string", description: "Exact substring from the page text to act on." },
-                      variant: {
-                        type: "string",
-                        description: "For make_callout only: info | tip | note | warning | success | danger | question | quote",
-                      },
-                      level: { type: "number", description: "For make_heading only: 2 or 3" },
-                      mark: { type: "string", description: "For emphasize only: bold | italic | underline" },
-                      split_after: { type: "string", description: "For split_paragraph only: sentence to split after" },
-                      reason: { type: "string", description: "Short user-facing reason (one sentence)." },
+                      reason: { type: "string" },
                     },
-                    required: ["op", "target_text", "reason"],
+                    required: ["op", "reason"],
                   },
                 },
               },
