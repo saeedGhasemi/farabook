@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner";
 import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 import { bookCreditCost } from "@/lib/purchase";
-import { BookCardSkeleton } from "@/components/store/BookCardSkeleton";
+
 
 interface Row {
   id: string;
