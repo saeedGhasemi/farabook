@@ -295,9 +295,9 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
               size="sm"
               onClick={applyAll}
               className="bg-stage-published text-stage-published-foreground hover:bg-stage-published/90"
-              disabled={done.size === suggestions.length}
+              disabled={done.size === suggestions.length || busyIdx !== null}
             >
-              <Check className="w-3.5 h-3.5 me-1" />
+              {busyIdx !== null ? <Loader2 className="w-3.5 h-3.5 me-1 animate-spin" /> : <Check className="w-3.5 h-3.5 me-1" />}
               {fa ? "اعمال همه" : "Apply all"}
             </Button>
             <span className="text-xs text-muted-foreground ms-auto">
