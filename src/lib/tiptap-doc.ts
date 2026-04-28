@@ -219,6 +219,17 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
           steps: Array.isArray(b.steps) ? b.steps : [],
         },
       }];
+    case "list": {
+      const ordered = b.ordered === true || b.style === "ordered";
+      const items: string[] = Array.isArray(b.items) ? b.items.map((x: any) => String(x ?? "")) : [];
+      return [{
+        type: ordered ? "orderedList" : "bulletList",
+        content: items.map((t) => ({
+          type: "listItem",
+          content: [{ type: "paragraph", content: textToNodes(t) }],
+        })),
+      }];
+    }
     default:
       return [];
   }
