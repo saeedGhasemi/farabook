@@ -85,6 +85,7 @@ export const AdminTreasuryPanel = () => {
       setDraft(fees);
     }
     setTx((txs as any[]) || []);
+    setAiUsage((ai as any[]) || []);
     setLoadingTx(false);
   };
 
