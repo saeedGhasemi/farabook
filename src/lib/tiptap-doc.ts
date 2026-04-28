@@ -23,7 +23,8 @@ import type { ScrollyStep } from "@/components/reader/Scrollytelling";
 export type Mark =
   | { type: "bold" }
   | { type: "italic" }
-  | { type: "underline" };
+  | { type: "underline" }
+  | { type: "textStyle"; attrs?: { color?: string } };
 
 export interface TextNode {
   type: "text";
@@ -57,7 +58,11 @@ export type DocNode =
   | GalleryNode
   | VideoNode
   | TimelineNode
-  | ScrollyNode;
+  | ScrollyNode
+  // Lists are passed through as-is from Tiptap (StarterKit) — we only
+  // care about reading them back out for the legacy renderer below.
+  | { type: "bulletList" | "orderedList"; content?: any[] }
+  | { type: "listItem"; content?: any[] };
 
 export interface TiptapDoc {
   type: "doc";
@@ -139,6 +144,16 @@ const calloutVariant = (icon?: string): CalloutNode["attrs"]["variant"] => {
   }
 };
 
+/** Split legacy multi-paragraph text on blank lines so each paragraph
+ *  becomes its own node. Without this, an entire multi-line "paragraph"
+ *  block from old data ends up as a single ProseMirror paragraph and
+ *  double-clicking selects every visual line at once. */
+const splitParas = (raw: string): string[] => {
+  const s = String(raw ?? "").replace(/\r\n/g, "\n");
+  const parts = s.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  return parts.length ? parts : [s];
+};
+
 /** Convert one legacy block (DB shape: { type, ... }) to one or more doc nodes. */
 const legacyBlockToNodes = (b: any): DocNode[] => {
   if (!b || typeof b !== "object" || !b.type) return [];
@@ -146,20 +161,26 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
     case "heading":
       return [{ type: "heading", attrs: { level: 2 }, content: textToNodes(String(b.text ?? "")) }];
     case "paragraph":
-      return [{ type: "paragraph", content: textToNodes(String(b.text ?? "")) }];
+      return splitParas(String(b.text ?? "")).map(
+        (t) => ({ type: "paragraph", content: textToNodes(t) }) as ParagraphNode,
+      );
     case "quote":
-      return [{
-        type: "quote",
-        attrs: b.author ? { author: String(b.author) } : undefined,
-        content: textToNodes(String(b.text ?? "")),
-      }];
+      return splitParas(String(b.text ?? "")).map(
+        (t) => ({
+          type: "quote",
+          attrs: b.author ? { author: String(b.author) } : undefined,
+          content: textToNodes(t),
+        }) as QuoteNode,
+      );
     case "callout":
     case "highlight":
-      return [{
-        type: "callout",
-        attrs: { variant: calloutVariant(b.icon ?? (b.type === "highlight" ? "sparkle" : "info")) },
-        content: textToNodes(String(b.text ?? "")),
-      }];
+      return splitParas(String(b.text ?? "")).map(
+        (t) => ({
+          type: "callout",
+          attrs: { variant: calloutVariant(b.icon ?? (b.type === "highlight" ? "sparkle" : "info")) },
+          content: textToNodes(t),
+        }) as CalloutNode,
+      );
     case "image":
       return [{
         type: "image",
@@ -198,6 +219,17 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
           steps: Array.isArray(b.steps) ? b.steps : [],
         },
       }];
+    case "list": {
+      const ordered = b.ordered === true || b.style === "ordered";
+      const items: string[] = Array.isArray(b.items) ? b.items.map((x: any) => String(x ?? "")) : [];
+      return [{
+        type: ordered ? "orderedList" : "bulletList",
+        content: items.map((t) => ({
+          type: "listItem",
+          content: [{ type: "paragraph", content: textToNodes(t) }],
+        })),
+      }];
+    }
     default:
       return [];
   }
@@ -255,14 +287,23 @@ const renderTextNodes = (nodes?: TextNode[]): string =>
 /* New doc → legacy blocks (so the existing Reader keeps working)     */
 /* ------------------------------------------------------------------ */
 
+/** Encode inline marks (bold/italic/underline + textStyle color) as a
+ *  light markdown-ish string the Reader's renderInlineMarkdown understands.
+ *  Color is encoded as `[c=COLOR]text[/c]` and gets parsed back into a
+ *  <span style="color:..."> on the reader side. */
 const inlineToMarkdown = (nodes?: TextNode[]): string =>
   (nodes ?? []).map((n) => {
     let t = n.text;
+    let color: string | undefined;
     for (const m of n.marks ?? []) {
       if (m.type === "bold") t = `**${t}**`;
       else if (m.type === "italic") t = `*${t}*`;
       else if (m.type === "underline") t = `__${t}__`;
+      else if (m.type === "textStyle" && (m as any).attrs?.color) {
+        color = (m as any).attrs.color as string;
+      }
     }
+    if (color) t = `[c=${color}]${t}[/c]`;
     return t;
   }).join("");
 
@@ -281,10 +322,22 @@ const calloutIconFromVariant = (v: string): string => {
   }
 };
 
+/** Convert a single list-item node to its inline markdown text (joining
+ *  any nested paragraphs with newlines). */
+const listItemToText = (item: any): string => {
+  const inner: string[] = [];
+  for (const child of item?.content ?? []) {
+    if (child?.type === "paragraph" || child?.type === "heading") {
+      inner.push(inlineToMarkdown(child.content));
+    }
+  }
+  return inner.join("\n").trim();
+};
+
 /** Convert a Tiptap doc back to legacy block array for the Reader. */
 export const docToLegacyBlocks = (doc: TiptapDoc): any[] => {
   const out: any[] = [];
-  for (const n of doc?.content ?? []) {
+  for (const n of (doc?.content ?? []) as any[]) {
     switch (n.type) {
       case "paragraph": {
         const t = inlineToMarkdown(n.content);
@@ -315,7 +368,16 @@ export const docToLegacyBlocks = (doc: TiptapDoc): any[] => {
       case "scrollytelling":
         out.push({ type: "scrollytelling", title: n.attrs.title, steps: n.attrs.steps });
         break;
+      case "bulletList":
+      case "orderedList": {
+        const items = (n.content ?? [])
+          .map((it: any) => listItemToText(it))
+          .filter((t: string) => t.length > 0);
+        if (items.length) out.push({ type: "list", ordered: n.type === "orderedList", items });
+        break;
+      }
     }
   }
   return out;
 };
+

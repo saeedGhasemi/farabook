@@ -51,7 +51,8 @@ export type Block =
   | { type: "table"; caption?: string; tableNumber?: string; headers: string[]; rows: string[][] }
   | { type: "references"; items: { id?: string; text: string; url?: string }[] }
   | { type: "timeline"; title?: string; steps: TimelineStep[] }
-  | { type: "scrollytelling"; title?: string; steps: ScrollyStep[] };
+  | { type: "scrollytelling"; title?: string; steps: ScrollyStep[] }
+  | { type: "list"; ordered?: boolean; items: string[] };
 
 interface SavedHL { id?: string; text: string; color: string }
 
@@ -65,16 +66,25 @@ interface Props {
 }
 
 /* Render light inline markdown: **bold**, *italic*, __underline__,
-   [text](url), plus bare URLs (replaced with compact ref pill).      */
+   [text](url), [c=COLOR]text[/c] color spans, plus bare URLs.        */
 const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
-  // Order matters — bold (**) before italic (*) before underline.
-  // Capturing groups so split() keeps the matched delimiters.
+  // Order matters — color spans first (they may wrap other inline marks),
+  // then bold (**), italic (*), underline, links, urls.
   const re =
-    /(\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
+    /(\[c=[^\]\n]+\][^\[\n]+\[\/c\]|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
   const parts = text.split(re);
   return parts.map((p, i) => {
     const key = `${baseKey}-${i}`;
     if (!p) return null;
+    // Color span
+    const colorM = /^\[c=([^\]\n]+)\]([^\[\n]+)\[\/c\]$/.exec(p);
+    if (colorM) {
+      return (
+        <span key={key} style={{ color: colorM[1] }}>
+          {colorM[2]}
+        </span>
+      );
+    }
     // Bold
     if (p.startsWith("**") && p.endsWith("**") && p.length > 4) {
       return <strong key={key}>{p.slice(2, -2)}</strong>;
@@ -725,6 +735,28 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
           <Scrollytelling title={block.title} steps={block.steps} />
         </motion.div>
       );
+
+    case "list": {
+      const ListTag = block.ordered ? "ol" : "ul";
+      return (
+        <motion.div {...fade}>
+          <ListTag
+            className={`my-4 ps-6 space-y-1.5 text-foreground/90 leading-relaxed ${
+              block.ordered
+                ? "list-decimal marker:text-accent marker:font-bold"
+                : "list-disc marker:text-accent"
+            }`}
+            style={{ fontSize: `${fontSize}px`, lineHeight: 1.75 }}
+          >
+            {block.items.map((it, i) => (
+              <li key={i} className="ps-1">
+                {renderWithHighlights(it, savedHighlights, onHighlightClick)}
+              </li>
+            ))}
+          </ListTag>
+        </motion.div>
+      );
+    }
 
     default:
       return null;
