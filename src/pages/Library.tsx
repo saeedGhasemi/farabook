@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 import { bookCreditCost } from "@/lib/purchase";
+import { BookCardSkeleton } from "@/components/store/BookCardSkeleton";
 
 interface Row {
   id: string;
@@ -40,6 +41,7 @@ const Library = () => {
   const { user, loading } = useAuth();
   const nav = useNavigate();
   const [rows, setRows] = useState<Row[]>([]);
+  const [rowsLoading, setRowsLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<Row["books"] | null>(null);
 
   useEffect(() => {
