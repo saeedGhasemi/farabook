@@ -74,6 +74,10 @@ export const AdminTreasuryPanel = () => {
         publisher_signup_value: Number((f as any).publisher_signup_value),
         book_publish_mode: (f as any).book_publish_mode,
         book_publish_value: Number((f as any).book_publish_value),
+        ai_text_suggest_cost: Number((f as any).ai_text_suggest_cost ?? 2),
+        ai_image_gen_cost: Number((f as any).ai_image_gen_cost ?? 10),
+        ai_text_suggest_usd: Number((f as any).ai_text_suggest_usd ?? 0.002),
+        ai_image_gen_usd: Number((f as any).ai_image_gen_usd ?? 0.04),
       };
       setFees(fees);
       setDraft(fees);
