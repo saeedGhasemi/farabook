@@ -21,23 +21,69 @@ type Block =
 
 interface Page { title: string; blocks: Block[]; }
 
-// Escape characters that have meaning in our markdown-ish inline syntax
-// so they don't accidentally form links/colors/bold from the doc text itself.
-const escapeInline = (s: string) =>
-  s.replace(/([\[\]()*_])/g, "\\$1");
+const htmlText = (s: string) =>
+  s
+    .replace(/<\/?[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const dummyCitationTarget = (url: string): string | null => {
+  const d = /dummy-citation\.com\/citation\?d=([A-Za-z0-9_-]+)/.exec(url)?.[1];
+  if (!d) return null;
+  try {
+    const b64 = d.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(d.length / 4) * 4, "=");
+    const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))));
+    const work = (Array.isArray(payload) ? payload[0]?.work : payload?.work) ?? payload?.[0] ?? payload;
+    return work?.url || work?.resourceUrl || (work?.ids?.doi ? `https://doi.org/${work.ids.doi}` : null);
+  } catch {
+    return null;
+  }
+};
+
+const wrapBareUrls = (text: string): string =>
+  text
+    .split(/(\[[^\]\n]+\]\([^\)\s]+\))/g)
+    .map((part) => {
+      if (/^\[[^\]\n]+\]\([^\)\s]+\)$/.test(part)) return part;
+      return part.replace(/https?:\/\/[^\s<>"'\]\)]+/g, (url) => `[${url}](${url})`);
+    })
+    .join("");
+
+const normalizeImportedLinks = (text: string): string => {
+  const withoutDummy = text
+    .replace(/(\([0-9,\s\-–—]+\))\s*(https:\/\/dummy-citation\.com\/citation\?d=[A-Za-z0-9_-]+)/g, (_m, label, url) => {
+      const target = dummyCitationTarget(url);
+      return target ? `[${label}](${target})` : label;
+    })
+    .replace(/https:\/\/dummy-citation\.com\/citation\?d=[A-Za-z0-9_-]+/g, "");
+  return wrapBareUrls(withoutDummy).replace(/\s+/g, " ").trim();
+};
 
 // Convert <a href="URL">label</a> into the markdown form [label](URL) which
-// the reader's BlockRenderer recognizes. Run BEFORE stripping tags so the
-// href survives and bare URLs aren't shown in place of clickable links.
+// the reader/editor recognize. Citation add-ins sometimes store a long
+// dummy-citation URL; decode it to the real DOI/resource URL and keep the
+// visible citation label instead of exposing the technical address.
 const convertAnchors = (s: string): string => {
   return s.replace(
-    /<a\b[^>]*?href\s*=\s*"([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi,
-    (_m, href: string, inner: string) => {
-      const label = inner.replace(/<\/?[^>]+>/g, "").replace(/\s+/g, " ").trim();
-      const url = href.trim();
+    /<a\b[^>]*?href\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi,
+    (_m, _q: string, href: string, inner: string) => {
+      const label = htmlText(inner);
+      const url = href.trim().replace(/&amp;/g, "&");
       if (!url) return label;
-      // Skip empty or anchor-only links — just keep the text
       if (url.startsWith("#")) return label;
+      if (url.includes("dummy-citation.com/citation")) {
+        const target = dummyCitationTarget(url);
+        if (!label || label === url || label.includes("dummy-citation.com/citation")) {
+          return target ? ` ${url}` : "";
+        }
+        return target ? `[${label}](${target})` : label;
+      }
       const safeLabel = label || url;
       return `[${safeLabel}](${url})`;
     },
@@ -45,7 +91,7 @@ const convertAnchors = (s: string): string => {
 };
 
 const stripTags = (s: string) =>
-  convertAnchors(s).replace(/<\/?[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  normalizeImportedLinks(htmlText(convertAnchors(s)));
 
 // Find Persian/English figure or table label like "شکل ۹–۱" / "Figure 9.1" / "جدول ۲-۱"
 const FIG_RE = /^(شکل|تصویر|نگاره|figure|fig\.?)\s*[\d\u06F0-\u06F9۰-۹]+([.\-\u2013\u2014][\d\u06F0-\u06F9۰-۹]+)?/i;
