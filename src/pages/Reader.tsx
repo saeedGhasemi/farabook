@@ -240,8 +240,9 @@ const Reader = () => {
 
   const pageText = useMemo(() => {
     if (!currentPage) return "";
-    if (currentPage.blocks) {
-      return currentPage.blocks
+    const pageBlocks = pageToBlocks(currentPage);
+    if (pageBlocks.length) {
+      return pageBlocks
         .map((b) => {
           if (b.type === "paragraph" || b.type === "heading" || b.type === "highlight") return b.text;
           if (b.type === "quote") return `"${b.text}"${b.author ? ` — ${b.author}` : ""}`;
@@ -434,13 +435,11 @@ const Reader = () => {
     );
   }
 
-  const blocks: Block[] = currentPage.blocks ?? (currentPage.content
-    ? [{ type: "paragraph", text: currentPage.content }]
-    : []);
+  const blocks: Block[] = pageToBlocks(currentPage);
 
   const chapters = book.pages.map((p, i) => ({ index: i, title: p.title }));
   // Detect book content direction independently of UI language
-  const sampleText = (book.pages.slice(0, 3).map((p) => p.title + " " + (p.blocks?.map((b) => "text" in b ? b.text : "").join(" ") ?? p.content ?? "")).join(" ")).slice(0, 2000);
+  const sampleText = (book.pages.slice(0, 3).map((p) => p.title + " " + (pageToBlocks(p).map((b) => "text" in b ? b.text : "").join(" ") || p.content || "")).join(" ")).slice(0, 2000);
   const rtlChars = (sampleText.match(/[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length;
   const ltrChars = (sampleText.match(/[A-Za-z]/g) || []).length;
   const bookDir: "rtl" | "ltr" = rtlChars >= ltrChars ? "rtl" : "ltr";
