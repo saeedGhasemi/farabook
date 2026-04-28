@@ -60,8 +60,22 @@ type CacheEntry = {
   accepted: Array<[number, number]>;
   rejected: number[];
   error: string | null;
+  /** Lightweight fingerprint of the chapter text at the time suggestions
+   *  were generated. If the current doc no longer matches, the cache is
+   *  considered stale and discarded so the user doesn't see suggestions
+   *  pointing at text that has changed substantially. */
+  fingerprint?: string;
 };
 const suggestionCache: Map<string, CacheEntry> = new Map();
+
+/** Cheap, stable fingerprint: length + djb2-style hash of the plain text.
+ *  Sensitive to any character change, but ignores prosemirror node ids. */
+const computeDocFingerprint = (editor: Editor): string => {
+  const text = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n", " ");
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return `${text.length}:${(h >>> 0).toString(36)}`;
+};
 
 const opMeta: Record<SuggestionOp, { Icon: any; label_fa: string; label_en: string }> = {
   make_callout:        { Icon: Lightbulb,           label_fa: "بلوک نکته", label_en: "Callout block" },
