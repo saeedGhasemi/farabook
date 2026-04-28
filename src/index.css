@@ -548,6 +548,54 @@
   [dir="rtl"] .typo-elegant h1,
   [dir="rtl"] .typo-elegant h2,
   [dir="rtl"] .typo-elegant h3 { font-family: 'Vazirmatn', serif; }
+
+  /* Technical — clean sans, tighter line-height, monospaced code feel */
+  .typo-technical { font-family: 'Inter', 'Vazirmatn', sans-serif; font-size: 0.96em; line-height: 1.7; letter-spacing: 0.002em; }
+  .typo-technical h1, .typo-technical h2, .typo-technical h3 {
+    font-family: 'Inter', 'Vazirmatn', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .typo-technical h2 { color: hsl(var(--primary)); }
+  .typo-technical code, .typo-technical pre {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    background: hsl(var(--muted) / 0.5);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+  [dir="rtl"] .typo-technical,
+  [dir="rtl"] .typo-technical h1,
+  [dir="rtl"] .typo-technical h2,
+  [dir="rtl"] .typo-technical h3 { font-family: 'Vazirmatn', sans-serif; }
+
+  /* Magazine — large editorial display + airy body */
+  .typo-magazine { font-family: 'Fraunces', 'Vazirmatn', serif; font-size: 1.02em; line-height: 1.85; }
+  .typo-magazine h1 {
+    font-family: 'Fraunces', 'Vazirmatn', serif;
+    font-weight: 900;
+    font-size: 2.4em;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-top: 0.2em;
+  }
+  .typo-magazine h2 {
+    font-family: 'Fraunces', 'Vazirmatn', serif;
+    font-weight: 800;
+    font-size: 1.6em;
+    letter-spacing: -0.015em;
+  }
+  .typo-magazine h3 { font-family: 'Inter', 'Vazirmatn', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.9em; color: hsl(var(--muted-foreground)); }
+  .typo-magazine p:first-of-type::first-letter {
+    font-size: 3em;
+    float: inline-start;
+    line-height: 0.9;
+    padding-inline-end: 0.1em;
+    font-weight: 800;
+    color: hsl(var(--accent));
+  }
+  [dir="rtl"] .typo-magazine,
+  [dir="rtl"] .typo-magazine h1,
+  [dir="rtl"] .typo-magazine h2 { font-family: 'Vazirmatn', serif; }
 }
 
 @layer utilities {
