@@ -551,6 +551,13 @@ export const TextBookEditor = ({ initial }: Props) => {
             <TbBtn title={fa ? "تصویر" : "Image"} onClick={() => fileRef.current?.click()}>
               <ImageIcon className="w-4 h-4" />
             </TbBtn>
+            <TbBtn
+              title={fa ? "تبدیل به فصل جدید (شکست در محل نشانگر)" : "Split into new chapter here"}
+              accent
+              onClick={splitChapterAtSelection}
+            >
+              <Scissors className="w-4 h-4" />
+            </TbBtn>
             <TbSep />
 
             {/* Interactive insert */}
