@@ -52,6 +52,7 @@ export const AdminTreasuryPanel = () => {
   const [draft, setDraft] = useState<Fees | null>(null);
   const [saving, setSaving] = useState(false);
   const [tx, setTx] = useState<any[]>([]);
+  const [aiUsage, setAiUsage] = useState<any[]>([]);
   const [loadingTx, setLoadingTx] = useState(true);
   const [filterDir, setFilterDir] = useState<"all" | "in" | "out">("all");
   const [filterReason, setFilterReason] = useState<string>("all");
@@ -60,9 +61,10 @@ export const AdminTreasuryPanel = () => {
   const [filterTo, setFilterTo] = useState<string>("");
 
   const load = async () => {
-    const [{ data: f }, { data: txs }] = await Promise.all([
+    const [{ data: f }, { data: txs }, { data: ai }] = await Promise.all([
       supabase.from("platform_fee_settings").select("*").eq("id", 1).maybeSingle(),
       (supabase.rpc as any)("admin_recent_transactions", { _limit: 200 }),
+      (supabase.rpc as any)("admin_recent_ai_usage", { _limit: 500 }),
     ]);
     if (f) {
       const fees: Fees = {
