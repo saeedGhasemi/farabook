@@ -10,6 +10,7 @@ import {
   Trash2, Image as ImageIcon, Film, GalleryHorizontal, ListOrdered,
   Lightbulb, AlertTriangle, Info, CheckCircle2, ShieldAlert, Pencil,
   HelpCircle, Quote as QuoteIcon, Plus, X, Upload, Layers,
+  BookMarked, Sparkles,
 } from "lucide-react";
 import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,6 +46,8 @@ const calloutMeta: Record<string, { Icon: any; cls: string; label: string }> = {
   danger:  { Icon: ShieldAlert,    cls: "border-destructive/50 bg-destructive/10",label: "خطر" },
   question:{ Icon: HelpCircle,     cls: "border-sky-500/40 bg-sky-500/5",        label: "سؤال" },
   quote:   { Icon: QuoteIcon,      cls: "border-accent/40 bg-accent/5",          label: "نقل‌قول" },
+  definition: { Icon: BookMarked,  cls: "border-violet-500/40 bg-violet-500/5",  label: "تعریف" },
+  example:    { Icon: Sparkles,    cls: "border-teal-500/40 bg-teal-500/5",      label: "مثال" },
 };
 
 const CalloutView = (props: NodeViewProps) => {
