@@ -210,7 +210,7 @@ const renderMedia = (s: ScrollyStep) => {
   if (s.image) {
     return (
       <img
-        src={resolveBookMedia(s.image)}
+        src={resolveBookCover(s.image, { width: 900, quality: 75 })}
         alt={s.title}
         loading="lazy"
         className="w-full h-full object-cover"
