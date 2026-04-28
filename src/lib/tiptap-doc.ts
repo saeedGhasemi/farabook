@@ -23,7 +23,8 @@ import type { ScrollyStep } from "@/components/reader/Scrollytelling";
 export type Mark =
   | { type: "bold" }
   | { type: "italic" }
-  | { type: "underline" };
+  | { type: "underline" }
+  | { type: "textStyle"; attrs?: { color?: string } };
 
 export interface TextNode {
   type: "text";
