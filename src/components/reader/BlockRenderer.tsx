@@ -532,8 +532,8 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
   switch (block.type) {
     case "heading":
       return (
-        <motion.h3 {...fade} className="text-xl md:text-2xl font-display font-bold gold-text mt-6 mb-3 leading-tight">
-          {block.text}
+        <motion.h3 {...fade} dir={block.dir} className="text-xl md:text-2xl font-display font-bold gold-text mt-6 mb-3 leading-tight" style={textBlockStyle(block)}>
+          {renderWithHighlights(block.text, savedHighlights, onHighlightClick)}
         </motion.h3>
       );
 
@@ -542,8 +542,9 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
       return (
         <motion.p
           {...fade}
+          dir={block.dir}
           className={`text-foreground/90 leading-loose whitespace-pre-line text-pretty ${isFirst ? "drop-cap" : ""}`}
-          style={{ fontSize: `${fontSize}px`, lineHeight: 1.85 }}
+          style={textBlockStyle(block, { fontSize: `${fontSize}px`, lineHeight: 1.85 })}
         >
           {renderWithHighlights(block.text, savedHighlights, onHighlightClick)}
         </motion.p>
@@ -556,10 +557,11 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
           <div className="absolute top-0 start-0 w-1 h-full bg-gradient-warm rounded-full" />
           <QuoteIcon className="w-6 h-6 text-accent mb-2 opacity-60" />
           <blockquote
+            dir={block.dir}
             className="pull-quote text-foreground/95 leading-relaxed text-balance"
-            style={{ fontSize: `${fontSize + 2}px` }}
+            style={textBlockStyle(block, { fontSize: `${fontSize + 2}px` })}
           >
-            "{block.text}"
+            "{renderWithHighlights(block.text, savedHighlights, onHighlightClick)}"
           </blockquote>
           {block.author && (
             <figcaption className="mt-2 text-sm text-muted-foreground">— {block.author}</figcaption>
@@ -724,7 +726,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
           className={`my-6 flex gap-3 p-4 rounded-xl glass border ${v.cls}`}
         >
           <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${v.iconCls}`} />
-          <p className="text-sm text-foreground/85 leading-relaxed">{renderInlineMarkdown(block.text, `cb-${index}`)}</p>
+          <p dir={block.dir} className="text-sm text-foreground/85 leading-relaxed" style={textBlockStyle(block)}>{renderInlineMarkdown(block.text, `cb-${index}`)}</p>
         </motion.aside>
       );
     }
