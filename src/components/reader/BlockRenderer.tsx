@@ -539,11 +539,13 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
 
     case "paragraph": {
       const isFirst = index === 0;
+      // Drop cap is an English typographic convention — skip for RTL/Persian
+      const isRtl = block.dir === "rtl";
       return (
         <motion.p
           {...fade}
           dir={block.dir}
-          className={`text-foreground/90 leading-loose whitespace-pre-line text-pretty ${isFirst ? "drop-cap" : ""}`}
+          className={`text-foreground/90 leading-loose whitespace-pre-line text-pretty ${isFirst && !isRtl ? "drop-cap" : ""}`}
           style={textBlockStyle(block, { fontSize: `${fontSize}px`, lineHeight: 1.85 })}
         >
           {renderWithHighlights(block.text, savedHighlights, onHighlightClick)}
