@@ -47,7 +47,21 @@ interface Props {
   lang: "fa" | "en";
   onClose: () => void;
   bookId?: string;
+  /** Stable key per chapter; suggestions are cached per key so switching
+   *  chapters and coming back restores the previous list without spending
+   *  credits again. */
+  chapterKey?: string;
 }
+
+// Module-level cache so suggestions survive panel unmount/remount when
+// the user collapses the AI side-panel or switches chapters.
+type CacheEntry = {
+  suggestions: Suggestion[];
+  accepted: Array<[number, number]>;
+  rejected: number[];
+  error: string | null;
+};
+const suggestionCache: Map<string, CacheEntry> = new Map();
 
 const opMeta: Record<SuggestionOp, { Icon: any; label_fa: string; label_en: string }> = {
   make_callout:        { Icon: Lightbulb,           label_fa: "بلوک نکته", label_en: "Callout block" },
