@@ -515,6 +515,11 @@ const Slideshow = ({
 
 /* ---------- Main renderer ---------- */
 
+const textBlockStyle = (block: { textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }, extra?: React.CSSProperties): React.CSSProperties => ({
+  ...extra,
+  ...(block.textAlign ? { textAlign: block.textAlign } : {}),
+});
+
 export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHighlights, onHighlightClick }: Props) => {
   const delay = Math.min(index * 0.05, 0.3);
   const blockId = `book-block-${pageIndex}-${index}`;
