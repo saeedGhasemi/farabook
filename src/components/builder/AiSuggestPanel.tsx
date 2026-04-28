@@ -270,6 +270,12 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
   );
   const [busyIdx, setBusyIdx] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(cached?.error ?? null);
+  // Fingerprint of the doc when the current suggestion list was generated.
+  // Used to detect when the chapter content has drifted enough that the
+  // cached suggestions are no longer valid.
+  const [genFingerprint, setGenFingerprint] = useState<string | null>(
+    cached?.fingerprint ?? null,
+  );
 
   // Confirmation dialog for image generation cost
   const [confirmState, setConfirmState] = useState<
