@@ -36,8 +36,8 @@ Deno.serve(async (req) => {
   • make_heading: تبدیل به تیتر بخش (level=2 یا 3).
   • emphasize: bold/italic/underline کردن یک عبارت کوتاه (۲ تا ۸ کلمه).
   • split_paragraph: شکستن یک پاراگراف طولانی به دو پاراگراف.
-  • insert_timeline: اگر متن شامل مراحل، توالی زمانی یا فرآیند است، یک تایم‌لاین پیشنهاد بده. در این حالت target_text آخرین جمله‌ای است که تایم‌لاین بعدش درج شود، و فیلد steps با ۳ تا ۶ گام (هر گام: marker, title, description) را پر کن.
-  • insert_scrollytelling: اگر متن شامل توضیح مرحله‌به‌مرحله یک مفهوم/پدیده است، یک اسکرولی‌تلینگ پیشنهاد بده با ۳ تا ۵ گام (هر گام: title, description). target_text = جمله‌ای که قبل از آن درج شود.
+  • insert_timeline: اگر متن شامل مراحل، توالی زمانی یا فرآیند است، یک تایم‌لاین پیشنهاد بده. target_text آخرین جمله‌ای است که تایم‌لاین بعدش درج شود. فیلد title (الزامی) را با یک عنوان جذاب و کوتاه پر کن. steps را با ۳ تا ۶ گام (هر گام: marker، title، description، و image_prompt که توصیف بصری مختصر انگلیسی برای تولید تصویر آن گام است) پر کن.
+  • insert_scrollytelling: اگر متن شامل توضیح مرحله‌به‌مرحله یک مفهوم/پدیده است، یک اسکرولی‌تلینگ پیشنهاد بده. title (الزامی) را با عنوانی جذاب پر کن. steps با ۳ تا ۵ گام (هر گام: title، description، image_prompt انگلیسی برای تولید تصویر).
 از تکرار اجتناب کن. روی نکات کلیدی، تعاریف، مثال‌ها، فرآیندها، و موارد قابل تبدیل به تعامل تمرکز کن.`
       : `You are an editor turning dry book text into an engaging, interactive, educational page.
 Return up to 8 precise suggestions. Each must:
@@ -48,8 +48,8 @@ Return up to 8 precise suggestions. Each must:
   • make_heading (level 2 or 3)
   • emphasize (mark: bold|italic|underline) — short phrase 2-8 words
   • split_paragraph
-  • insert_timeline — if the text describes stages/process/chronology. Provide steps[3-6] each with marker, title, description. target_text = sentence after which to insert.
-  • insert_scrollytelling — if the text walks through a concept step-by-step. Provide steps[3-5] each with title, description. target_text = sentence after which to insert.
+  • insert_timeline — if the text describes stages/process/chronology. Always set a short engaging title. Provide steps[3-6] each with marker, title, description, and image_prompt (a short ENGLISH visual description for AI image generation). target_text = sentence after which to insert.
+  • insert_scrollytelling — if the text walks through a concept step-by-step. Always set a title. Provide steps[3-5] each with title, description, image_prompt (ENGLISH). target_text = sentence after which to insert.
 Avoid repetition. Focus on key points, definitions, examples, processes, and interactive opportunities.`;
 
     const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -91,6 +91,7 @@ Avoid repetition. Focus on key points, definitions, examples, processes, and int
                             marker: { type: "string" },
                             title: { type: "string" },
                             description: { type: "string" },
+                            image_prompt: { type: "string", description: "ENGLISH short visual description (clean illustration, soft colors) for AI image generation of this step" },
                           },
                         },
                       },

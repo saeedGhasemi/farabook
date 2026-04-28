@@ -16,7 +16,7 @@ type SuggestionOp =
   | "emphasize" | "split_paragraph"
   | "insert_timeline" | "insert_scrollytelling";
 
-interface Step { marker?: string; title?: string; description?: string }
+interface Step { marker?: string; title?: string; description?: string; image_prompt?: string; image?: string }
 
 interface Suggestion {
   op: SuggestionOp;
@@ -80,6 +80,7 @@ const applySuggestion = (editor: Editor, s: Suggestion): boolean => {
       marker: st.marker || "",
       title: st.title || "",
       description: st.description || "",
+      image: st.image || "",
     }));
     if (!steps.length) return false;
     const nodeType = s.op === "insert_timeline" ? "timeline" : "scrollytelling";
@@ -123,13 +124,47 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
   const fa = lang === "fa";
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [done, setDone] = useState<Set<number>>(new Set());
+  // accepted: idx -> history size mark at accept time. If user undoes
+  // past that mark, we drop the entry so the suggestion becomes pending
+  // again (shown with Accept/Reject buttons).
+  const [accepted, setAccepted] = useState<Map<number, number>>(new Map());
+  const [rejected, setRejected] = useState<Set<number>>(new Set());
+  const [busyIdx, setBusyIdx] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const done = new Set<number>([...accepted.keys(), ...rejected]);
+
+  const getHistorySize = () => {
+    const h: any = (editor.state as any).history$?.done;
+    return h?.eventCount ?? h?.items?.length ?? 0;
+  };
+
+  // React to undo/redo: if the editor's history shrinks past a saved
+  // accept-marker, treat that suggestion as "not applied" again.
+  useEffect(() => {
+    if (!editor) return;
+    const handler = () => {
+      const histSize = getHistorySize();
+      setAccepted((prev) => {
+        if (!prev.size) return prev;
+        let changed = false;
+        const next = new Map(prev);
+        for (const [idx, mark] of prev) {
+          if (histSize < mark) { next.delete(idx); changed = true; }
+        }
+        return changed ? next : prev;
+      });
+    };
+    editor.on("transaction", handler);
+    return () => { editor.off("transaction", handler); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
 
   const fetchSuggestions = async () => {
     setLoading(true);
     setSuggestions([]);
-    setDone(new Set());
+    setAccepted(new Map());
+    setRejected(new Set());
     setError(null);
     try {
       const text = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n", " ");
@@ -157,24 +192,63 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const accept = (idx: number) => {
-    const ok = applySuggestion(editor, suggestions[idx]);
-    if (!ok) {
-      toast.error(fa ? "اعمال این پیشنهاد ممکن نشد" : "Could not apply suggestion");
-      return;
+  /** For interactive inserts, generate one AI image per step that has an
+   *  image_prompt before inserting the block. Mutates a copy. */
+  const enrichWithImages = async (s: Suggestion): Promise<Suggestion> => {
+    if (s.op !== "insert_timeline" && s.op !== "insert_scrollytelling") return s;
+    if (!s.steps?.length) return s;
+    const enriched = await Promise.all(
+      s.steps.map(async (st) => {
+        if (st.image || !st.image_prompt) return st;
+        try {
+          const { data, error } = await supabase.functions.invoke("book-image-gen", {
+            body: { prompt: `${st.image_prompt}. Style: clean modern editorial illustration, soft palette, no text.`, lang },
+          });
+          if (error) throw error;
+          if (data?.url) return { ...st, image: data.url as string };
+        } catch (e) {
+          console.warn("image gen failed:", e);
+        }
+        return st;
+      }),
+    );
+    return { ...s, steps: enriched };
+  };
+
+  const accept = async (idx: number) => {
+    if (busyIdx !== null) return;
+    setBusyIdx(idx);
+    try {
+      const s = await enrichWithImages(suggestions[idx]);
+      setSuggestions((prev) => prev.map((x, i) => (i === idx ? s : x)));
+      const ok = applySuggestion(editor, s);
+      if (!ok) {
+        toast.error(fa ? "اعمال این پیشنهاد ممکن نشد" : "Could not apply suggestion");
+        return;
+      }
+      const mark = getHistorySize();
+      setAccepted((prev) => { const next = new Map(prev); next.set(idx, mark); return next; });
+    } finally {
+      setBusyIdx(null);
     }
-    setDone((prev) => { const s = new Set(prev); s.add(idx); return s; });
   };
   const reject = (idx: number) => {
-    setDone((prev) => { const s = new Set(prev); s.add(idx); return s; });
+    setRejected((prev) => { const s = new Set(prev); s.add(idx); return s; });
   };
-  const applyAll = () => {
+  const applyAll = async () => {
     let applied = 0;
-    suggestions.forEach((s, i) => {
-      if (done.has(i)) return;
-      if (applySuggestion(editor, s)) applied++;
-    });
-    setDone(new Set(suggestions.map((_, i) => i)));
+    for (let i = 0; i < suggestions.length; i++) {
+      if (done.has(i)) continue;
+      setBusyIdx(i);
+      const s = await enrichWithImages(suggestions[i]);
+      setSuggestions((prev) => prev.map((x, k) => (k === i ? s : x)));
+      if (applySuggestion(editor, s)) {
+        const mark = getHistorySize();
+        setAccepted((prev) => { const next = new Map(prev); next.set(i, mark); return next; });
+        applied++;
+      }
+    }
+    setBusyIdx(null);
     toast.success(fa ? `${applied} پیشنهاد اعمال شد` : `${applied} suggestions applied`);
   };
 
@@ -221,9 +295,9 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
               size="sm"
               onClick={applyAll}
               className="bg-stage-published text-stage-published-foreground hover:bg-stage-published/90"
-              disabled={done.size === suggestions.length}
+              disabled={done.size === suggestions.length || busyIdx !== null}
             >
-              <Check className="w-3.5 h-3.5 me-1" />
+              {busyIdx !== null ? <Loader2 className="w-3.5 h-3.5 me-1 animate-spin" /> : <Check className="w-3.5 h-3.5 me-1" />}
               {fa ? "اعمال همه" : "Apply all"}
             </Button>
             <span className="text-xs text-muted-foreground ms-auto">
@@ -256,7 +330,15 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
                             {fa ? `${s.steps.length} گام` : `${s.steps.length} steps`}
                           </span>
                         ) : null}
+                        {isInsert && s.steps?.some((st) => st.image_prompt || st.image) ? (
+                          <span className="text-[10px] text-primary">
+                            {fa ? "+ تصاویر AI" : "+ AI images"}
+                          </span>
+                        ) : null}
                       </div>
+                      {isInsert && s.title && (
+                        <p className="text-sm font-semibold text-foreground mb-1" dir="auto">{s.title}</p>
+                      )}
                       {s.target_text && (
                         <p className="text-sm text-foreground/90 line-clamp-2 leading-relaxed mb-1" dir="auto">
                           “{s.target_text}”
@@ -273,6 +355,12 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
                         </ul>
                       )}
                       <p className="text-[11px] text-muted-foreground mt-1">{s.reason}</p>
+                      {busyIdx === i && (
+                        <p className="text-[11px] text-accent mt-1 flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          {fa ? "در حال تولید تصاویر و اعمال…" : "Generating images & applying…"}
+                        </p>
+                      )}
                     </div>
                     {!isDone && (
                       <div className="flex flex-col gap-1 shrink-0">
@@ -280,15 +368,17 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
                           size="sm"
                           className="h-7 px-2 bg-stage-published text-stage-published-foreground hover:bg-stage-published/90"
                           onClick={() => accept(i)}
+                          disabled={busyIdx !== null}
                           title={fa ? "تأیید و اعمال" : "Accept"}
                         >
-                          <Check className="w-3.5 h-3.5" />
+                          {busyIdx === i ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-7 px-2"
                           onClick={() => reject(i)}
+                          disabled={busyIdx !== null}
                           title={fa ? "رد" : "Reject"}
                         >
                           <X className="w-3.5 h-3.5" />

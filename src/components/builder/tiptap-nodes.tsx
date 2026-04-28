@@ -385,15 +385,22 @@ export const GalleryBlock = Node.create({
 interface StepLike { title?: string; date?: string; description?: string; image?: string }
 
 const TimelineView = (props: NodeViewProps) => {
+  const { user } = useAuth();
   const title: string = props.node.attrs.title || "";
   const steps: StepLike[] = Array.isArray(props.node.attrs.steps) ? props.node.attrs.steps : [];
+  const fileRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   const update = (i: number, patch: Partial<StepLike>) => {
     const next = steps.map((s, idx) => (idx === i ? { ...s, ...patch } : s));
     props.updateAttributes({ steps: next });
   };
-  const add = () => props.updateAttributes({ steps: [...steps, { title: "", date: "", description: "" }] });
+  const add = () => props.updateAttributes({ steps: [...steps, { title: "", date: "", description: "", image: "" }] });
   const remove = (i: number) => props.updateAttributes({ steps: steps.filter((_, idx) => idx !== i) });
+  const onFile = async (i: number, f: File) => {
+    if (!user) return;
+    const url = await uploadToBookMedia(user.id, f);
+    if (url) update(i, { image: url });
+  };
 
   return (
     <BlockShell Icon={ListOrdered} label="تایم‌لاین" onDelete={() => props.deleteNode()}>
@@ -412,14 +419,39 @@ const TimelineView = (props: NodeViewProps) => {
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
-            <div className="grid sm:grid-cols-2 gap-2">
-              <Input defaultValue={s.title || ""} placeholder="عنوان"
-                onBlur={(e) => update(i, { title: e.target.value })} />
-              <Input defaultValue={s.date || ""} placeholder="تاریخ / دوره"
-                onBlur={(e) => update(i, { date: e.target.value })} />
+            <div className="grid sm:grid-cols-[80px_1fr] gap-2">
+              <button
+                type="button"
+                onClick={() => fileRefs.current[i]?.click()}
+                className="aspect-square rounded-md border bg-secondary overflow-hidden relative"
+                title="تصویر گام"
+              >
+                {s.image ? (
+                  <img src={resolveBookMedia(s.image)} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                    <Upload className="w-4 h-4" />
+                  </div>
+                )}
+                <input
+                  ref={(el) => (fileRefs.current[i] = el)}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => { const f = e.target.files?.[0]; if (f) await onFile(i, f); e.target.value = ""; }}
+                />
+              </button>
+              <div className="space-y-2">
+                <div className="grid sm:grid-cols-2 gap-2">
+                  <Input defaultValue={s.title || ""} placeholder="عنوان"
+                    onBlur={(e) => update(i, { title: e.target.value })} />
+                  <Input defaultValue={s.date || ""} placeholder="تاریخ / دوره"
+                    onBlur={(e) => update(i, { date: e.target.value })} />
+                </div>
+                <Textarea defaultValue={s.description || ""} placeholder="توضیح"
+                  onBlur={(e) => update(i, { description: e.target.value })} rows={2} />
+              </div>
             </div>
-            <Textarea defaultValue={s.description || ""} placeholder="توضیح"
-              onBlur={(e) => update(i, { description: e.target.value })} rows={2} />
           </div>
         ))}
       </div>
