@@ -48,8 +48,8 @@ Return up to 8 precise suggestions. Each must:
   • make_heading (level 2 or 3)
   • emphasize (mark: bold|italic|underline) — short phrase 2-8 words
   • split_paragraph
-  • insert_timeline — if the text describes stages/process/chronology. Provide steps[3-6] each with marker, title, description. target_text = sentence after which to insert.
-  • insert_scrollytelling — if the text walks through a concept step-by-step. Provide steps[3-5] each with title, description. target_text = sentence after which to insert.
+  • insert_timeline — if the text describes stages/process/chronology. Always set a short engaging title. Provide steps[3-6] each with marker, title, description, and image_prompt (a short ENGLISH visual description for AI image generation). target_text = sentence after which to insert.
+  • insert_scrollytelling — if the text walks through a concept step-by-step. Always set a title. Provide steps[3-5] each with title, description, image_prompt (ENGLISH). target_text = sentence after which to insert.
 Avoid repetition. Focus on key points, definitions, examples, processes, and interactive opportunities.`;
 
     const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
