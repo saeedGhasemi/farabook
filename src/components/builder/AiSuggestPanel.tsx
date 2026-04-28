@@ -316,12 +316,26 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
     }
   };
 
-  // Auto-fetch on mount — single click flow. Refresh credit balance
-  // first so the confirmation dialog shows the right number.
+  // Auto-fetch on mount only when there are no cached suggestions for
+  // this chapter. Otherwise restore is enough — the user can hit the
+  // Refresh button to spend credits and regenerate.
   useEffect(() => {
+    if (suggestions.length > 0 || cached) return;
     void (async () => { await refreshCredits(); await fetchSuggestions(); })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Persist current state into the per-chapter cache so it can be
+  // restored when the panel is reopened (e.g. after switching chapters).
+  useEffect(() => {
+    if (!chapterKey) return;
+    suggestionCache.set(chapterKey, {
+      suggestions,
+      accepted: Array.from(accepted.entries()),
+      rejected: Array.from(rejected),
+      error,
+    });
+  }, [chapterKey, suggestions, accepted, rejected, error]);
 
   const enrichWithImages = async (s: Suggestion): Promise<Suggestion> => {
     if (s.op !== "insert_timeline" && s.op !== "insert_scrollytelling") return s;
