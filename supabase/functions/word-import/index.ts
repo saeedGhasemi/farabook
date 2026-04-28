@@ -51,7 +51,7 @@ const wrapBareUrls = (text: string): string =>
     .split(/(\[[^\]\n]+\]\([^\)\s]+\))/g)
     .map((part) => {
       if (/^\[[^\]\n]+\]\([^\)\s]+\)$/.test(part)) return part;
-      return part.replace(/https?:\/\/[^\s<>"'\]\)]+/g, (url) => `[${url}](${url})`);
+      return part.replace(/https?:\/\/[^\s<>"'\]\)]+/g, (url) => `[Link](${url})`);
     })
     .join("");
 
