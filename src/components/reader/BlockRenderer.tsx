@@ -51,7 +51,8 @@ export type Block =
   | { type: "table"; caption?: string; tableNumber?: string; headers: string[]; rows: string[][] }
   | { type: "references"; items: { id?: string; text: string; url?: string }[] }
   | { type: "timeline"; title?: string; steps: TimelineStep[] }
-  | { type: "scrollytelling"; title?: string; steps: ScrollyStep[] };
+  | { type: "scrollytelling"; title?: string; steps: ScrollyStep[] }
+  | { type: "list"; ordered?: boolean; items: string[] };
 
 interface SavedHL { id?: string; text: string; color: string }
 
