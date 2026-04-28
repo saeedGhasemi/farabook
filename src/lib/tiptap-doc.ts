@@ -144,6 +144,16 @@ const calloutVariant = (icon?: string): CalloutNode["attrs"]["variant"] => {
   }
 };
 
+/** Split legacy multi-paragraph text on blank lines so each paragraph
+ *  becomes its own node. Without this, an entire multi-line "paragraph"
+ *  block from old data ends up as a single ProseMirror paragraph and
+ *  double-clicking selects every visual line at once. */
+const splitParas = (raw: string): string[] => {
+  const s = String(raw ?? "").replace(/\r\n/g, "\n");
+  const parts = s.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  return parts.length ? parts : [s];
+};
+
 /** Convert one legacy block (DB shape: { type, ... }) to one or more doc nodes. */
 const legacyBlockToNodes = (b: any): DocNode[] => {
   if (!b || typeof b !== "object" || !b.type) return [];
@@ -151,20 +161,26 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
     case "heading":
       return [{ type: "heading", attrs: { level: 2 }, content: textToNodes(String(b.text ?? "")) }];
     case "paragraph":
-      return [{ type: "paragraph", content: textToNodes(String(b.text ?? "")) }];
+      return splitParas(String(b.text ?? "")).map(
+        (t) => ({ type: "paragraph", content: textToNodes(t) }) as ParagraphNode,
+      );
     case "quote":
-      return [{
-        type: "quote",
-        attrs: b.author ? { author: String(b.author) } : undefined,
-        content: textToNodes(String(b.text ?? "")),
-      }];
+      return splitParas(String(b.text ?? "")).map(
+        (t) => ({
+          type: "quote",
+          attrs: b.author ? { author: String(b.author) } : undefined,
+          content: textToNodes(t),
+        }) as QuoteNode,
+      );
     case "callout":
     case "highlight":
-      return [{
-        type: "callout",
-        attrs: { variant: calloutVariant(b.icon ?? (b.type === "highlight" ? "sparkle" : "info")) },
-        content: textToNodes(String(b.text ?? "")),
-      }];
+      return splitParas(String(b.text ?? "")).map(
+        (t) => ({
+          type: "callout",
+          attrs: { variant: calloutVariant(b.icon ?? (b.type === "highlight" ? "sparkle" : "info")) },
+          content: textToNodes(t),
+        }) as CalloutNode,
+      );
     case "image":
       return [{
         type: "image",
