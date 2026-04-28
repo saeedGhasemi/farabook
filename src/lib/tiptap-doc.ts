@@ -277,9 +277,6 @@ export const textPagesToDbPages = (pages: TextPage[]): any[] =>
 /* HTML rendering for the Reader (no React, used inside dangerouslySet)*/
 /* ------------------------------------------------------------------ */
 
-const escapeHtml = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
 const textBlockAttrsToLegacy = (attrs?: TextBlockAttrs | null): Record<string, string> => {
   const out: Record<string, string> = {};
   if (attrs?.textAlign) out.textAlign = attrs.textAlign;
