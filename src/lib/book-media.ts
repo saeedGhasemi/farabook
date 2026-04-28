@@ -55,3 +55,33 @@ const mediaMap: Record<string, string> = {
 };
 
 export const resolveBookMedia = (src: string | null | undefined) => (src ? mediaMap[src] || src : "");
+
+/**
+ * For images stored in Supabase Storage, request an on-the-fly resized
+ * variant via the render endpoint. This avoids downloading 1600px covers
+ * for tiny card thumbnails. The transformed URL is stable (same query →
+ * same response), so the browser cache works across navigations.
+ *
+ * For local bundled assets (mediaMap entries) or external URLs, returns
+ * the resolved URL unchanged.
+ */
+export const resolveBookCover = (
+  src: string | null | undefined,
+  opts: { width?: number; height?: number; quality?: number; resize?: "cover" | "contain" | "fill" } = {},
+): string => {
+  const resolved = resolveBookMedia(src);
+  if (!resolved) return "";
+  // Only Supabase storage URLs can be transformed
+  const m = resolved.match(/^(https?:\/\/[^/]+)\/storage\/v1\/object\/public\/(.+)$/);
+  if (!m) return resolved;
+  const [, host, rest] = m;
+  const params = new URLSearchParams();
+  if (opts.width) params.set("width", String(opts.width));
+  if (opts.height) params.set("height", String(opts.height));
+  params.set("quality", String(opts.quality ?? 70));
+  params.set("resize", opts.resize ?? "cover");
+  // Strip any existing query
+  const path = rest.split("?")[0];
+  return `${host}/storage/v1/render/image/public/${path}?${params.toString()}`;
+};
+
