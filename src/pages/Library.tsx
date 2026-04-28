@@ -130,7 +130,7 @@ const Library = () => {
                         alt={title}
                         loading="lazy" decoding="async" width={256} height={342}
                         sizes="128px"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700" />
                     )}
                     {isDraft && (
                       <Badge className="absolute top-1 start-1 bg-accent text-accent-foreground border-0 text-[10px] px-1.5 py-0">
