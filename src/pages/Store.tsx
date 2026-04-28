@@ -268,9 +268,6 @@ const Store = () => {
           {lang === "fa" ? "کتابی یافت نشد." : "No books found."}
         </div>
       )}
-      <div className="hidden">
-        {/* spacer to keep diff minimal */}
-      </div>
 
       <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
         <AlertDialogContent>
