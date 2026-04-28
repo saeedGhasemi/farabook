@@ -259,7 +259,7 @@ const Store = () => {
           );
         })}
       </div>
-      {!booksLoading && filtered.length === 0 && (
+      {filtered.length === 0 && (
         <div className="text-center text-muted-foreground py-16">
           {lang === "fa" ? "کتابی یافت نشد." : "No books found."}
         </div>
