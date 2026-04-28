@@ -2,7 +2,7 @@
 // All four fees support either a fixed credit amount OR a percentage.
 import { useEffect, useMemo, useState } from "react";
 import {
-  Banknote, Loader2, Save, ArrowDownCircle, ArrowUpCircle, Coins, Search, Filter,
+  Banknote, Loader2, Save, ArrowDownCircle, ArrowUpCircle, Coins, Search, Sparkles, DollarSign,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,10 @@ interface Fees {
   editor_order_mode: Mode;      editor_order_value: number;
   publisher_signup_mode: Mode;  publisher_signup_value: number;
   book_publish_mode: Mode;      book_publish_value: number;
+  ai_text_suggest_cost: number;
+  ai_image_gen_cost: number;
+  ai_text_suggest_usd: number;
+  ai_image_gen_usd: number;
 }
 
 const ROW_LABELS: { key: keyof Fees; label: string; hint: string }[] = [
@@ -37,7 +41,7 @@ const FIELD_PAIRS: Array<[keyof Fees, keyof Fees, string, string]> = [
 ];
 
 const TREASURY_REASONS = new Set([
-  "book_purchase",            // negative on buyer; treasury gains the platform fee
+  "book_purchase",
   "publisher_signup_fee",
   "book_publish_fee",
   "editor_order_fee",
