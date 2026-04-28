@@ -454,7 +454,7 @@ const Reader = () => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return [];
     return book.pages.flatMap((page, pIndex) => {
-      const pageBlocks = page.blocks ?? (page.content ? [{ type: "paragraph", text: page.content } as Block] : []);
+      const pageBlocks = pageToBlocks(page);
       const firstMedia = pageBlocks.map((candidate, candidateIndex) => {
         const src = candidate.type === "image" ? candidate.src : candidate.type === "gallery" ? candidate.images[0] : candidate.type === "slideshow" ? candidate.images[0]?.src : undefined;
         const caption = candidate.type === "image" ? candidate.caption : candidate.type === "gallery" ? candidate.caption : candidate.type === "slideshow" ? candidate.images[0]?.caption : undefined;
