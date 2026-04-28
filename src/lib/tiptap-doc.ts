@@ -33,12 +33,13 @@ export interface TextNode {
   marks?: Mark[];
 }
 
-export interface ParagraphNode { type: "paragraph"; content?: TextNode[] }
-export interface HeadingNode { type: "heading"; attrs: { level: 1 | 2 | 3 }; content?: TextNode[] }
-export interface QuoteNode { type: "quote"; attrs?: { author?: string }; content?: TextNode[] }
+export interface TextBlockAttrs { textAlign?: "left" | "center" | "right" | "justify" | null; dir?: "rtl" | "ltr" | null }
+export interface ParagraphNode { type: "paragraph"; attrs?: TextBlockAttrs; content?: TextNode[] }
+export interface HeadingNode { type: "heading"; attrs: { level: 1 | 2 | 3 } & TextBlockAttrs; content?: TextNode[] }
+export interface QuoteNode { type: "quote"; attrs?: { author?: string } & TextBlockAttrs; content?: TextNode[] }
 export interface CalloutNode {
   type: "callout";
-  attrs: { variant: "info" | "tip" | "note" | "warning" | "success" | "danger" | "question" | "quote" | "definition" | "example" };
+  attrs: { variant: "info" | "tip" | "note" | "warning" | "success" | "danger" | "question" | "quote" | "definition" | "example" } & TextBlockAttrs;
   content?: TextNode[];
 }
 export interface ImageNode {
@@ -159,20 +160,25 @@ const splitParas = (raw: string): string[] => {
 };
 
 /** Convert one legacy block (DB shape: { type, ... }) to one or more doc nodes. */
+const legacyTextAttrs = (b: any): TextBlockAttrs => ({
+  textAlign: b?.textAlign ?? b?.align ?? null,
+  dir: b?.dir ?? null,
+});
+
 const legacyBlockToNodes = (b: any): DocNode[] => {
   if (!b || typeof b !== "object" || !b.type) return [];
   switch (b.type) {
     case "heading":
-      return [{ type: "heading", attrs: { level: 2 }, content: textToNodes(String(b.text ?? "")) }];
+      return [{ type: "heading", attrs: { level: 2, ...legacyTextAttrs(b) }, content: textToNodes(String(b.text ?? "")) }];
     case "paragraph":
       return splitParas(String(b.text ?? "")).map(
-        (t) => ({ type: "paragraph", content: textToNodes(t) }) as ParagraphNode,
+        (t) => ({ type: "paragraph", attrs: legacyTextAttrs(b), content: textToNodes(t) }) as ParagraphNode,
       );
     case "quote":
       return splitParas(String(b.text ?? "")).map(
         (t) => ({
           type: "quote",
-          attrs: b.author ? { author: String(b.author) } : undefined,
+          attrs: { ...(b.author ? { author: String(b.author) } : {}), ...legacyTextAttrs(b) },
           content: textToNodes(t),
         }) as QuoteNode,
       );
@@ -181,7 +187,7 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
       return splitParas(String(b.text ?? "")).map(
         (t) => ({
           type: "callout",
-          attrs: { variant: calloutVariant(b.icon ?? (b.type === "highlight" ? "sparkle" : "info")) },
+          attrs: { variant: calloutVariant(b.icon ?? (b.type === "highlight" ? "sparkle" : "info")), ...legacyTextAttrs(b) },
           content: textToNodes(t),
         }) as CalloutNode,
       );
