@@ -6,7 +6,7 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { resolveBookMedia } from "@/lib/book-media";
-import { uploadOptimizedImage, candidateOriginalUrls } from "@/lib/image-optim";
+import { uploadOptimizedImage } from "@/lib/image-optim";
 import {
   Trash2, Image as ImageIcon, Film, GalleryHorizontal, ListOrdered,
   Lightbulb, AlertTriangle, Info, CheckCircle2, ShieldAlert, Pencil,
