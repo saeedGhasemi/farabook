@@ -16,7 +16,7 @@ type SuggestionOp =
   | "emphasize" | "split_paragraph"
   | "insert_timeline" | "insert_scrollytelling";
 
-interface Step { marker?: string; title?: string; description?: string }
+interface Step { marker?: string; title?: string; description?: string; image_prompt?: string; image?: string }
 
 interface Suggestion {
   op: SuggestionOp;
