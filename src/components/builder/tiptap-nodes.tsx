@@ -511,7 +511,7 @@ const ScrollyView = (props: NodeViewProps) => {
               className="aspect-square rounded-md border bg-secondary overflow-hidden relative group/sc"
             >
               {s.image ? (
-                <img src={resolveBookMedia(s.image)} alt="" className="w-full h-full object-cover" />
+                <img src={resolveBookCover(s.image, { width: 240, height: 240, quality: 72 })} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
                   <Upload className="w-4 h-4 me-1" /> تصویر
