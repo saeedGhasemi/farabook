@@ -324,12 +324,12 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
     setRejected((prev) => { const s = new Set(prev); s.add(idx); return s; });
   };
 
-  const performApplyAll = async () => {
+  const performApplyAll = async (withImages = true) => {
     let applied = 0;
     for (let i = 0; i < suggestions.length; i++) {
       if (done.has(i)) continue;
       setBusyIdx(i);
-      const s = await enrichWithImages(suggestions[i]);
+      const s = withImages ? await enrichWithImages(suggestions[i]) : suggestions[i];
       setSuggestions((prev) => prev.map((x, k) => (k === i ? s : x)));
       if (applySuggestion(editor, s)) {
         const mark = getHistorySize();
