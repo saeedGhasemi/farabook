@@ -165,6 +165,7 @@ Avoid repetition. Focus on key points, definitions, examples, processes, and int
     return new Response(JSON.stringify({
       suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
       typography_preset: typeof parsed.typography_preset === "string" ? parsed.typography_preset : null,
+      cost: chargeInfo?.cost ?? 0,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("book-suggest", e);
