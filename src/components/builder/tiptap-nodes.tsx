@@ -427,7 +427,7 @@ const TimelineView = (props: NodeViewProps) => {
                 title="تصویر گام"
               >
                 {s.image ? (
-                  <img src={resolveBookMedia(s.image)} alt="" className="w-full h-full object-cover" />
+                  <img src={resolveBookCover(s.image, { width: 160, height: 160, quality: 70 })} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                     <Upload className="w-4 h-4" />
