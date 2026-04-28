@@ -330,7 +330,15 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
                             {fa ? `${s.steps.length} گام` : `${s.steps.length} steps`}
                           </span>
                         ) : null}
+                        {isInsert && s.steps?.some((st) => st.image_prompt || st.image) ? (
+                          <span className="text-[10px] text-primary">
+                            {fa ? "+ تصاویر AI" : "+ AI images"}
+                          </span>
+                        ) : null}
                       </div>
+                      {isInsert && s.title && (
+                        <p className="text-sm font-semibold text-foreground mb-1" dir="auto">{s.title}</p>
+                      )}
                       {s.target_text && (
                         <p className="text-sm text-foreground/90 line-clamp-2 leading-relaxed mb-1" dir="auto">
                           “{s.target_text}”
@@ -347,6 +355,12 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
                         </ul>
                       )}
                       <p className="text-[11px] text-muted-foreground mt-1">{s.reason}</p>
+                      {busyIdx === i && (
+                        <p className="text-[11px] text-accent mt-1 flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          {fa ? "در حال تولید تصاویر و اعمال…" : "Generating images & applying…"}
+                        </p>
+                      )}
                     </div>
                     {!isDone && (
                       <div className="flex flex-col gap-1 shrink-0">
@@ -354,15 +368,17 @@ export const AiSuggestPanel = ({ editor, lang, onClose }: Props) => {
                           size="sm"
                           className="h-7 px-2 bg-stage-published text-stage-published-foreground hover:bg-stage-published/90"
                           onClick={() => accept(i)}
+                          disabled={busyIdx !== null}
                           title={fa ? "تأیید و اعمال" : "Accept"}
                         >
-                          <Check className="w-3.5 h-3.5" />
+                          {busyIdx === i ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-7 px-2"
                           onClick={() => reject(i)}
+                          disabled={busyIdx !== null}
                           title={fa ? "رد" : "Reject"}
                         >
                           <X className="w-3.5 h-3.5" />
