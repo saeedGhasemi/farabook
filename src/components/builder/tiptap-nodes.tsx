@@ -1,19 +1,39 @@
-// Custom Tiptap nodes used by the new TextBookEditor. We keep these
-// minimal — text-bearing blocks (callout) are editable, media-style
-// blocks (image/video/gallery/timeline/scrollytelling) are atom nodes
-// with a small inline preview + delete button.
+// Custom Tiptap nodes used by the new TextBookEditor. Text-bearing
+// blocks (callout, quote) are editable. Media blocks (image / video /
+// gallery / timeline / scrollytelling) are atom node-views with full
+// inline editing UIs (upload images, paste URLs, add steps, etc.).
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { resolveBookMedia } from "@/lib/book-media";
-import { Trash2, Image as ImageIcon, Film, GalleryHorizontal, ListOrdered, Lightbulb, AlertTriangle, Info, CheckCircle2, ShieldAlert, Pencil, HelpCircle, Quote as QuoteIcon } from "lucide-react";
+import {
+  Trash2, Image as ImageIcon, Film, GalleryHorizontal, ListOrdered,
+  Lightbulb, AlertTriangle, Info, CheckCircle2, ShieldAlert, Pencil,
+  HelpCircle, Quote as QuoteIcon, Plus, X, Upload, Layers,
+} from "lucide-react";
 import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 /* ------------------------------------------------------------------ */
-/* Callout — text-bearing wrapper with a variant                      */
+/* Shared upload helper                                                */
+/* ------------------------------------------------------------------ */
+
+const uploadToBookMedia = async (userId: string, file: File): Promise<string | null> => {
+  const ext = file.name.split(".").pop() || "jpg";
+  const key = `${userId}/edit/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase.storage.from("book-media").upload(key, file, { contentType: file.type });
+  if (error) { toast.error(error.message); return null; }
+  const { data } = supabase.storage.from("book-media").getPublicUrl(key);
+  return data.publicUrl;
+};
+
+/* ------------------------------------------------------------------ */
+/* Callout                                                            */
 /* ------------------------------------------------------------------ */
 
 const calloutMeta: Record<string, { Icon: any; cls: string; label: string }> = {
@@ -49,11 +69,7 @@ export const Callout = Node.create({
   group: "block",
   content: "inline*",
   defining: true,
-  addAttributes() {
-    return {
-      variant: { default: "info" },
-    };
-  },
+  addAttributes() { return { variant: { default: "info" } }; },
   parseHTML() {
     return [{ tag: "div[data-callout]", getAttrs: (el) => ({ variant: (el as HTMLElement).getAttribute("data-callout") || "info" }) }];
   },
@@ -64,7 +80,7 @@ export const Callout = Node.create({
 });
 
 /* ------------------------------------------------------------------ */
-/* Quote — block-level with optional author                           */
+/* Quote                                                              */
 /* ------------------------------------------------------------------ */
 
 export const Quote = Node.create({
@@ -80,39 +96,101 @@ export const Quote = Node.create({
 });
 
 /* ------------------------------------------------------------------ */
-/* Image with caption + delete                                        */
+/* Editable shell for atom blocks                                      */
+/* ------------------------------------------------------------------ */
+
+const BlockShell = ({
+  Icon, label, onDelete, children,
+}: { Icon: any; label: string; onDelete: () => void; children: React.ReactNode }) => (
+  <NodeViewWrapper className="my-4 group/blk relative">
+    <div className="rounded-xl border bg-card/60 overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/30 text-sm">
+        <Icon className="w-4 h-4 text-accent" />
+        <span className="font-medium">{label}</span>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="ms-auto text-destructive opacity-60 hover:opacity-100 p-1"
+          title="حذف"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="p-3">{children}</div>
+    </div>
+  </NodeViewWrapper>
+);
+
+/* ------------------------------------------------------------------ */
+/* Image (editable)                                                    */
 /* ------------------------------------------------------------------ */
 
 const ImageView = (props: NodeViewProps) => {
+  const { user } = useAuth();
   const { src, caption, hideCaption } = props.node.attrs;
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const onFile = async (f: File) => {
+    if (!user) { toast.error("لطفاً وارد شوید"); return; }
+    setBusy(true);
+    const url = await uploadToBookMedia(user.id, f);
+    setBusy(false);
+    if (url) props.updateAttributes({ src: url });
+  };
+
   return (
     <NodeViewWrapper className="my-4 group/img relative">
       <figure className="overflow-hidden rounded-xl border bg-secondary">
         {src ? (
           <img src={resolveBookMedia(src)} alt={caption || ""} className="w-full max-h-[420px] object-cover" />
         ) : (
-          <div className="aspect-video flex items-center justify-center text-muted-foreground text-sm">
-            <ImageIcon className="w-5 h-5 me-2" /> بدون تصویر
-          </div>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="w-full aspect-video flex flex-col items-center justify-center text-muted-foreground text-sm hover:bg-muted/40 transition"
+          >
+            <Upload className="w-5 h-5 mb-1" />
+            {busy ? "در حال بارگذاری…" : "انتخاب تصویر"}
+          </button>
         )}
         {!hideCaption && caption && (
           <figcaption className="text-xs text-muted-foreground p-2 text-center">{caption}</figcaption>
         )}
       </figure>
-      <button
-        type="button"
-        onClick={() => props.deleteNode()}
-        className="absolute top-2 left-2 opacity-0 group-hover/img:opacity-100 transition bg-destructive text-destructive-foreground rounded-md p-1.5 shadow"
-        title="حذف"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
+      <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover/img:opacity-100 transition">
+        {src && (
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="bg-background/90 border rounded-md p-1.5 shadow"
+            title="تعویض"
+          >
+            <Upload className="w-3.5 h-3.5" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => props.deleteNode()}
+          className="bg-destructive text-destructive-foreground rounded-md p-1.5 shadow"
+          title="حذف"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
       <input
         type="text"
         defaultValue={caption || ""}
         placeholder="کپشن (اختیاری)…"
         onBlur={(e) => props.updateAttributes({ caption: e.target.value })}
         className="mt-1 w-full bg-transparent text-xs text-center text-muted-foreground border-b border-dashed border-transparent focus:border-border outline-none px-2 py-1"
+      />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={async (e) => { const f = e.target.files?.[0]; if (f) await onFile(f); e.target.value = ""; }}
       />
     </NodeViewWrapper>
   );
@@ -124,11 +202,7 @@ export const ImageBlock = Node.create({
   atom: true,
   draggable: true,
   addAttributes() {
-    return {
-      src: { default: "" },
-      caption: { default: "" },
-      hideCaption: { default: false },
-    };
+    return { src: { default: "" }, caption: { default: "" }, hideCaption: { default: false } };
   },
   parseHTML() { return [{ tag: "img[src]" }]; },
   renderHTML({ HTMLAttributes }) { return ["img", mergeAttributes(HTMLAttributes)]; },
@@ -136,24 +210,59 @@ export const ImageBlock = Node.create({
 });
 
 /* ------------------------------------------------------------------ */
-/* Video / Gallery / Timeline / Scrollytelling — read-only previews   */
+/* Video (editable: URL or upload)                                     */
 /* ------------------------------------------------------------------ */
 
-const SimplePreview = (
-  Icon: any,
-  label: string,
-) => (props: NodeViewProps) => (
-  <NodeViewWrapper className="my-3 group/blk relative">
-    <div className="flex items-center gap-2 rounded-xl border bg-muted/30 px-3 py-2 text-sm">
-      <Icon className="w-4 h-4 text-accent" />
-      <span className="text-muted-foreground">{label}</span>
-      <span className="ms-auto text-[10px] text-muted-foreground/70">برای ویرایش پیشرفته از حالت قبلی استفاده کنید</span>
-      <button type="button" onClick={() => props.deleteNode()} className="opacity-0 group-hover/blk:opacity-100 transition text-destructive p-1">
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
-    </div>
-  </NodeViewWrapper>
-);
+const VideoView = (props: NodeViewProps) => {
+  const { user } = useAuth();
+  const { src, caption } = props.node.attrs;
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const onFile = async (f: File) => {
+    if (!user) return;
+    setBusy(true);
+    const url = await uploadToBookMedia(user.id, f);
+    setBusy(false);
+    if (url) props.updateAttributes({ src: url });
+  };
+
+  return (
+    <BlockShell Icon={Film} label="ویدئو" onDelete={() => props.deleteNode()}>
+      {src ? (
+        <video src={resolveBookMedia(src)} controls className="w-full rounded-lg max-h-[360px] bg-black" />
+      ) : (
+        <div className="flex flex-col items-center gap-2 py-6 text-muted-foreground text-sm">
+          <Film className="w-6 h-6" />
+          <span>{busy ? "در حال بارگذاری…" : "بدون ویدئو"}</span>
+        </div>
+      )}
+      <div className="grid sm:grid-cols-[1fr_auto] gap-2 mt-3">
+        <Input
+          defaultValue={src || ""}
+          placeholder="آدرس ویدئو (URL) یا فایل آپلود کنید"
+          onBlur={(e) => props.updateAttributes({ src: e.target.value })}
+        />
+        <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+          <Upload className="w-4 h-4 me-1" /> آپلود
+        </Button>
+      </div>
+      <Input
+        defaultValue={caption || ""}
+        placeholder="کپشن (اختیاری)"
+        className="mt-2"
+        onBlur={(e) => props.updateAttributes({ caption: e.target.value })}
+      />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={async (e) => { const f = e.target.files?.[0]; if (f) await onFile(f); e.target.value = ""; }}
+      />
+    </BlockShell>
+  );
+};
 
 export const VideoBlock = Node.create({
   name: "video",
@@ -162,8 +271,79 @@ export const VideoBlock = Node.create({
   addAttributes() { return { src: { default: "" }, caption: { default: "" } }; },
   parseHTML() { return [{ tag: "div[data-video]" }]; },
   renderHTML({ HTMLAttributes }) { return ["div", mergeAttributes(HTMLAttributes, { "data-video": "true" })]; },
-  addNodeView() { return ReactNodeViewRenderer(SimplePreview(Film, "ویدئو")); },
+  addNodeView() { return ReactNodeViewRenderer(VideoView); },
 });
+
+/* ------------------------------------------------------------------ */
+/* Gallery (editable: add/remove images)                               */
+/* ------------------------------------------------------------------ */
+
+const GalleryView = (props: NodeViewProps) => {
+  const { user } = useAuth();
+  const images: string[] = Array.isArray(props.node.attrs.images) ? props.node.attrs.images : [];
+  const caption: string = props.node.attrs.caption || "";
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const addFiles = async (files: FileList) => {
+    if (!user || !files.length) return;
+    setBusy(true);
+    const urls: string[] = [];
+    for (const f of Array.from(files)) {
+      const u = await uploadToBookMedia(user.id, f);
+      if (u) urls.push(u);
+    }
+    setBusy(false);
+    if (urls.length) props.updateAttributes({ images: [...images, ...urls] });
+  };
+
+  const removeAt = (i: number) => {
+    const next = images.filter((_, idx) => idx !== i);
+    props.updateAttributes({ images: next });
+  };
+
+  return (
+    <BlockShell Icon={GalleryHorizontal} label="گالری تصاویر" onDelete={() => props.deleteNode()}>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {images.map((u, i) => (
+          <div key={i} className="relative group/g rounded-lg overflow-hidden border bg-secondary aspect-square">
+            <img src={resolveBookMedia(u)} alt="" className="w-full h-full object-cover" />
+            <button
+              type="button"
+              onClick={() => removeAt(i)}
+              className="absolute top-1 left-1 bg-destructive text-destructive-foreground rounded p-1 opacity-0 group-hover/g:opacity-100 transition"
+              title="حذف"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground text-xs hover:bg-muted/40 transition"
+        >
+          <Plus className="w-5 h-5 mb-1" />
+          {busy ? "..." : "افزودن"}
+        </button>
+      </div>
+      <Input
+        defaultValue={caption}
+        placeholder="کپشن گالری (اختیاری)"
+        className="mt-2"
+        onBlur={(e) => props.updateAttributes({ caption: e.target.value })}
+      />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={async (e) => { if (e.target.files) await addFiles(e.target.files); e.target.value = ""; }}
+      />
+    </BlockShell>
+  );
+};
 
 export const GalleryBlock = Node.create({
   name: "gallery",
@@ -172,8 +352,60 @@ export const GalleryBlock = Node.create({
   addAttributes() { return { images: { default: [] }, caption: { default: "" } }; },
   parseHTML() { return [{ tag: "div[data-gallery]" }]; },
   renderHTML({ HTMLAttributes }) { return ["div", mergeAttributes(HTMLAttributes, { "data-gallery": "true" })]; },
-  addNodeView() { return ReactNodeViewRenderer(SimplePreview(GalleryHorizontal, "گالری تصاویر")); },
+  addNodeView() { return ReactNodeViewRenderer(GalleryView); },
 });
+
+/* ------------------------------------------------------------------ */
+/* Timeline (editable steps)                                           */
+/* ------------------------------------------------------------------ */
+
+interface StepLike { title?: string; date?: string; description?: string; image?: string }
+
+const TimelineView = (props: NodeViewProps) => {
+  const title: string = props.node.attrs.title || "";
+  const steps: StepLike[] = Array.isArray(props.node.attrs.steps) ? props.node.attrs.steps : [];
+
+  const update = (i: number, patch: Partial<StepLike>) => {
+    const next = steps.map((s, idx) => (idx === i ? { ...s, ...patch } : s));
+    props.updateAttributes({ steps: next });
+  };
+  const add = () => props.updateAttributes({ steps: [...steps, { title: "", date: "", description: "" }] });
+  const remove = (i: number) => props.updateAttributes({ steps: steps.filter((_, idx) => idx !== i) });
+
+  return (
+    <BlockShell Icon={ListOrdered} label="تایم‌لاین" onDelete={() => props.deleteNode()}>
+      <Input
+        defaultValue={title}
+        placeholder="عنوان تایم‌لاین"
+        className="mb-3"
+        onBlur={(e) => props.updateAttributes({ title: e.target.value })}
+      />
+      <div className="space-y-2">
+        {steps.map((s, i) => (
+          <div key={i} className="rounded-lg border p-2 space-y-2 bg-background/50">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">گام {i + 1}</span>
+              <button type="button" onClick={() => remove(i)} className="ms-auto text-destructive p-1">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-2">
+              <Input defaultValue={s.title || ""} placeholder="عنوان"
+                onBlur={(e) => update(i, { title: e.target.value })} />
+              <Input defaultValue={s.date || ""} placeholder="تاریخ / دوره"
+                onBlur={(e) => update(i, { date: e.target.value })} />
+            </div>
+            <Textarea defaultValue={s.description || ""} placeholder="توضیح"
+              onBlur={(e) => update(i, { description: e.target.value })} rows={2} />
+          </div>
+        ))}
+      </div>
+      <Button type="button" variant="outline" size="sm" className="mt-2" onClick={add}>
+        <Plus className="w-4 h-4 me-1" /> افزودن گام
+      </Button>
+    </BlockShell>
+  );
+};
 
 export const TimelineBlock = Node.create({
   name: "timeline",
@@ -182,8 +414,83 @@ export const TimelineBlock = Node.create({
   addAttributes() { return { title: { default: "" }, steps: { default: [] } }; },
   parseHTML() { return [{ tag: "div[data-timeline]" }]; },
   renderHTML({ HTMLAttributes }) { return ["div", mergeAttributes(HTMLAttributes, { "data-timeline": "true" })]; },
-  addNodeView() { return ReactNodeViewRenderer(SimplePreview(ListOrdered, "تایم‌لاین")); },
+  addNodeView() { return ReactNodeViewRenderer(TimelineView); },
 });
+
+/* ------------------------------------------------------------------ */
+/* Scrollytelling (editable steps with image)                          */
+/* ------------------------------------------------------------------ */
+
+const ScrollyView = (props: NodeViewProps) => {
+  const { user } = useAuth();
+  const title: string = props.node.attrs.title || "";
+  const steps: StepLike[] = Array.isArray(props.node.attrs.steps) ? props.node.attrs.steps : [];
+  const fileRefs = useRef<Record<number, HTMLInputElement | null>>({});
+
+  const update = (i: number, patch: Partial<StepLike>) => {
+    const next = steps.map((s, idx) => (idx === i ? { ...s, ...patch } : s));
+    props.updateAttributes({ steps: next });
+  };
+  const add = () => props.updateAttributes({ steps: [...steps, { title: "", description: "", image: "" }] });
+  const remove = (i: number) => props.updateAttributes({ steps: steps.filter((_, idx) => idx !== i) });
+  const onFile = async (i: number, f: File) => {
+    if (!user) return;
+    const url = await uploadToBookMedia(user.id, f);
+    if (url) update(i, { image: url });
+  };
+
+  return (
+    <BlockShell Icon={Layers} label="اسکرولی‌تلینگ" onDelete={() => props.deleteNode()}>
+      <Input
+        defaultValue={title}
+        placeholder="عنوان"
+        className="mb-3"
+        onBlur={(e) => props.updateAttributes({ title: e.target.value })}
+      />
+      <div className="space-y-2">
+        {steps.map((s, i) => (
+          <div key={i} className="rounded-lg border p-2 bg-background/50 grid sm:grid-cols-[120px_1fr] gap-2">
+            <button
+              type="button"
+              onClick={() => fileRefs.current[i]?.click()}
+              className="aspect-square rounded-md border bg-secondary overflow-hidden relative group/sc"
+            >
+              {s.image ? (
+                <img src={resolveBookMedia(s.image)} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+                  <Upload className="w-4 h-4 me-1" /> تصویر
+                </div>
+              )}
+              <input
+                ref={(el) => (fileRefs.current[i] = el)}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => { const f = e.target.files?.[0]; if (f) await onFile(i, f); e.target.value = ""; }}
+              />
+            </button>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">گام {i + 1}</span>
+                <button type="button" onClick={() => remove(i)} className="ms-auto text-destructive p-1">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <Input defaultValue={s.title || ""} placeholder="عنوان"
+                onBlur={(e) => update(i, { title: e.target.value })} />
+              <Textarea defaultValue={s.description || ""} placeholder="توضیح"
+                onBlur={(e) => update(i, { description: e.target.value })} rows={2} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <Button type="button" variant="outline" size="sm" className="mt-2" onClick={add}>
+        <Plus className="w-4 h-4 me-1" /> افزودن گام
+      </Button>
+    </BlockShell>
+  );
+};
 
 export const ScrollyBlock = Node.create({
   name: "scrollytelling",
@@ -192,7 +499,7 @@ export const ScrollyBlock = Node.create({
   addAttributes() { return { title: { default: "" }, steps: { default: [] } }; },
   parseHTML() { return [{ tag: "div[data-scrolly]" }]; },
   renderHTML({ HTMLAttributes }) { return ["div", mergeAttributes(HTMLAttributes, { "data-scrolly": "true" })]; },
-  addNodeView() { return ReactNodeViewRenderer(SimplePreview(ListOrdered, "اسکرولی")); },
+  addNodeView() { return ReactNodeViewRenderer(ScrollyView); },
 });
 
 /* ------------------------------------------------------------------ */
@@ -208,12 +515,7 @@ export const useImageUpload = () => {
     if (!user) { toast.error("لطفاً وارد شوید"); return null; }
     setBusy(true);
     try {
-      const ext = file.name.split(".").pop() || "jpg";
-      const key = `${user.id}/edit/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error } = await supabase.storage.from("book-media").upload(key, file, { contentType: file.type });
-      if (error) { toast.error(error.message); return null; }
-      const { data } = supabase.storage.from("book-media").getPublicUrl(key);
-      return data.publicUrl;
+      return await uploadToBookMedia(user.id, file);
     } finally { setBusy(false); }
   };
 
