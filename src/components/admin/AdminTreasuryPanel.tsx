@@ -234,7 +234,173 @@ export const AdminTreasuryPanel = () => {
         </CardContent>
       </Card>
 
-      {/* Recent transactions */}
+      {/* AI cost settings */}
+      <Card className="glass">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-accent" /> هزینه‌های هوش مصنوعی
+          </CardTitle>
+          <Button onClick={save} disabled={saving} size="sm" className="gap-1">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            ذخیره
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3" dir="rtl">
+          <p className="text-[11px] text-muted-foreground">
+            هزینهٔ اعتباری هر عملیات از کاربر کسر می‌شود. هزینهٔ دلاری فقط برای محاسبه هزینهٔ واقعی شما استفاده می‌شود (نمایش در گزارش پایین).
+          </p>
+          {[
+            { k_credit: "ai_text_suggest_cost", k_usd: "ai_text_suggest_usd", label: "پیشنهاد متنی هوش مصنوعی", hint: "هر بار «دستیار AI» در ادیتور باز می‌شود." },
+            { k_credit: "ai_image_gen_cost", k_usd: "ai_image_gen_usd", label: "تولید تصویر با هوش مصنوعی", hint: "برای هر تصویری که در عناصر تعاملی ساخته می‌شود." },
+          ].map((row) => (
+            <div key={row.k_credit} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center p-3 rounded-lg border bg-background/40">
+              <div className="sm:col-span-5">
+                <div className="text-sm font-medium">{row.label}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">{row.hint}</div>
+              </div>
+              <div className="sm:col-span-3">
+                <label className="text-[10px] text-muted-foreground block mb-1">هزینه از کاربر (اعتبار)</label>
+                <Input
+                  type="number" min={0} step="0.5"
+                  value={(draft as any)[row.k_credit]}
+                  onChange={(e) => setDraft({ ...draft, [row.k_credit]: Number(e.target.value) || 0 } as any)}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="sm:col-span-4">
+                <label className="text-[10px] text-muted-foreground block mb-1">هزینه واقعی برای سامانه ($)</label>
+                <Input
+                  type="number" min={0} step="0.001"
+                  value={(draft as any)[row.k_usd]}
+                  onChange={(e) => setDraft({ ...draft, [row.k_usd]: Number(e.target.value) || 0 } as any)}
+                  className="h-9 text-sm"
+                />
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* AI usage report (real $ cost per book/operation) */}
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="w-5 h-5 text-accent" /> گزارش هزینهٔ واقعی هوش مصنوعی
+          </CardTitle>
+        </CardHeader>
+        <CardContent dir="rtl" className="space-y-3">
+          {(() => {
+            const totalUsd = aiUsage.reduce((s, r) => s + Number(r.usd_cost || 0), 0);
+            const totalCredits = aiUsage.reduce((s, r) => s + Number(r.credits_charged || 0), 0);
+            const byBook: Record<string, { title: string; usd: number; credits: number; calls: number; ops: Record<string, number> }> = {};
+            for (const r of aiUsage) {
+              const key = r.book_id || "(بدون کتاب)";
+              if (!byBook[key]) byBook[key] = { title: r.book_title || "(بدون کتاب)", usd: 0, credits: 0, calls: 0, ops: {} };
+              byBook[key].usd += Number(r.usd_cost || 0);
+              byBook[key].credits += Number(r.credits_charged || 0);
+              byBook[key].calls += 1;
+              byBook[key].ops[r.operation] = (byBook[key].ops[r.operation] || 0) + 1;
+            }
+            const books = Object.entries(byBook).sort((a, b) => b[1].usd - a[1].usd);
+            return (
+              <>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <Badge className="bg-accent/15 text-accent border-0">
+                    هزینهٔ واقعی: ${totalUsd.toFixed(3)}
+                  </Badge>
+                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-0">
+                    دریافت اعتبار: {totalCredits.toLocaleString("fa-IR")}
+                  </Badge>
+                  <Badge className="bg-secondary border-0">
+                    {aiUsage.length.toLocaleString("fa-IR")} فراخوانی
+                  </Badge>
+                </div>
+
+                {books.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">هنوز فراخوانی هوش مصنوعی ثبت نشده.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-right">کتاب</TableHead>
+                          <TableHead className="text-right">عملیات</TableHead>
+                          <TableHead className="text-right">فراخوانی</TableHead>
+                          <TableHead className="text-right">اعتبار دریافتی</TableHead>
+                          <TableHead className="text-right">هزینهٔ واقعی ($)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {books.slice(0, 50).map(([id, b]) => (
+                          <TableRow key={id}>
+                            <TableCell className="text-xs max-w-[260px]">
+                              <div className="font-medium truncate">{b.title}</div>
+                              <div className="text-[10px] text-muted-foreground font-mono truncate">{id}</div>
+                            </TableCell>
+                            <TableCell className="text-[11px]">
+                              {Object.entries(b.ops).map(([op, n]) => (
+                                <Badge key={op} className="text-[10px] me-1 mb-0.5 bg-muted text-foreground border-0">
+                                  {op === "text_suggest" ? "متنی" : op === "image_gen" ? "تصویر" : op}: {n}
+                                </Badge>
+                              ))}
+                            </TableCell>
+                            <TableCell className="text-xs tabular-nums">{b.calls.toLocaleString("fa-IR")}</TableCell>
+                            <TableCell className="text-xs tabular-nums text-emerald-600 dark:text-emerald-400">
+                              +{b.credits.toLocaleString("fa-IR")}
+                            </TableCell>
+                            <TableCell className="text-xs tabular-nums font-bold text-accent">
+                              ${b.usd.toFixed(3)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                    نمایش جزئیات هر فراخوانی ({aiUsage.length})
+                  </summary>
+                  <div className="mt-2 max-h-[320px] overflow-y-auto rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-right">زمان</TableHead>
+                          <TableHead className="text-right">کاربر</TableHead>
+                          <TableHead className="text-right">کتاب</TableHead>
+                          <TableHead className="text-right">عملیات</TableHead>
+                          <TableHead className="text-right">$</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {aiUsage.slice(0, 200).map((r) => (
+                          <TableRow key={r.id}>
+                            <TableCell className="text-[11px] whitespace-nowrap">
+                              {new Date(r.created_at).toLocaleString("fa-IR")}
+                            </TableCell>
+                            <TableCell className="text-[11px]">{r.user_name}</TableCell>
+                            <TableCell className="text-[11px] truncate max-w-[200px]">
+                              {r.book_title || <span className="text-muted-foreground">—</span>}
+                            </TableCell>
+                            <TableCell className="text-[11px]">
+                              <Badge className="text-[10px] bg-accent/10 text-accent border-0">
+                                {r.operation === "text_suggest" ? "متنی" : r.operation === "image_gen" ? "تصویر" : r.operation}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-[11px] tabular-nums">${Number(r.usd_cost).toFixed(4)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </details>
+              </>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
       <Card className="glass">
         <CardHeader>
           <CardTitle>تراکنش‌های اخیر صندوق</CardTitle>
