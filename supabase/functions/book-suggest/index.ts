@@ -2,13 +2,17 @@
 // of structured suggestions (callout/highlight/heading/quote/typography)
 // that the editor can accept one-by-one or apply all at once.
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 
 interface ReqBody {
   text: string;
   lang?: "fa" | "en";
   /** Optional: restrict the page title hint */
   title?: string;
+  book_id?: string;
 }
+
+const MODEL = "google/gemini-3-flash-preview";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -22,8 +26,45 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Charge credits via authed client
+    const auth = req.headers.get("Authorization") || "";
+    const sb = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: auth } } },
+    );
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) {
+      return new Response(JSON.stringify({ error: lang === "fa" ? "نیاز به ورود" : "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const charge = await sb.rpc("charge_ai_usage", {
+      _operation: "text_suggest",
+      _book_id: body.book_id || null,
+      _model: MODEL,
+      _metadata: { chars: text.length },
+    });
+    if (charge.error) {
+      const msg = charge.error.message || "";
+      if (msg.includes("insufficient_credits")) {
+        return new Response(JSON.stringify({ error: lang === "fa" ? "اعتبار کافی ندارید" : "Insufficient credits" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({ error: msg }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const chargeInfo = charge.data as { cost?: number };
+    const sbAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const refund = async (reason: string) => {
+      if (!chargeInfo?.cost) return;
+      await sbAdmin.from("credit_transactions").insert({
+        user_id: user.id, amount: chargeInfo.cost, reason: "ai_text_suggest_refund",
+        metadata: { reason, book_id: body.book_id || null },
+      });
+    };
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
+    if (!LOVABLE_API_KEY) { await refund("no_key"); throw new Error("LOVABLE_API_KEY missing"); }
 
     const fa = lang === "fa";
     const sys = fa
