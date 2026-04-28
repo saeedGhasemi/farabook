@@ -314,7 +314,12 @@ export const TextBookEditor = ({ initial }: Props) => {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4 px-3 md:px-4 py-3" dir={fa ? "rtl" : "ltr"}>
+    <div
+      className={`grid grid-cols-1 gap-4 px-3 md:px-4 py-3 ${
+        showAi ? "lg:grid-cols-[220px_1fr_340px]" : "lg:grid-cols-[260px_1fr]"
+      }`}
+      dir={fa ? "rtl" : "ltr"}
+    >
       {/* ============ Chapter sidebar ============ */}
       <aside className="lg:sticky lg:top-20 lg:self-start space-y-2">
         <div className="flex items-center justify-between mb-1">
