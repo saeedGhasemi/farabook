@@ -500,6 +500,12 @@ export const TextBookEditor = ({ initial }: Props) => {
             <TbBtn title="H3" active={editor.isActive("heading", { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
               <Heading3 className="w-4 h-4" />
             </TbBtn>
+            <TbBtn
+              title={fa ? "پاک‌کردن قالب‌بندی (تیتر، نقل‌قول، بلوک، …)" : "Clear formatting (heading, quote, block, …)"}
+              onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}
+            >
+              <Eraser className="w-4 h-4" />
+            </TbBtn>
             <TbSep />
 
             {/* Lists */}
