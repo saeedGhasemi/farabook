@@ -168,7 +168,8 @@ const Store = () => {
               <div className="relative aspect-[3/4] overflow-hidden bg-secondary">
                 {book.cover_url && (
                   <img
-                    src={resolveCover(book.cover_url)}
+                    src={resolveBookCover(book.cover_url, { width: 480, quality: 70 })}
+                    srcSet={`${resolveBookCover(book.cover_url, { width: 320, quality: 65 })} 320w, ${resolveBookCover(book.cover_url, { width: 480, quality: 70 })} 480w, ${resolveBookCover(book.cover_url, { width: 720, quality: 75 })} 720w`}
                     alt={title}
                     loading="lazy"
                     decoding="async"
