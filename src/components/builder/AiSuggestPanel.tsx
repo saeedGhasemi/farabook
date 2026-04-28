@@ -283,11 +283,11 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
     return { ...s, steps: enriched };
   };
 
-  const performAccept = async (idx: number) => {
+  const performAccept = async (idx: number, withImages = true) => {
     if (busyIdx !== null) return;
     setBusyIdx(idx);
     try {
-      const s = await enrichWithImages(suggestions[idx]);
+      const s = withImages ? await enrichWithImages(suggestions[idx]) : suggestions[idx];
       setSuggestions((prev) => prev.map((x, i) => (i === idx ? s : x)));
       const ok = applySuggestion(editor, s);
       if (!ok) {
@@ -324,12 +324,12 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
     setRejected((prev) => { const s = new Set(prev); s.add(idx); return s; });
   };
 
-  const performApplyAll = async () => {
+  const performApplyAll = async (withImages = true) => {
     let applied = 0;
     for (let i = 0; i < suggestions.length; i++) {
       if (done.has(i)) continue;
       setBusyIdx(i);
-      const s = await enrichWithImages(suggestions[i]);
+      const s = withImages ? await enrichWithImages(suggestions[i]) : suggestions[i];
       setSuggestions((prev) => prev.map((x, k) => (k === i ? s : x)));
       if (applySuggestion(editor, s)) {
         const mark = getHistorySize();
@@ -554,24 +554,41 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
                         </span>
                       </div>
                     </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {fa
+                        ? "اگر می‌خواهید بعداً خودتان عکس بگذارید، «بدون تولید عکس» را انتخاب کنید."
+                        : "Pick \"Without images\" if you want to add your own images later."}
+                    </p>
                   </>
                 )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{fa ? "انصراف" : "Cancel"}</AlertDialogCancel>
+          <AlertDialogFooter className="gap-2 flex-col sm:flex-row">
+            <AlertDialogCancel className="mt-0">{fa ? "انصراف" : "Cancel"}</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const s = confirmState;
+                setConfirmState(null);
+                if (!s) return;
+                if (s.kind === "single") void performAccept(s.idx, false);
+                else void performApplyAll(false);
+              }}
+            >
+              {fa ? "بدون تولید عکس" : "Without images"}
+            </Button>
             <AlertDialogAction
               className="bg-stage-published text-stage-published-foreground hover:bg-stage-published/90"
               onClick={() => {
                 const s = confirmState;
                 setConfirmState(null);
                 if (!s) return;
-                if (s.kind === "single") void performAccept(s.idx);
-                else void performApplyAll();
+                if (s.kind === "single") void performAccept(s.idx, true);
+                else void performApplyAll(true);
               }}
             >
-              {fa ? "تأیید و اجرا" : "Confirm & run"}
+              {fa ? "تأیید با تولید عکس" : "Confirm with images"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

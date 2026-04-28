@@ -166,38 +166,38 @@ const Landing = () => {
 
       {/* FEATURED BOOK OF THE WEEK */}
       {featured && (
-        <section className="container py-10 md:py-14 max-w-5xl">
+        <section className="relative w-full bg-secondary/40 border-y border-border/40">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="paper-card rounded-3xl overflow-hidden grid md:grid-cols-12 gap-0"
+            className="grid md:grid-cols-5 min-h-[360px] md:min-h-[420px]"
           >
-            <div className="md:col-span-4 relative bg-secondary flex items-center justify-center p-5 md:p-6">
-              <div className="relative w-40 sm:w-48 md:w-full md:max-w-[220px] aspect-[3/4] rounded-2xl overflow-hidden book-shadow">
-                {featured.cover_url && (
-                  <img
-                    src={resolveBookCover(featured.cover_url, { width: 480, quality: 75 })}
-                    srcSet={`${resolveBookCover(featured.cover_url, { width: 320, quality: 70 })} 320w, ${resolveBookCover(featured.cover_url, { width: 480, quality: 75 })} 480w, ${resolveBookCover(featured.cover_url, { width: 640, quality: 78 })} 640w`}
-                    sizes="(max-width: 768px) 200px, 220px"
-                    alt={titleOf(featured)}
-                    loading="eager"
-                    decoding="async"
-                    className="w-full h-full object-cover"
-                  />
-                )}
-              </div>
+            {/* Image fills ~40% of section width, no padding */}
+            <div className="relative md:col-span-2 bg-secondary overflow-hidden min-h-[260px] md:min-h-[420px]">
+              {featured.cover_url && (
+                <img
+                  src={resolveBookCover(featured.cover_url, { width: 900, quality: 78 })}
+                  srcSet={`${resolveBookCover(featured.cover_url, { width: 640, quality: 75 })} 640w, ${resolveBookCover(featured.cover_url, { width: 900, quality: 78 })} 900w, ${resolveBookCover(featured.cover_url, { width: 1280, quality: 80 })} 1280w`}
+                  sizes="(max-width: 768px) 100vw, 40vw"
+                  alt={titleOf(featured)}
+                  loading="eager"
+                  decoding="async"
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-background/40 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:via-transparent md:to-background/30 pointer-events-none" />
               <Badge className="absolute top-4 start-4 bg-gradient-warm text-primary-foreground border-0 gap-1.5 shadow-glow">
                 <Sparkles className="w-3.5 h-3.5" />
                 {t("featured_label")}
               </Badge>
             </div>
-            <div className="md:col-span-8 p-6 md:p-8 flex flex-col justify-center gap-3">
+            <div className="md:col-span-3 p-6 md:p-10 lg:p-14 flex flex-col justify-center gap-3 max-w-3xl">
               {featured.category && (
                 <Badge variant="secondary" className="w-fit">{featured.category}</Badge>
               )}
-              <h2 className="text-2xl md:text-3xl font-display font-bold leading-tight">{titleOf(featured)}</h2>
+              <h2 className="text-2xl md:text-4xl font-display font-bold leading-tight">{titleOf(featured)}</h2>
               <p className="text-sm text-muted-foreground">{featured.author}</p>
               <p className="text-sm md:text-base text-foreground/80 line-clamp-3 md:line-clamp-4 leading-relaxed">
                 {featured.ai_summary || featured.description}
