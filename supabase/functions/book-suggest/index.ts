@@ -36,8 +36,8 @@ Deno.serve(async (req) => {
   • make_heading: تبدیل به تیتر بخش (level=2 یا 3).
   • emphasize: bold/italic/underline کردن یک عبارت کوتاه (۲ تا ۸ کلمه).
   • split_paragraph: شکستن یک پاراگراف طولانی به دو پاراگراف.
-  • insert_timeline: اگر متن شامل مراحل، توالی زمانی یا فرآیند است، یک تایم‌لاین پیشنهاد بده. در این حالت target_text آخرین جمله‌ای است که تایم‌لاین بعدش درج شود، و فیلد steps با ۳ تا ۶ گام (هر گام: marker, title, description) را پر کن.
-  • insert_scrollytelling: اگر متن شامل توضیح مرحله‌به‌مرحله یک مفهوم/پدیده است، یک اسکرولی‌تلینگ پیشنهاد بده با ۳ تا ۵ گام (هر گام: title, description). target_text = جمله‌ای که قبل از آن درج شود.
+  • insert_timeline: اگر متن شامل مراحل، توالی زمانی یا فرآیند است، یک تایم‌لاین پیشنهاد بده. target_text آخرین جمله‌ای است که تایم‌لاین بعدش درج شود. فیلد title (الزامی) را با یک عنوان جذاب و کوتاه پر کن. steps را با ۳ تا ۶ گام (هر گام: marker، title، description، و image_prompt که توصیف بصری مختصر انگلیسی برای تولید تصویر آن گام است) پر کن.
+  • insert_scrollytelling: اگر متن شامل توضیح مرحله‌به‌مرحله یک مفهوم/پدیده است، یک اسکرولی‌تلینگ پیشنهاد بده. title (الزامی) را با عنوانی جذاب پر کن. steps با ۳ تا ۵ گام (هر گام: title، description، image_prompt انگلیسی برای تولید تصویر).
 از تکرار اجتناب کن. روی نکات کلیدی، تعاریف، مثال‌ها، فرآیندها، و موارد قابل تبدیل به تعامل تمرکز کن.`
       : `You are an editor turning dry book text into an engaging, interactive, educational page.
 Return up to 8 precise suggestions. Each must:
