@@ -300,7 +300,7 @@ const sanitizeCssValue = (value: string): string =>
  *  <span style="color:..."> on the reader side. */
 const inlineToMarkdown = (nodes?: TextNode[]): string =>
   (nodes ?? []).map((n) => {
-    let t = n.text.replace(/([\\`*_\[\]()])/g, "\\$1");
+    let t = n.text;
     let color: string | undefined;
     let href: string | undefined;
     for (const m of n.marks ?? []) {
@@ -313,8 +313,8 @@ const inlineToMarkdown = (nodes?: TextNode[]): string =>
         href = (m as any).attrs.href as string;
       }
     }
-    if (color) t = `[c=${color}]${t}[/c]`;
     if (href) t = `[${t}](${href})`;
+    if (color) t = `[c=${color}]${t}[/c]`;
     return t;
   }).join("");
 
@@ -335,14 +335,16 @@ const calloutIconFromVariant = (v: string): string => {
 
 /** Convert a single list-item node to its inline markdown text (joining
  *  any nested paragraphs with newlines). */
-const listItemToText = (item: any): string => {
+const listItemToLegacy = (item: any): { text: string; attrs: Record<string, string> } => {
   const inner: string[] = [];
+  let attrs: Record<string, string> = {};
   for (const child of item?.content ?? []) {
     if (child?.type === "paragraph" || child?.type === "heading") {
+      if (!Object.keys(attrs).length) attrs = textBlockAttrsToLegacy(child.attrs);
       inner.push(inlineToMarkdown(child.content));
     }
   }
-  return inner.join("\n").trim();
+  return { text: inner.join("\n").trim(), attrs };
 };
 
 /** Convert a Tiptap doc back to legacy block array for the Reader. */
@@ -381,10 +383,12 @@ export const docToLegacyBlocks = (doc: TiptapDoc): any[] => {
         break;
       case "bulletList":
       case "orderedList": {
-        const items = (n.content ?? [])
-          .map((it: any) => listItemToText(it))
-          .filter((t: string) => t.length > 0);
-        if (items.length) out.push({ type: "list", ordered: n.type === "orderedList", items, ...textBlockAttrsToLegacy(n.attrs) });
+        const itemData = (n.content ?? [])
+          .map((it: any) => listItemToLegacy(it))
+          .filter((it: { text: string }) => it.text.length > 0);
+        const items = itemData.map((it: { text: string }) => it.text);
+        const listAttrs = { ...itemData[0]?.attrs, ...textBlockAttrsToLegacy(n.attrs) };
+        if (items.length) out.push({ type: "list", ordered: n.type === "orderedList", items, itemAttrs: itemData.map((it: { attrs: Record<string, string> }) => it.attrs), ...listAttrs });
         break;
       }
     }
