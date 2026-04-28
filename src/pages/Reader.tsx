@@ -17,10 +17,12 @@ import { ChapterSidebar } from "@/components/reader/ChapterSidebar";
 import { HighlightsPanel, type HighlightItem } from "@/components/reader/HighlightsPanel";
 import { resolveBookMedia } from "@/lib/book-media";
 import { speakSmart, stopSpeak as stopSpeakSmart } from "@/lib/tts";
+import { docToLegacyBlocks } from "@/lib/tiptap-doc";
 
 interface Page {
   title: string;
   ambient?: string;
+  doc?: any;
   blocks?: Block[];
   content?: string;
 }
@@ -51,6 +53,12 @@ interface SearchResult {
   mediaKey?: string;
   mediaCaption?: string;
 }
+
+const pageToBlocks = (page?: Page): Block[] => {
+  if (!page) return [];
+  if (page.doc?.type === "doc") return docToLegacyBlocks(page.doc) as Block[];
+  return page.blocks ?? (page.content ? [{ type: "paragraph", text: page.content }] : []);
+};
 
 const Reader = () => {
   const { id } = useParams();
