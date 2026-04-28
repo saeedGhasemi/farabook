@@ -559,19 +559,31 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{fa ? "انصراف" : "Cancel"}</AlertDialogCancel>
+          <AlertDialogFooter className="gap-2 flex-col sm:flex-row">
+            <AlertDialogCancel className="mt-0">{fa ? "انصراف" : "Cancel"}</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const s = confirmState;
+                setConfirmState(null);
+                if (!s) return;
+                if (s.kind === "single") void performAccept(s.idx, false);
+                else void performApplyAll(false);
+              }}
+            >
+              {fa ? "بدون تولید عکس" : "Without images"}
+            </Button>
             <AlertDialogAction
               className="bg-stage-published text-stage-published-foreground hover:bg-stage-published/90"
               onClick={() => {
                 const s = confirmState;
                 setConfirmState(null);
                 if (!s) return;
-                if (s.kind === "single") void performAccept(s.idx);
-                else void performApplyAll();
+                if (s.kind === "single") void performAccept(s.idx, true);
+                else void performApplyAll(true);
               }}
             >
-              {fa ? "تأیید و اجرا" : "Confirm & run"}
+              {fa ? "تأیید با تولید عکس" : "Confirm with images"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
