@@ -61,26 +61,49 @@ const opMeta: Record<SuggestionOp, { Icon: any; label_fa: string; label_en: stri
 
 const findRange = (editor: Editor, needle: string): [number, number] | null => {
   if (!needle) return null;
-  const text = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n", " ");
-  const idx = text.indexOf(needle);
-  if (idx < 0) return null;
-  let plainPos = 0;
-  let from = -1;
-  let to = -1;
+  // Build a plain-text index alongside doc positions so the mapping is
+  // exact. We mirror ProseMirror's textBetween(blockSep="\n") behavior:
+  // each top-level block boundary contributes "\n" separators between
+  // them. Within a block, contiguous text nodes concatenate.
+  const segments: { from: number; to: number; text: string }[] = [];
   editor.state.doc.descendants((node, pos) => {
-    if (from >= 0 && to >= 0) return false;
-    if (node.isText) {
-      const len = node.text!.length;
-      const end = plainPos + len;
-      if (from < 0 && idx >= plainPos && idx <= end) from = pos + (idx - plainPos);
-      const targetEnd = idx + needle.length;
-      if (from >= 0 && to < 0 && targetEnd >= plainPos && targetEnd <= end) to = pos + (targetEnd - plainPos);
-      plainPos = end;
-    } else if (node.isBlock && plainPos > 0) {
-      plainPos += 1;
+    if (node.isText && node.text) {
+      segments.push({ from: pos, to: pos + node.text.length, text: node.text });
     }
     return true;
   });
+  // Build plain text by joining segments with "\n" between distinct
+  // top-level blocks. We approximate by inserting a separator whenever
+  // the next text segment starts in a new block (i.e. there's a
+  // non-text gap between segments).
+  let plain = "";
+  const map: Array<{ plainStart: number; from: number; to: number }> = [];
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (i > 0) {
+      // If gap exists between previous segment end and this start in
+      // the doc, insert a "\n" separator (matches textBetween "\n").
+      const prev = segments[i - 1];
+      if (seg.from > prev.to) plain += "\n";
+    }
+    map.push({ plainStart: plain.length, from: seg.from, to: seg.to });
+    plain += seg.text;
+  }
+  const idx = plain.indexOf(needle);
+  if (idx < 0) return null;
+  const targetEnd = idx + needle.length;
+  let from = -1, to = -1;
+  for (const m of map) {
+    const segLen = m.to - m.from;
+    const segPlainEnd = m.plainStart + segLen;
+    if (from < 0 && idx >= m.plainStart && idx <= segPlainEnd) {
+      from = m.from + (idx - m.plainStart);
+    }
+    if (targetEnd >= m.plainStart && targetEnd <= segPlainEnd) {
+      to = m.from + (targetEnd - m.plainStart);
+      break;
+    }
+  }
   if (from < 0 || to < 0 || to <= from) return null;
   return [from, to];
 };
@@ -232,9 +255,10 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
     }
   };
 
-  // Auto-fetch on mount — single click flow
+  // Auto-fetch on mount — single click flow. Refresh credit balance
+  // first so the confirmation dialog shows the right number.
   useEffect(() => {
-    void fetchSuggestions();
+    void (async () => { await refreshCredits(); await fetchSuggestions(); })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -352,13 +376,16 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
           </Button>
         </div>
 
-        {/* Cost reminder banner */}
-        <div className="rounded-lg bg-muted/40 border text-[11px] px-2 py-1.5 mb-2 flex items-center gap-2 shrink-0">
+        {/* Cost + balance reminder banner */}
+        <div className="rounded-lg bg-muted/40 border text-[11px] px-2 py-1.5 mb-2 flex items-center gap-2 shrink-0 flex-wrap">
           <Coins className="w-3 h-3 text-accent" />
           <span className="text-muted-foreground">
             {fa
-              ? `پیشنهاد متنی: ${costs.text_suggest} • هر تصویر: ${costs.image_gen} اعتبار`
-              : `Text: ${costs.text_suggest} • Image: ${costs.image_gen} credits`}
+              ? `متنی: ${costs.text_suggest} • تصویر: ${costs.image_gen}`
+              : `Text: ${costs.text_suggest} • Image: ${costs.image_gen}`}
+          </span>
+          <span className="ms-auto font-mono text-foreground">
+            {fa ? "اعتبار شما:" : "Balance:"} {credits.toLocaleString()}
           </span>
         </div>
 
@@ -370,7 +397,17 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
         )}
 
         {!loading && error && (
-          <div className="text-xs text-muted-foreground py-2">{error}</div>
+          <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground space-y-2">
+            <p>{error}</p>
+            <Button
+              size="sm"
+              className="w-full h-8 bg-stage-published text-stage-published-foreground hover:bg-stage-published/90"
+              onClick={() => { void refreshCredits(); void fetchSuggestions(); }}
+            >
+              <RefreshCw className="w-3.5 h-3.5 me-1.5" />
+              {fa ? "ادامه بده / تلاش دوباره" : "Continue / Try again"}
+            </Button>
+          </div>
         )}
 
         {!loading && suggestions.length > 0 && (

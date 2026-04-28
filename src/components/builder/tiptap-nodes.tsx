@@ -5,7 +5,7 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { resolveBookMedia } from "@/lib/book-media";
+import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 import { uploadOptimizedImage } from "@/lib/image-optim";
 import {
   Trash2, Image as ImageIcon, Film, GalleryHorizontal, ListOrdered,
@@ -427,7 +427,7 @@ const TimelineView = (props: NodeViewProps) => {
                 title="تصویر گام"
               >
                 {s.image ? (
-                  <img src={resolveBookMedia(s.image)} alt="" className="w-full h-full object-cover" />
+                  <img src={resolveBookCover(s.image, { width: 160, height: 160, quality: 70 })} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                     <Upload className="w-4 h-4" />
@@ -511,7 +511,7 @@ const ScrollyView = (props: NodeViewProps) => {
               className="aspect-square rounded-md border bg-secondary overflow-hidden relative group/sc"
             >
               {s.image ? (
-                <img src={resolveBookMedia(s.image)} alt="" className="w-full h-full object-cover" />
+                <img src={resolveBookCover(s.image, { width: 240, height: 240, quality: 72 })} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
                   <Upload className="w-4 h-4 me-1" /> تصویر

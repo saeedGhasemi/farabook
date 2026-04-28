@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { resolveBookMedia } from "@/lib/book-media";
+import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 import { Layers, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
@@ -210,7 +210,7 @@ const renderMedia = (s: ScrollyStep) => {
   if (s.image) {
     return (
       <img
-        src={resolveBookMedia(s.image)}
+        src={resolveBookCover(s.image, { width: 900, quality: 75 })}
         alt={s.title}
         loading="lazy"
         className="w-full h-full object-cover"
