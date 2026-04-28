@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Info, Sparkles, Quote as QuoteIcon, ChevronLeft, ChevronRight, Play, Pause, Plus, X, Lightbulb, AlertTriangle, CheckCircle2, ShieldAlert, Pencil, HelpCircle, BookMarked } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { resolveBookMedia } from "@/lib/book-media";
+import { SmartImage } from "@/components/SmartImage";
 import { Timeline, type TimelineStep } from "./Timeline";
 import { Scrollytelling, type ScrollyStep } from "./Scrollytelling";
 
@@ -271,7 +272,7 @@ const HiddenCaptionImage = ({
         onMouseLeave={() => setRevealed(false)}
         onClick={() => setRevealed((v) => !v)}
       >
-        <img src={resolveImg(src)} alt={caption || ""} loading="lazy" className="w-full h-auto" />
+        <SmartImage src={src} alt={caption || ""} allowOriginal className="w-full h-auto" />
         {caption && (
           <AnimatePresence>
             {revealed && (
