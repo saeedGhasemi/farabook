@@ -107,9 +107,11 @@ const Auth = () => {
                     onClick={async () => {
                       setBusy(true);
                       try {
+                        // Test users are seeded with this fixed password (see seed-test-users edge function)
+                        const TEST_PASSWORD = "Test1234!";
                         const { error } = await supabase.auth.signInWithPassword({
                           email: u.email,
-                          password: import.meta.env.VITE_DEV_SEED_PASSWORD || "",
+                          password: TEST_PASSWORD,
                         });
                         if (error) throw error;
                       } catch (err) {
