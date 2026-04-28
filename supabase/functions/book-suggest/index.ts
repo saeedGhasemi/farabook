@@ -97,7 +97,7 @@ Avoid repetition. Focus on key points, definitions, examples, processes, and int
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: MODEL,
         messages: [
           { role: "system", content: sys },
           { role: "user", content: text },
@@ -150,11 +150,12 @@ Avoid repetition. Focus on key points, definitions, examples, processes, and int
       }),
     });
 
-    if (r.status === 429) return new Response(JSON.stringify({ error: fa ? "محدودیت درخواست. کمی صبر کنید." : "Rate limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    if (r.status === 402) return new Response(JSON.stringify({ error: fa ? "اعتبار AI تمام شده است." : "Credits exhausted" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (r.status === 429) { await refund("rate_limit"); return new Response(JSON.stringify({ error: fa ? "محدودیت درخواست. کمی صبر کنید." : "Rate limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
+    if (r.status === 402) { await refund("ai_credits"); return new Response(JSON.stringify({ error: fa ? "اعتبار AI تمام شده است." : "Credits exhausted" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
     if (!r.ok) {
       const err = await r.text();
       console.error("AI gateway", r.status, err);
+      await refund("ai_error_" + r.status);
       return new Response(JSON.stringify({ error: fa ? "خطای هوش مصنوعی" : "AI error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const data = await r.json();
