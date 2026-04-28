@@ -214,7 +214,10 @@ export const TextBookEditor = ({ initial }: Props) => {
     if (!isEdit || !initial?.id || !user) return;
     setSaving(true);
     try {
-      const dbPages = textPagesToDbPages(pages);
+      const syncedPages = pages.map((p, i) => (
+        i === activeIdx && editor ? { ...p, doc: editor.getJSON() as TextPage["doc"] } : p
+      ));
+      const dbPages = textPagesToDbPages(syncedPages);
       const { error } = await supabase
         .from("books")
         .update({
@@ -226,6 +229,7 @@ export const TextBookEditor = ({ initial }: Props) => {
         .eq("id", initial.id);
       if (error) throw error;
       setSavedAt(new Date());
+      setPages(syncedPages);
       setDirty(false);
       if (showToast) toast.success(fa ? "ذخیره شد" : "Saved");
     } catch (e) {
@@ -233,7 +237,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     } finally {
       setSaving(false);
     }
-  }, [isEdit, initial, user, pages, title, author, typography, fa]);
+  }, [isEdit, initial, user, pages, activeIdx, editor, title, author, typography, fa]);
 
   const skipFirst = useRef(true);
   useEffect(() => {
