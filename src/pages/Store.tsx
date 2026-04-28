@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
+import { BookCardSkeleton } from "@/components/store/BookCardSkeleton";
 import { bookCreditCost, purchaseBookWithCredits } from "@/lib/purchase";
 import { ConfirmTransactionDialog } from "@/components/ConfirmTransactionDialog";
 import { useCredits } from "@/hooks/useCredits";
@@ -42,6 +43,7 @@ const Store = () => {
   const { credits } = useCredits();
   const [searchParams, setSearchParams] = useSearchParams();
   const [books, setBooks] = useState<Book[]>([]);
+  const [booksLoading, setBooksLoading] = useState(true);
   const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
   const [owned, setOwned] = useState<Set<string>>(new Set());
   const [q, setQ] = useState(searchParams.get("q") ?? "");
@@ -51,10 +53,14 @@ const Store = () => {
   const [confirmBuy, setConfirmBuy] = useState<Book | null>(null);
 
   const reload = () => {
+    setBooksLoading(true);
     supabase.from("books")
       .select("id, title, title_en, author, publisher, publisher_id, status, category, cover_url, description, price, ambient_theme")
       .order("created_at", { ascending: false })
-      .then(({ data }) => setBooks((data as Book[]) ?? []));
+      .then(({ data }) => {
+        setBooks((data as Book[]) ?? []);
+        setBooksLoading(false);
+      });
     supabase.from("book_comments").select("book_id, rating")
       .then(({ data }) => {
         const map: Record<string, { sum: number; count: number }> = {};
