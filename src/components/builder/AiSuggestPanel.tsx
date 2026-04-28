@@ -232,16 +232,22 @@ const applySuggestion = (editor: Editor, s: Suggestion): boolean => {
 const countImageSteps = (s: Suggestion) =>
   (s.steps || []).filter((st) => !st.image && st.image_prompt).length;
 
-export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
+export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Props) => {
   const fa = lang === "fa";
   const { costs } = useAiCosts();
   const { credits, refresh: refreshCredits } = useCredits();
+  // Restore from per-chapter cache when remounting for the same chapter.
+  const cached = chapterKey ? suggestionCache.get(chapterKey) : undefined;
   const [loading, setLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [accepted, setAccepted] = useState<Map<number, number>>(new Map());
-  const [rejected, setRejected] = useState<Set<number>>(new Set());
+  const [suggestions, setSuggestions] = useState<Suggestion[]>(cached?.suggestions ?? []);
+  const [accepted, setAccepted] = useState<Map<number, number>>(
+    new Map(cached?.accepted ?? []),
+  );
+  const [rejected, setRejected] = useState<Set<number>>(
+    new Set(cached?.rejected ?? []),
+  );
   const [busyIdx, setBusyIdx] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(cached?.error ?? null);
 
   // Confirmation dialog for image generation cost
   const [confirmState, setConfirmState] = useState<
