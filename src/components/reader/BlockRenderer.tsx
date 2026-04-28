@@ -67,6 +67,8 @@ interface Props {
 
 /* Render light inline markdown: **bold**, *italic*, __underline__,
    [text](url), [c=COLOR]text[/c] color spans, plus bare URLs.        */
+const safeInlineColor = (value: string) => value.replace(/[;{}<>]/g, "").trim();
+
 const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
   // Order matters — color spans first (they may wrap other inline marks),
   // then bold (**), italic (*), underline, links, urls.
