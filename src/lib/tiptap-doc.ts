@@ -58,7 +58,11 @@ export type DocNode =
   | GalleryNode
   | VideoNode
   | TimelineNode
-  | ScrollyNode;
+  | ScrollyNode
+  // Lists are passed through as-is from Tiptap (StarterKit) — we only
+  // care about reading them back out for the legacy renderer below.
+  | { type: "bulletList" | "orderedList"; content?: any[] }
+  | { type: "listItem"; content?: any[] };
 
 export interface TiptapDoc {
   type: "doc";
