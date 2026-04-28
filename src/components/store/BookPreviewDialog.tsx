@@ -14,6 +14,7 @@ import { useI18n } from "@/lib/i18n";
 import { speakSmart, stopSpeak } from "@/lib/tts";
 import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 import { BookComments } from "@/components/BookComments";
+import { BlockRenderer, type Block } from "@/components/reader/BlockRenderer";
 import { toast } from "sonner";
 
 interface PreviewBook {
@@ -37,7 +38,7 @@ interface Props {
   onBuy: () => void;
 }
 
-interface PageBlock { type: string; text?: string; src?: string; caption?: string }
+interface PageBlock extends Partial<Block> { type: string; text?: string; src?: string; caption?: string }
 interface PageRow { title?: string; blocks?: PageBlock[] }
 
 const blocksToText = (blocks: PageBlock[] = []) =>
@@ -218,19 +219,9 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
                     <article key={i} className="paper-card rounded-xl p-4">
                       {p.title && <h4 className="font-display font-bold text-lg mb-2">{p.title}</h4>}
                       <div className="space-y-2 text-sm leading-relaxed">
-                        {(p.blocks ?? []).slice(0, 8).map((b, j) => {
-                          if (b.type === "image" && b.src) {
-                            return (
-                              <figure key={j} className="my-2">
-                                <img src={resolveBookMedia(b.src)} alt={b.caption ?? ""} className="rounded-lg w-full max-h-64 object-contain bg-secondary" />
-                                {b.caption && <figcaption className="text-xs text-muted-foreground mt-1 text-center">{b.caption}</figcaption>}
-                              </figure>
-                            );
-                          }
-                          if (b.type === "heading") return <h5 key={j} className="font-semibold mt-2">{b.text}</h5>;
-                          if (b.type === "quote") return <blockquote key={j} className="border-s-2 border-accent ps-3 italic text-muted-foreground">{b.text}</blockquote>;
-                          return b.text ? <p key={j}>{b.text}</p> : null;
-                        })}
+                        {(p.blocks ?? []).slice(0, 8).map((b, j) => (
+                          <BlockRenderer key={j} block={b as Block} fontSize={14} index={j} pageIndex={i} />
+                        ))}
                         {(p.blocks?.length ?? 0) > 8 && (
                           <p className="text-xs text-muted-foreground italic">…</p>
                         )}
