@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner";
 import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
-import { BookCardSkeleton } from "@/components/store/BookCardSkeleton";
+
 import { bookCreditCost, purchaseBookWithCredits } from "@/lib/purchase";
 import { ConfirmTransactionDialog } from "@/components/ConfirmTransactionDialog";
 import { useCredits } from "@/hooks/useCredits";
@@ -157,11 +157,7 @@ const Store = () => {
       </motion.div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {booksLoading && books.length === 0
-          ? Array.from({ length: 8 }).map((_, i) => (
-              <BookCardSkeleton key={`sk-${i}`} variant="grid" index={i} />
-            ))
-          : filtered.map((book, i) => {
+        {filtered.map((book, i) => {
           const isOwned = owned.has(book.id);
           const isOwner = !!user && book.publisher_id === user.id;
           const isDraft = book.status === "draft";
@@ -263,7 +259,7 @@ const Store = () => {
           );
         })}
       </div>
-      {!booksLoading && filtered.length === 0 && (
+      {filtered.length === 0 && (
         <div className="text-center text-muted-foreground py-16">
           {lang === "fa" ? "کتابی یافت نشد." : "No books found."}
         </div>
