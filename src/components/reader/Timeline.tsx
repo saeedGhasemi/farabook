@@ -99,7 +99,7 @@ export const Timeline = ({ title, steps }: Props) => {
               {cur.image && (
                 <div className="md:w-1/3 shrink-0 overflow-hidden rounded-xl bg-foreground/5">
                   <img
-                    src={resolveBookMedia(cur.image)}
+                    src={resolveBookCover(cur.image, { width: 600, quality: 75 })}
                     alt={cur.title}
                     loading="lazy"
                     className="w-full h-40 md:h-full object-cover"
