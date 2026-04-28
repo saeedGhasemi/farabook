@@ -46,7 +46,7 @@ export type Block =
   | { type: "gallery"; images: string[]; caption?: string }
   | { type: "slideshow"; images: { src: string; caption?: string }[]; autoplay?: boolean; interval?: number; hideCaption?: boolean }
   | { type: "video"; src: string; poster?: string; caption?: string }
-  | { type: "callout"; icon?: "info" | "sparkle" | "tip" | "warning" | "success" | "danger" | "note" | "question" | "quote"; text: string }
+  | { type: "callout"; icon?: "info" | "sparkle" | "tip" | "warning" | "success" | "danger" | "note" | "question" | "quote" | "definition" | "example"; text: string }
   | { type: "table"; caption?: string; tableNumber?: string; headers: string[]; rows: string[][] }
   | { type: "references"; items: { id?: string; text: string; url?: string }[] }
   | { type: "timeline"; title?: string; steps: TimelineStep[] }
