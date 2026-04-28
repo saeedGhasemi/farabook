@@ -18,7 +18,7 @@ import {
   Image as ImageIcon, Sparkles, Plus, Trash2, BookOpen, Loader2, Save,
   Palette, Type as TypeIcon, SplitSquareVertical, Film, GalleryHorizontal,
   ListOrdered, Layers, AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  Undo2, Redo2, X, ArrowLeftRight,
+  Undo2, Redo2, X, ArrowLeftRight, ChevronsLeft, ChevronsRight, Scissors,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
