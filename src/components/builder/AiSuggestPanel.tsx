@@ -250,8 +250,16 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
   const fa = lang === "fa";
   const { costs } = useAiCosts();
   const { credits, refresh: refreshCredits } = useCredits();
-  // Restore from per-chapter cache when remounting for the same chapter.
-  const cached = chapterKey ? suggestionCache.get(chapterKey) : undefined;
+  // Restore from per-chapter cache when remounting for the same chapter,
+  // but only if the chapter content fingerprint still matches. If the
+  // user has made substantial edits since the suggestions were generated,
+  // we drop the stale cache so they don't see mismatched suggestions.
+  const currentFingerprint = useMemo(() => computeDocFingerprint(editor), [editor]);
+  const rawCached = chapterKey ? suggestionCache.get(chapterKey) : undefined;
+  const cached = rawCached && rawCached.fingerprint === currentFingerprint ? rawCached : undefined;
+  if (chapterKey && rawCached && !cached) {
+    suggestionCache.delete(chapterKey);
+  }
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>(cached?.suggestions ?? []);
   const [accepted, setAccepted] = useState<Map<number, number>>(
