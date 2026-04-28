@@ -433,6 +433,9 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
       }
       const mark = getHistorySize();
       setAccepted((prev) => { const next = new Map(prev); next.set(idx, mark); return next; });
+      // Re-baseline the fingerprint so our own edit doesn't trip the
+      // "content changed" invalidator.
+      setGenFingerprint(computeDocFingerprint(editor));
       window.dispatchEvent(new Event(CREDITS_REFRESH_EVENT));
       void refreshCredits();
     } finally {
