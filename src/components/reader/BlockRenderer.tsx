@@ -39,20 +39,20 @@ export interface Hotspot {
 }
 
 export type Block =
-  | { type: "heading"; text: string }
-  | { type: "paragraph"; text: string }
-  | { type: "quote"; text: string; author?: string }
+  | { type: "heading"; text: string; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }
+  | { type: "paragraph"; text: string; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }
+  | { type: "quote"; text: string; author?: string; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }
   | { type: "highlight"; text: string }
   | { type: "image"; src: string; caption?: string; figureNumber?: string; hotspots?: Hotspot[]; hideCaption?: boolean }
   | { type: "gallery"; images: string[]; caption?: string }
   | { type: "slideshow"; images: { src: string; caption?: string }[]; autoplay?: boolean; interval?: number; hideCaption?: boolean }
   | { type: "video"; src: string; poster?: string; caption?: string }
-  | { type: "callout"; icon?: "info" | "sparkle" | "tip" | "warning" | "success" | "danger" | "note" | "question" | "quote" | "definition" | "example"; text: string }
+  | { type: "callout"; icon?: "info" | "sparkle" | "tip" | "warning" | "success" | "danger" | "note" | "question" | "quote" | "definition" | "example"; text: string; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }
   | { type: "table"; caption?: string; tableNumber?: string; headers: string[]; rows: string[][] }
   | { type: "references"; items: { id?: string; text: string; url?: string }[] }
   | { type: "timeline"; title?: string; steps: TimelineStep[] }
   | { type: "scrollytelling"; title?: string; steps: ScrollyStep[] }
-  | { type: "list"; ordered?: boolean; items: string[] };
+  | { type: "list"; ordered?: boolean; items: string[]; itemAttrs?: Array<{ textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }>; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" };
 
 interface SavedHL { id?: string; text: string; color: string }
 
@@ -67,21 +67,23 @@ interface Props {
 
 /* Render light inline markdown: **bold**, *italic*, __underline__,
    [text](url), [c=COLOR]text[/c] color spans, plus bare URLs.        */
+const safeInlineColor = (value: string) => value.replace(/[;{}<>]/g, "").trim();
+
 const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
   // Order matters — color spans first (they may wrap other inline marks),
   // then bold (**), italic (*), underline, links, urls.
   const re =
-    /(\[c=[^\]\n]+\][^\[\n]+\[\/c\]|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
+    /(\[c=[^\]\n]+\][\s\S]*?\[\/c\]|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
   const parts = text.split(re);
   return parts.map((p, i) => {
     const key = `${baseKey}-${i}`;
     if (!p) return null;
     // Color span
-    const colorM = /^\[c=([^\]\n]+)\]([^\[\n]+)\[\/c\]$/.exec(p);
+    const colorM = /^\[c=([^\]\n]+)\]([\s\S]*?)\[\/c\]$/.exec(p);
     if (colorM) {
       return (
-        <span key={key} style={{ color: colorM[1] }}>
-          {colorM[2]}
+        <span key={key} style={{ color: safeInlineColor(colorM[1]) }}>
+          {renderInlineMarkdown(colorM[2], `${key}-c`)}
         </span>
       );
     }
@@ -108,7 +110,7 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
           rel="noreferrer"
           className="text-accent underline-offset-2 hover:underline"
         >
-          {linkM[1]}
+          {renderInlineMarkdown(linkM[1], `${key}-a`)}
         </a>
       );
     }
@@ -513,6 +515,11 @@ const Slideshow = ({
 
 /* ---------- Main renderer ---------- */
 
+const textBlockStyle = (block: { textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }, extra?: React.CSSProperties): React.CSSProperties => ({
+  ...extra,
+  ...(block.textAlign ? { textAlign: block.textAlign } : {}),
+});
+
 export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHighlights, onHighlightClick }: Props) => {
   const delay = Math.min(index * 0.05, 0.3);
   const blockId = `book-block-${pageIndex}-${index}`;
@@ -525,8 +532,8 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
   switch (block.type) {
     case "heading":
       return (
-        <motion.h3 {...fade} className="text-xl md:text-2xl font-display font-bold gold-text mt-6 mb-3 leading-tight">
-          {block.text}
+        <motion.h3 {...fade} dir={block.dir} className="text-xl md:text-2xl font-display font-bold gold-text mt-6 mb-3 leading-tight" style={textBlockStyle(block)}>
+          {renderWithHighlights(block.text, savedHighlights, onHighlightClick)}
         </motion.h3>
       );
 
@@ -535,8 +542,9 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
       return (
         <motion.p
           {...fade}
+          dir={block.dir}
           className={`text-foreground/90 leading-loose whitespace-pre-line text-pretty ${isFirst ? "drop-cap" : ""}`}
-          style={{ fontSize: `${fontSize}px`, lineHeight: 1.85 }}
+          style={textBlockStyle(block, { fontSize: `${fontSize}px`, lineHeight: 1.85 })}
         >
           {renderWithHighlights(block.text, savedHighlights, onHighlightClick)}
         </motion.p>
@@ -549,10 +557,11 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
           <div className="absolute top-0 start-0 w-1 h-full bg-gradient-warm rounded-full" />
           <QuoteIcon className="w-6 h-6 text-accent mb-2 opacity-60" />
           <blockquote
+            dir={block.dir}
             className="pull-quote text-foreground/95 leading-relaxed text-balance"
-            style={{ fontSize: `${fontSize + 2}px` }}
+            style={textBlockStyle(block, { fontSize: `${fontSize + 2}px` })}
           >
-            "{block.text}"
+            "{renderWithHighlights(block.text, savedHighlights, onHighlightClick)}"
           </blockquote>
           {block.author && (
             <figcaption className="mt-2 text-sm text-muted-foreground">— {block.author}</figcaption>
@@ -717,7 +726,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
           className={`my-6 flex gap-3 p-4 rounded-xl glass border ${v.cls}`}
         >
           <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${v.iconCls}`} />
-          <p className="text-sm text-foreground/85 leading-relaxed">{renderInlineMarkdown(block.text, `cb-${index}`)}</p>
+          <p dir={block.dir} className="text-sm text-foreground/85 leading-relaxed" style={textBlockStyle(block)}>{renderInlineMarkdown(block.text, `cb-${index}`)}</p>
         </motion.aside>
       );
     }
@@ -741,15 +750,16 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
       return (
         <motion.div {...fade}>
           <ListTag
+            dir={block.dir}
             className={`my-4 ps-6 space-y-1.5 text-foreground/90 leading-relaxed ${
               block.ordered
                 ? "list-decimal marker:text-accent marker:font-bold"
                 : "list-disc marker:text-accent"
             }`}
-            style={{ fontSize: `${fontSize}px`, lineHeight: 1.75 }}
+            style={textBlockStyle(block, { fontSize: `${fontSize}px`, lineHeight: 1.75 })}
           >
             {block.items.map((it, i) => (
-              <li key={i} className="ps-1">
+              <li key={i} className="ps-1" dir={block.itemAttrs?.[i]?.dir} style={textBlockStyle(block.itemAttrs?.[i] ?? {})}>
                 {renderWithHighlights(it, savedHighlights, onHighlightClick)}
               </li>
             ))}

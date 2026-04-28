@@ -33,12 +33,13 @@ export interface TextNode {
   marks?: Mark[];
 }
 
-export interface ParagraphNode { type: "paragraph"; content?: TextNode[] }
-export interface HeadingNode { type: "heading"; attrs: { level: 1 | 2 | 3 }; content?: TextNode[] }
-export interface QuoteNode { type: "quote"; attrs?: { author?: string }; content?: TextNode[] }
+export interface TextBlockAttrs { textAlign?: "left" | "center" | "right" | "justify" | null; dir?: "rtl" | "ltr" | null }
+export interface ParagraphNode { type: "paragraph"; attrs?: TextBlockAttrs; content?: TextNode[] }
+export interface HeadingNode { type: "heading"; attrs: { level: 1 | 2 | 3 } & TextBlockAttrs; content?: TextNode[] }
+export interface QuoteNode { type: "quote"; attrs?: { author?: string } & TextBlockAttrs; content?: TextNode[] }
 export interface CalloutNode {
   type: "callout";
-  attrs: { variant: "info" | "tip" | "note" | "warning" | "success" | "danger" | "question" | "quote" | "definition" | "example" };
+  attrs: { variant: "info" | "tip" | "note" | "warning" | "success" | "danger" | "question" | "quote" | "definition" | "example" } & TextBlockAttrs;
   content?: TextNode[];
 }
 export interface ImageNode {
@@ -159,20 +160,25 @@ const splitParas = (raw: string): string[] => {
 };
 
 /** Convert one legacy block (DB shape: { type, ... }) to one or more doc nodes. */
+const legacyTextAttrs = (b: any): TextBlockAttrs => ({
+  textAlign: b?.textAlign ?? b?.align ?? null,
+  dir: b?.dir ?? null,
+});
+
 const legacyBlockToNodes = (b: any): DocNode[] => {
   if (!b || typeof b !== "object" || !b.type) return [];
   switch (b.type) {
     case "heading":
-      return [{ type: "heading", attrs: { level: 2 }, content: textToNodes(String(b.text ?? "")) }];
+      return [{ type: "heading", attrs: { level: 2, ...legacyTextAttrs(b) }, content: textToNodes(String(b.text ?? "")) }];
     case "paragraph":
       return splitParas(String(b.text ?? "")).map(
-        (t) => ({ type: "paragraph", content: textToNodes(t) }) as ParagraphNode,
+        (t) => ({ type: "paragraph", attrs: legacyTextAttrs(b), content: textToNodes(t) }) as ParagraphNode,
       );
     case "quote":
       return splitParas(String(b.text ?? "")).map(
         (t) => ({
           type: "quote",
-          attrs: b.author ? { author: String(b.author) } : undefined,
+          attrs: { ...(b.author ? { author: String(b.author) } : {}), ...legacyTextAttrs(b) },
           content: textToNodes(t),
         }) as QuoteNode,
       );
@@ -181,7 +187,7 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
       return splitParas(String(b.text ?? "")).map(
         (t) => ({
           type: "callout",
-          attrs: { variant: calloutVariant(b.icon ?? (b.type === "highlight" ? "sparkle" : "info")) },
+          attrs: { variant: calloutVariant(b.icon ?? (b.type === "highlight" ? "sparkle" : "info")), ...legacyTextAttrs(b) },
           content: textToNodes(t),
         }) as CalloutNode,
       );
@@ -271,21 +277,15 @@ export const textPagesToDbPages = (pages: TextPage[]): any[] =>
 /* HTML rendering for the Reader (no React, used inside dangerouslySet)*/
 /* ------------------------------------------------------------------ */
 
-const escapeHtml = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const textBlockAttrsToLegacy = (attrs?: TextBlockAttrs | null): Record<string, string> => {
+  const out: Record<string, string> = {};
+  if (attrs?.textAlign) out.textAlign = attrs.textAlign;
+  if (attrs?.dir) out.dir = attrs.dir;
+  return out;
+};
 
-const renderTextNodes = (nodes?: TextNode[]): string =>
-  (nodes ?? [])
-    .map((n) => {
-      let t = escapeHtml(n.text);
-      for (const m of n.marks ?? []) {
-        if (m.type === "bold") t = `<strong>${t}</strong>`;
-        else if (m.type === "italic") t = `<em>${t}</em>`;
-        else if (m.type === "underline") t = `<u>${t}</u>`;
-      }
-      return t;
-    })
-    .join("");
+const sanitizeCssValue = (value: string): string =>
+  value.replace(/[;{}<>]/g, "").trim();
 
 /* ------------------------------------------------------------------ */
 /* New doc → legacy blocks (so the existing Reader keeps working)     */
@@ -305,13 +305,13 @@ const inlineToMarkdown = (nodes?: TextNode[]): string =>
       else if (m.type === "italic") t = `*${t}*`;
       else if (m.type === "underline") t = `__${t}__`;
       else if (m.type === "textStyle" && (m as any).attrs?.color) {
-        color = (m as any).attrs.color as string;
+        color = sanitizeCssValue((m as any).attrs.color as string);
       } else if (m.type === "link" && (m as any).attrs?.href) {
         href = (m as any).attrs.href as string;
       }
     }
-    if (color) t = `[c=${color}]${t}[/c]`;
     if (href) t = `[${t}](${href})`;
+    if (color) t = `[c=${color}]${t}[/c]`;
     return t;
   }).join("");
 
@@ -332,14 +332,16 @@ const calloutIconFromVariant = (v: string): string => {
 
 /** Convert a single list-item node to its inline markdown text (joining
  *  any nested paragraphs with newlines). */
-const listItemToText = (item: any): string => {
+const listItemToLegacy = (item: any): { text: string; attrs: Record<string, string> } => {
   const inner: string[] = [];
+  let attrs: Record<string, string> = {};
   for (const child of item?.content ?? []) {
     if (child?.type === "paragraph" || child?.type === "heading") {
+      if (!Object.keys(attrs).length) attrs = textBlockAttrsToLegacy(child.attrs);
       inner.push(inlineToMarkdown(child.content));
     }
   }
-  return inner.join("\n").trim();
+  return { text: inner.join("\n").trim(), attrs };
 };
 
 /** Convert a Tiptap doc back to legacy block array for the Reader. */
@@ -349,17 +351,17 @@ export const docToLegacyBlocks = (doc: TiptapDoc): any[] => {
     switch (n.type) {
       case "paragraph": {
         const t = inlineToMarkdown(n.content);
-        if (t.trim()) out.push({ type: "paragraph", text: t });
+        if (t.trim()) out.push({ type: "paragraph", text: t, ...textBlockAttrsToLegacy(n.attrs) });
         break;
       }
       case "heading":
-        out.push({ type: "heading", text: inlineToMarkdown(n.content) });
+        out.push({ type: "heading", text: inlineToMarkdown(n.content), ...textBlockAttrsToLegacy(n.attrs) });
         break;
       case "quote":
-        out.push({ type: "quote", text: inlineToMarkdown(n.content), author: n.attrs?.author });
+        out.push({ type: "quote", text: inlineToMarkdown(n.content), author: n.attrs?.author, ...textBlockAttrsToLegacy(n.attrs) });
         break;
       case "callout":
-        out.push({ type: "callout", icon: calloutIconFromVariant(n.attrs.variant), text: inlineToMarkdown(n.content) });
+        out.push({ type: "callout", icon: calloutIconFromVariant(n.attrs.variant), text: inlineToMarkdown(n.content), ...textBlockAttrsToLegacy(n.attrs) });
         break;
       case "image":
         out.push({ type: "image", src: n.attrs.src, caption: n.attrs.caption, hideCaption: n.attrs.hideCaption });
@@ -378,10 +380,12 @@ export const docToLegacyBlocks = (doc: TiptapDoc): any[] => {
         break;
       case "bulletList":
       case "orderedList": {
-        const items = (n.content ?? [])
-          .map((it: any) => listItemToText(it))
-          .filter((t: string) => t.length > 0);
-        if (items.length) out.push({ type: "list", ordered: n.type === "orderedList", items });
+        const itemData = (n.content ?? [])
+          .map((it: any) => listItemToLegacy(it))
+          .filter((it: { text: string }) => it.text.length > 0);
+        const items = itemData.map((it: { text: string }) => it.text);
+        const listAttrs = { ...itemData[0]?.attrs, ...textBlockAttrsToLegacy(n.attrs) };
+        if (items.length) out.push({ type: "list", ordered: n.type === "orderedList", items, itemAttrs: itemData.map((it: { attrs: Record<string, string> }) => it.attrs), ...listAttrs });
         break;
       }
     }

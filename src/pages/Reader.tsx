@@ -17,10 +17,12 @@ import { ChapterSidebar } from "@/components/reader/ChapterSidebar";
 import { HighlightsPanel, type HighlightItem } from "@/components/reader/HighlightsPanel";
 import { resolveBookMedia } from "@/lib/book-media";
 import { speakSmart, stopSpeak as stopSpeakSmart } from "@/lib/tts";
+import { docToLegacyBlocks } from "@/lib/tiptap-doc";
 
 interface Page {
   title: string;
   ambient?: string;
+  doc?: any;
   blocks?: Block[];
   content?: string;
 }
@@ -51,6 +53,12 @@ interface SearchResult {
   mediaKey?: string;
   mediaCaption?: string;
 }
+
+const pageToBlocks = (page?: Page): Block[] => {
+  if (!page) return [];
+  if (page.doc?.type === "doc") return docToLegacyBlocks(page.doc) as Block[];
+  return page.blocks ?? (page.content ? [{ type: "paragraph", text: page.content }] : []);
+};
 
 const Reader = () => {
   const { id } = useParams();
@@ -232,8 +240,9 @@ const Reader = () => {
 
   const pageText = useMemo(() => {
     if (!currentPage) return "";
-    if (currentPage.blocks) {
-      return currentPage.blocks
+    const pageBlocks = pageToBlocks(currentPage);
+    if (pageBlocks.length) {
+      return pageBlocks
         .map((b) => {
           if (b.type === "paragraph" || b.type === "heading" || b.type === "highlight") return b.text;
           if (b.type === "quote") return `"${b.text}"${b.author ? ` — ${b.author}` : ""}`;
@@ -426,13 +435,11 @@ const Reader = () => {
     );
   }
 
-  const blocks: Block[] = currentPage.blocks ?? (currentPage.content
-    ? [{ type: "paragraph", text: currentPage.content }]
-    : []);
+  const blocks: Block[] = pageToBlocks(currentPage);
 
   const chapters = book.pages.map((p, i) => ({ index: i, title: p.title }));
   // Detect book content direction independently of UI language
-  const sampleText = (book.pages.slice(0, 3).map((p) => p.title + " " + (p.blocks?.map((b) => "text" in b ? b.text : "").join(" ") ?? p.content ?? "")).join(" ")).slice(0, 2000);
+  const sampleText = (book.pages.slice(0, 3).map((p) => p.title + " " + (pageToBlocks(p).map((b) => "text" in b ? b.text : "").join(" ") || p.content || "")).join(" ")).slice(0, 2000);
   const rtlChars = (sampleText.match(/[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length;
   const ltrChars = (sampleText.match(/[A-Za-z]/g) || []).length;
   const bookDir: "rtl" | "ltr" = rtlChars >= ltrChars ? "rtl" : "ltr";
@@ -447,7 +454,7 @@ const Reader = () => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return [];
     return book.pages.flatMap((page, pIndex) => {
-      const pageBlocks = page.blocks ?? (page.content ? [{ type: "paragraph", text: page.content } as Block] : []);
+      const pageBlocks = pageToBlocks(page);
       const firstMedia = pageBlocks.map((candidate, candidateIndex) => {
         const src = candidate.type === "image" ? candidate.src : candidate.type === "gallery" ? candidate.images[0] : candidate.type === "slideshow" ? candidate.images[0]?.src : undefined;
         const caption = candidate.type === "image" ? candidate.caption : candidate.type === "gallery" ? candidate.caption : candidate.type === "slideshow" ? candidate.images[0]?.caption : undefined;
