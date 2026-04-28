@@ -1,10 +1,10 @@
 // New page-as-document book editor. The whole chapter is a single
-// rich-text document. A floating bubble menu appears on text
-// selection with the 5 main tools + AI button. Side panel hosts AI
-// suggestions with Accept/Reject.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+// rich-text document. A sticky toolbar at the top of the editor
+// exposes ALL formatting actions and stays visible while scrolling.
+// Side panel hosts AI suggestions with Accept/Reject.
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
-import { BubbleMenu } from "@tiptap/react/menus";
+import { Extension } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -13,9 +13,12 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Bold, Italic, Underline as UnderlineIcon, Heading2, Quote as QuoteIcon, Lightbulb,
-  Image as ImageIcon, Sparkles, Plus, Trash2, BookOpen, Loader2, Save, Check, X,
-  Palette, Type as TypeIcon, SplitSquareVertical, Film, GalleryHorizontal, ListOrdered, Layers,
+  Bold, Italic, Underline as UnderlineIcon, Heading1, Heading2, Heading3,
+  Quote as QuoteIcon, Lightbulb, List, ListOrdered as OlIcon,
+  Image as ImageIcon, Sparkles, Plus, Trash2, BookOpen, Loader2, Save,
+  Palette, Type as TypeIcon, SplitSquareVertical, Film, GalleryHorizontal,
+  ListOrdered, Layers, AlignLeft, AlignCenter, AlignRight, AlignJustify,
+  Undo2, Redo2, X, ArrowLeftRight,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -44,6 +47,8 @@ const TYPOGRAPHY_PRESETS = [
   { value: "modern", label_fa: "مدرن", label_en: "Modern" },
   { value: "playful", label_fa: "صمیمی", label_en: "Playful" },
   { value: "elegant", label_fa: "نفیس", label_en: "Elegant" },
+  { value: "technical", label_fa: "فنی", label_en: "Technical" },
+  { value: "magazine", label_fa: "مجله‌ای", label_en: "Magazine" },
 ];
 
 const TEXT_COLORS = [
@@ -55,6 +60,25 @@ const TEXT_COLORS = [
   { name: "Danger", value: "hsl(var(--destructive))" },
   { name: "Muted", value: "hsl(var(--muted-foreground))" },
 ];
+
+/* ---- Custom Direction extension: add dir attr to text blocks ---- */
+const TextDirection = Extension.create({
+  name: "textDirection",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["paragraph", "heading", "quote", "callout"],
+        attributes: {
+          dir: {
+            default: null,
+            parseHTML: (el: HTMLElement) => el.getAttribute("dir"),
+            renderHTML: (attrs: Record<string, any>) => (attrs.dir ? { dir: attrs.dir } : {}),
+          },
+        },
+      },
+    ];
+  },
+});
 
 interface Initial {
   id?: string;
@@ -77,45 +101,63 @@ const newEmptyPage = (title = ""): TextPage => ({
   doc: { type: "doc", content: [{ type: "paragraph" }] },
 });
 
+/* ---------------- Toolbar button helper ---------------- */
+const TbBtn = ({
+  active, onClick, title, children, accent,
+}: { active?: boolean; onClick: () => void; title: string; children: React.ReactNode; accent?: boolean }) => (
+  <button
+    type="button"
+    title={title}
+    onClick={onClick}
+    className={`p-1.5 rounded-md transition shrink-0 ${
+      accent ? "text-accent hover:bg-accent/10" :
+      active ? "bg-muted text-foreground" : "hover:bg-muted text-muted-foreground hover:text-foreground"
+    }`}
+  >
+    {children}
+  </button>
+);
+
+const TbSep = () => <span className="w-px h-5 bg-border mx-0.5 shrink-0" />;
+
 export const TextBookEditor = ({ initial }: Props) => {
   const { user } = useAuth();
   const { lang } = useI18n();
   const fa = lang === "fa";
   const isEdit = Boolean(initial?.id);
 
-  // Top-level book metadata
   const [title, setTitle] = useState(initial?.title ?? "");
   const [author, setAuthor] = useState(initial?.author ?? "");
 
-  // Pages (chapters) — each has its own title + Tiptap doc
   const [pages, setPages] = useState<TextPage[]>(
     initial?.pages?.length ? dbPagesToTextPages(initial.pages) : [newEmptyPage(fa ? "فصل ۱" : "Chapter 1")],
   );
   const [activeIdx, setActiveIdx] = useState(0);
   const activePage = pages[activeIdx] ?? pages[0];
 
-  // Save / dirty
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [showAi, setShowAi] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [typography, setTypography] = useState<string>(initial?.typography_preset || "editorial");
+  // Force re-render of toolbar on selection change to reflect active states
+  const [, forceTick] = useState(0);
 
   const { upload } = useImageUpload();
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  /* ---------------- Editor instance ---------------- */
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
-        blockquote: false, // we use custom Quote
+        blockquote: false,
       }),
       Underline,
       TextStyle,
       Color.configure({ types: ["textStyle"] }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
+      TextDirection,
       Placeholder.configure({
         placeholder: fa ? "اینجا بنویسید… با Enter پاراگراف بعدی." : "Write here… Enter for next paragraph.",
       }),
@@ -126,8 +168,6 @@ export const TextBookEditor = ({ initial }: Props) => {
       attributes: {
         dir: fa ? "rtl" : "ltr",
         class: "prose prose-lg max-w-none focus:outline-none min-h-[60vh] leading-relaxed tiptap-surface",
-        // Disable iOS/Android native text-selection callout so it doesn't
-        // overlap our BubbleMenu. Users still get our custom toolbar.
         style: "-webkit-touch-callout: none;",
       },
     },
@@ -135,10 +175,12 @@ export const TextBookEditor = ({ initial }: Props) => {
       const json = editor.getJSON() as TextPage["doc"];
       setPages((ps) => ps.map((p, i) => (i === activeIdx ? { ...p, doc: json } : p)));
       setDirty(true);
+      forceTick((n) => n + 1);
     },
+    onSelectionUpdate: () => forceTick((n) => n + 1),
+    onTransaction: () => forceTick((n) => n + 1),
   });
 
-  // Swap content when active chapter changes
   useEffect(() => {
     if (!editor) return;
     const current = editor.getJSON();
@@ -149,7 +191,6 @@ export const TextBookEditor = ({ initial }: Props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIdx, editor]);
 
-  /* ---------------- Persist ---------------- */
   const persist = useCallback(async (showToast = false) => {
     if (!isEdit || !initial?.id || !user) return;
     setSaving(true);
@@ -175,7 +216,6 @@ export const TextBookEditor = ({ initial }: Props) => {
     }
   }, [isEdit, initial, user, pages, title, author, typography, fa]);
 
-  // Autosave
   const skipFirst = useRef(true);
   useEffect(() => {
     if (!isEdit) return;
@@ -185,7 +225,6 @@ export const TextBookEditor = ({ initial }: Props) => {
     return () => window.clearTimeout(t);
   }, [pages, title, author, typography, dirty, isEdit, persist]);
 
-  /* ---------------- Chapter actions ---------------- */
   const addChapter = () => {
     setPages((ps) => [...ps, newEmptyPage(fa ? `فصل ${ps.length + 1}` : `Chapter ${ps.length + 1}`)]);
     setActiveIdx(pages.length);
@@ -205,7 +244,6 @@ export const TextBookEditor = ({ initial }: Props) => {
     setDirty(true);
   };
 
-  /* ---------------- Toolbar actions ---------------- */
   const insertImageAtCursor = async (file: File) => {
     const url = await upload(file);
     if (!url || !editor) return;
@@ -214,15 +252,12 @@ export const TextBookEditor = ({ initial }: Props) => {
     }).run();
   };
 
-  /** Split current chapter at the selection: everything from the selection
-   *  to the end becomes a brand-new chapter inserted after the current one. */
   const splitChapterAtSelection = () => {
     if (!editor) return;
     const { from } = editor.state.selection;
     const fullJson = editor.getJSON() as TextPage["doc"];
     const blocks = (fullJson.content ?? []) as any[];
-    // Find which top-level block contains `from`
-    let pos = 1; // doc start = 0; first block content starts at 1
+    let pos = 1;
     let splitIdx = blocks.length;
     for (let i = 0; i < blocks.length; i++) {
       const node = editor.state.doc.child(i);
@@ -254,7 +289,6 @@ export const TextBookEditor = ({ initial }: Props) => {
     toast.success(fa ? "فصل جدید ساخته شد" : "New chapter created");
   };
 
-  /** Insert an interactive block at the cursor position. */
   const insertInteractive = (kind: "video" | "gallery" | "timeline" | "scrollytelling") => {
     if (!editor) return;
     const attrs =
@@ -264,11 +298,21 @@ export const TextBookEditor = ({ initial }: Props) => {
     editor.chain().focus().insertContent({ type: kind, attrs }).run();
   };
 
+  /** Toggle direction on the current text block (rtl ↔ ltr). */
+  const toggleBlockDirection = () => {
+    if (!editor) return;
+    const { $from } = editor.state.selection;
+    const node = $from.node($from.depth);
+    const currentDir = (node?.attrs as any)?.dir;
+    const next = currentDir === "rtl" ? "ltr" : currentDir === "ltr" ? null : (fa ? "ltr" : "rtl");
+    // Apply to all current text-block types
+    editor.chain().focus().updateAttributes(node.type.name, { dir: next }).run();
+  };
+
   if (!editor) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-accent" /></div>;
   }
 
-  /* ---------------- Render ---------------- */
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4 px-3 md:px-4 py-3" dir={fa ? "rtl" : "ltr"}>
       {/* ============ Chapter sidebar ============ */}
@@ -310,7 +354,7 @@ export const TextBookEditor = ({ initial }: Props) => {
 
       {/* ============ Main editor ============ */}
       <section className="min-w-0">
-        {/* Top bar: chapter title + typography + insert menu + save */}
+        {/* Chapter title + meta */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           <Input
             value={activePage?.title ?? ""}
@@ -318,50 +362,6 @@ export const TextBookEditor = ({ initial }: Props) => {
             placeholder={fa ? "عنوان فصل" : "Chapter title"}
             className="flex-1 min-w-[180px] text-lg font-display font-semibold border-0 border-b border-dashed rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary"
           />
-
-          {/* Typography preset selector */}
-          <Select value={typography} onValueChange={(v) => { setTypography(v); setDirty(true); }}>
-            <SelectTrigger className="h-8 w-[140px]" title={fa ? "تیپوگرافی" : "Typography"}>
-              <TypeIcon className="w-3.5 h-3.5 me-1" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TYPOGRAPHY_PRESETS.map((p) => (
-                <SelectItem key={p.value} value={p.value}>{fa ? p.label_fa : p.label_en}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Insert interactive block */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button size="sm" variant="outline" className="h-8" title={fa ? "افزودن عنصر تعاملی" : "Insert interactive"}>
-                <Layers className="w-3.5 h-3.5 me-1" /> {fa ? "تعاملی" : "Interactive"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56 p-1.5">
-              <button type="button" onClick={() => fileRef.current?.click()} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
-                <ImageIcon className="w-4 h-4 text-accent" /> {fa ? "تصویر" : "Image"}
-              </button>
-              <button type="button" onClick={() => insertInteractive("video")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
-                <Film className="w-4 h-4 text-accent" /> {fa ? "ویدئو" : "Video"}
-              </button>
-              <button type="button" onClick={() => insertInteractive("gallery")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
-                <GalleryHorizontal className="w-4 h-4 text-accent" /> {fa ? "گالری تصاویر" : "Gallery"}
-              </button>
-              <button type="button" onClick={() => insertInteractive("timeline")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
-                <ListOrdered className="w-4 h-4 text-accent" /> {fa ? "تایم‌لاین" : "Timeline"}
-              </button>
-              <button type="button" onClick={() => insertInteractive("scrollytelling")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
-                <Layers className="w-4 h-4 text-accent" /> {fa ? "اسکرولی‌تلینگ" : "Scrollytelling"}
-              </button>
-              <div className="h-px bg-border my-1" />
-              <button type="button" onClick={splitChapterAtSelection} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
-                <SplitSquareVertical className="w-4 h-4 text-primary" /> {fa ? "فصل جدید از اینجا" : "New chapter here"}
-              </button>
-            </PopoverContent>
-          </Popover>
-
           <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
             {saving ? <><Loader2 className="w-3 h-3 animate-spin" /> {fa ? "ذخیره…" : "Saving…"}</> :
              dirty ? <span className="text-accent">●</span> :
@@ -371,79 +371,165 @@ export const TextBookEditor = ({ initial }: Props) => {
           <Button size="sm" variant="outline" className="h-8" onClick={() => persist(true)}>
             <Save className="w-3.5 h-3.5 me-1" /> {fa ? "ذخیره" : "Save"}
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={showAi ? "default" : "outline"}
+            className="h-8 gap-1 text-accent"
+            onClick={() => setShowAi((v) => !v)}
+          >
+            <Sparkles className="w-3.5 h-3.5" /> {fa ? "دستیار AI" : "AI"}
+          </Button>
         </div>
 
-        {/* Floating bubble toolbar (appears on selection) */}
-        <BubbleMenu
-          editor={editor}
-          options={{
-            placement: typeof window !== "undefined" && window.innerWidth < 768 ? "bottom" : "top",
-            offset: 12,
-          }}
-          className="rounded-xl border bg-popover shadow-lg p-1 flex items-center gap-0.5 max-w-[95vw] overflow-x-auto"
-        >
-          <button type="button" title="Bold" onClick={() => editor.chain().focus().toggleBold().run()} className={`p-1.5 rounded hover:bg-muted ${editor.isActive("bold") ? "bg-muted" : ""}`}>
-            <Bold className="w-4 h-4" />
-          </button>
-          <button type="button" title="Italic" onClick={() => editor.chain().focus().toggleItalic().run()} className={`p-1.5 rounded hover:bg-muted ${editor.isActive("italic") ? "bg-muted" : ""}`}>
-            <Italic className="w-4 h-4" />
-          </button>
-          <button type="button" title="Underline" onClick={() => editor.chain().focus().toggleUnderline().run()} className={`p-1.5 rounded hover:bg-muted ${editor.isActive("underline") ? "bg-muted" : ""}`}>
-            <UnderlineIcon className="w-4 h-4" />
-          </button>
+        {/* ============ STICKY TOOLBAR ============ */}
+        <div className="sticky top-16 z-30 -mx-3 md:mx-0 px-3 md:px-0 mb-3">
+          <div className="rounded-xl border bg-popover/95 backdrop-blur shadow-sm p-1.5 flex items-center gap-0.5 overflow-x-auto scrollbar-thin">
+            {/* Undo / Redo */}
+            <TbBtn title={fa ? "بازگردانی" : "Undo"} onClick={() => editor.chain().focus().undo().run()}>
+              <Undo2 className="w-4 h-4" />
+            </TbBtn>
+            <TbBtn title={fa ? "تکرار" : "Redo"} onClick={() => editor.chain().focus().redo().run()}>
+              <Redo2 className="w-4 h-4" />
+            </TbBtn>
+            <TbSep />
 
-          {/* Text color picker */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <button type="button" title={fa ? "رنگ متن" : "Text color"} className="p-1.5 rounded hover:bg-muted">
-                <Palette className="w-4 h-4" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-2" side="top">
-              <div className="grid grid-cols-7 gap-1">
-                {TEXT_COLORS.map((c) => (
-                  <button
-                    key={c.name}
-                    type="button"
-                    title={c.name}
-                    onClick={() => {
-                      if (!c.value) editor.chain().focus().unsetColor().run();
-                      else editor.chain().focus().setColor(c.value).run();
-                    }}
-                    className="w-6 h-6 rounded-full border hover:scale-110 transition"
-                    style={{ background: c.value || "transparent", borderColor: c.value ? "transparent" : "hsl(var(--border))" }}
-                  >
-                    {!c.value && <X className="w-3 h-3 mx-auto text-muted-foreground" />}
-                  </button>
+            {/* Inline marks */}
+            <TbBtn title="Bold" active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>
+              <Bold className="w-4 h-4" />
+            </TbBtn>
+            <TbBtn title="Italic" active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}>
+              <Italic className="w-4 h-4" />
+            </TbBtn>
+            <TbBtn title="Underline" active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()}>
+              <UnderlineIcon className="w-4 h-4" />
+            </TbBtn>
+
+            {/* Color */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button type="button" title={fa ? "رنگ متن" : "Text color"} className="p-1.5 rounded-md hover:bg-muted shrink-0">
+                  <Palette className="w-4 h-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-2" side="bottom">
+                <div className="grid grid-cols-7 gap-1">
+                  {TEXT_COLORS.map((c) => (
+                    <button
+                      key={c.name}
+                      type="button"
+                      title={c.name}
+                      onClick={() => {
+                        if (!c.value) editor.chain().focus().unsetColor().run();
+                        else editor.chain().focus().setColor(c.value).run();
+                      }}
+                      className="w-6 h-6 rounded-full border hover:scale-110 transition flex items-center justify-center"
+                      style={{ background: c.value || "transparent", borderColor: c.value ? "transparent" : "hsl(var(--border))" }}
+                    >
+                      {!c.value && <X className="w-3 h-3 text-muted-foreground" />}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            <TbSep />
+
+            {/* Headings */}
+            <TbBtn title="H1" active={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
+              <Heading1 className="w-4 h-4" />
+            </TbBtn>
+            <TbBtn title="H2" active={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+              <Heading2 className="w-4 h-4" />
+            </TbBtn>
+            <TbBtn title="H3" active={editor.isActive("heading", { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
+              <Heading3 className="w-4 h-4" />
+            </TbBtn>
+            <TbSep />
+
+            {/* Lists */}
+            <TbBtn title={fa ? "لیست" : "Bullet list"} active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()}>
+              <List className="w-4 h-4" />
+            </TbBtn>
+            <TbBtn title={fa ? "لیست شماره‌دار" : "Ordered list"} active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
+              <OlIcon className="w-4 h-4" />
+            </TbBtn>
+            <TbSep />
+
+            {/* Alignment */}
+            <TbBtn title={fa ? "راست‌چین" : "Right"} active={editor.isActive({ textAlign: "right" })} onClick={() => editor.chain().focus().setTextAlign("right").run()}>
+              <AlignRight className="w-4 h-4" />
+            </TbBtn>
+            <TbBtn title={fa ? "وسط‌چین" : "Center"} active={editor.isActive({ textAlign: "center" })} onClick={() => editor.chain().focus().setTextAlign("center").run()}>
+              <AlignCenter className="w-4 h-4" />
+            </TbBtn>
+            <TbBtn title={fa ? "چپ‌چین" : "Left"} active={editor.isActive({ textAlign: "left" })} onClick={() => editor.chain().focus().setTextAlign("left").run()}>
+              <AlignLeft className="w-4 h-4" />
+            </TbBtn>
+            <TbBtn title={fa ? "تراز کامل" : "Justify"} active={editor.isActive({ textAlign: "justify" })} onClick={() => editor.chain().focus().setTextAlign("justify").run()}>
+              <AlignJustify className="w-4 h-4" />
+            </TbBtn>
+
+            {/* Direction (RTL/LTR for bilingual) */}
+            <TbBtn title={fa ? "تغییر جهت متن (دوزبانه)" : "Toggle direction"} onClick={toggleBlockDirection}>
+              <ArrowLeftRight className="w-4 h-4" />
+            </TbBtn>
+            <TbSep />
+
+            {/* Block elements */}
+            <TbBtn title={fa ? "نکته" : "Callout"} active={editor.isActive("callout")} onClick={() => editor.chain().focus().setNode("callout", { variant: "info" }).run()}>
+              <Lightbulb className="w-4 h-4" />
+            </TbBtn>
+            <TbBtn title={fa ? "نقل‌قول" : "Quote"} active={editor.isActive("quote")} onClick={() => editor.chain().focus().setNode("quote").run()}>
+              <QuoteIcon className="w-4 h-4" />
+            </TbBtn>
+            <TbBtn title={fa ? "تصویر" : "Image"} onClick={() => fileRef.current?.click()}>
+              <ImageIcon className="w-4 h-4" />
+            </TbBtn>
+            <TbSep />
+
+            {/* Interactive insert */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button type="button" title={fa ? "افزودن عنصر تعاملی" : "Interactive"} className="p-1.5 rounded-md hover:bg-muted flex items-center gap-1 shrink-0">
+                  <Layers className="w-4 h-4" />
+                  <span className="text-xs hidden sm:inline">{fa ? "تعاملی" : "Interactive"}</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-1.5">
+                <button type="button" onClick={() => insertInteractive("video")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                  <Film className="w-4 h-4 text-accent" /> {fa ? "ویدئو" : "Video"}
+                </button>
+                <button type="button" onClick={() => insertInteractive("gallery")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                  <GalleryHorizontal className="w-4 h-4 text-accent" /> {fa ? "گالری تصاویر" : "Gallery"}
+                </button>
+                <button type="button" onClick={() => insertInteractive("timeline")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                  <ListOrdered className="w-4 h-4 text-accent" /> {fa ? "تایم‌لاین" : "Timeline"}
+                </button>
+                <button type="button" onClick={() => insertInteractive("scrollytelling")} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                  <Layers className="w-4 h-4 text-accent" /> {fa ? "اسکرولی‌تلینگ" : "Scrollytelling"}
+                </button>
+                <div className="h-px bg-border my-1" />
+                <button type="button" onClick={splitChapterAtSelection} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
+                  <SplitSquareVertical className="w-4 h-4 text-primary" /> {fa ? "فصل جدید از اینجا" : "New chapter here"}
+                </button>
+              </PopoverContent>
+            </Popover>
+            <TbSep />
+
+            {/* Typography */}
+            <Select value={typography} onValueChange={(v) => { setTypography(v); setDirty(true); }}>
+              <SelectTrigger className="h-8 w-[130px] shrink-0" title={fa ? "تیپوگرافی" : "Typography"}>
+                <TypeIcon className="w-3.5 h-3.5 me-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TYPOGRAPHY_PRESETS.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>{fa ? p.label_fa : p.label_en}</SelectItem>
                 ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          <span className="w-px h-5 bg-border mx-1" />
-          <button type="button" title={fa ? "تیتر" : "Heading"} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={`p-1.5 rounded hover:bg-muted ${editor.isActive("heading", { level: 2 }) ? "bg-muted" : ""}`}>
-            <Heading2 className="w-4 h-4" />
-          </button>
-          <button type="button" title={fa ? "نکته" : "Callout"} onClick={() => editor.chain().focus().setNode("callout", { variant: "info" }).run()} className={`p-1.5 rounded hover:bg-muted ${editor.isActive("callout") ? "bg-muted" : ""}`}>
-            <Lightbulb className="w-4 h-4" />
-          </button>
-          <button type="button" title={fa ? "نقل‌قول" : "Quote"} onClick={() => editor.chain().focus().setNode("quote").run()} className={`p-1.5 rounded hover:bg-muted ${editor.isActive("quote") ? "bg-muted" : ""}`}>
-            <QuoteIcon className="w-4 h-4" />
-          </button>
-          <button type="button" title={fa ? "فصل جدید از اینجا" : "New chapter here"} onClick={splitChapterAtSelection} className="p-1.5 rounded hover:bg-muted">
-            <SplitSquareVertical className="w-4 h-4" />
-          </button>
-          <span className="w-px h-5 bg-border mx-1" />
-          <button
-            type="button"
-            title={fa ? "پیشنهاد AI" : "AI suggest"}
-            onClick={() => setShowAi(true)}
-            className="p-1.5 rounded hover:bg-accent/10 text-accent flex items-center gap-1"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span className="text-xs hidden sm:inline">AI</span>
-          </button>
-        </BubbleMenu>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
         {/* Hidden file input for image insert */}
         <input
@@ -460,22 +546,10 @@ export const TextBookEditor = ({ initial }: Props) => {
 
         {/* The actual editor */}
         <div className={`rounded-2xl border bg-card/50 px-4 md:px-8 py-6 md:py-8 shadow-paper typo-${typography}`}>
-          {/* Floating "AI assistant" toggle pinned to the editor (single source of truth) */}
-          <div className="flex justify-end mb-2 -mt-2">
-            <Button
-              type="button"
-              size="sm"
-              variant={showAi ? "default" : "ghost"}
-              className="h-7 text-xs gap-1 text-accent hover:text-accent"
-              onClick={() => setShowAi((v) => !v)}
-            >
-              <Sparkles className="w-3.5 h-3.5" /> {fa ? "دستیار هوشمند صفحه" : "Page AI"}
-            </Button>
-          </div>
           <EditorContent editor={editor} />
         </div>
 
-        {/* AI suggestions panel (slides in) */}
+        {/* AI suggestions panel */}
         <AnimatePresence>
           {showAi && (
             <motion.div
