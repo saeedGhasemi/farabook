@@ -47,7 +47,21 @@ interface Props {
   lang: "fa" | "en";
   onClose: () => void;
   bookId?: string;
+  /** Stable key per chapter; suggestions are cached per key so switching
+   *  chapters and coming back restores the previous list without spending
+   *  credits again. */
+  chapterKey?: string;
 }
+
+// Module-level cache so suggestions survive panel unmount/remount when
+// the user collapses the AI side-panel or switches chapters.
+type CacheEntry = {
+  suggestions: Suggestion[];
+  accepted: Array<[number, number]>;
+  rejected: number[];
+  error: string | null;
+};
+const suggestionCache: Map<string, CacheEntry> = new Map();
 
 const opMeta: Record<SuggestionOp, { Icon: any; label_fa: string; label_en: string }> = {
   make_callout:        { Icon: Lightbulb,           label_fa: "بلوک نکته", label_en: "Callout block" },
@@ -218,16 +232,22 @@ const applySuggestion = (editor: Editor, s: Suggestion): boolean => {
 const countImageSteps = (s: Suggestion) =>
   (s.steps || []).filter((st) => !st.image && st.image_prompt).length;
 
-export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
+export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Props) => {
   const fa = lang === "fa";
   const { costs } = useAiCosts();
   const { credits, refresh: refreshCredits } = useCredits();
+  // Restore from per-chapter cache when remounting for the same chapter.
+  const cached = chapterKey ? suggestionCache.get(chapterKey) : undefined;
   const [loading, setLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [accepted, setAccepted] = useState<Map<number, number>>(new Map());
-  const [rejected, setRejected] = useState<Set<number>>(new Set());
+  const [suggestions, setSuggestions] = useState<Suggestion[]>(cached?.suggestions ?? []);
+  const [accepted, setAccepted] = useState<Map<number, number>>(
+    new Map(cached?.accepted ?? []),
+  );
+  const [rejected, setRejected] = useState<Set<number>>(
+    new Set(cached?.rejected ?? []),
+  );
   const [busyIdx, setBusyIdx] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(cached?.error ?? null);
 
   // Confirmation dialog for image generation cost
   const [confirmState, setConfirmState] = useState<
@@ -296,12 +316,26 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
     }
   };
 
-  // Auto-fetch on mount — single click flow. Refresh credit balance
-  // first so the confirmation dialog shows the right number.
+  // Auto-fetch on mount only when there are no cached suggestions for
+  // this chapter. Otherwise restore is enough — the user can hit the
+  // Refresh button to spend credits and regenerate.
   useEffect(() => {
+    if (suggestions.length > 0 || cached) return;
     void (async () => { await refreshCredits(); await fetchSuggestions(); })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Persist current state into the per-chapter cache so it can be
+  // restored when the panel is reopened (e.g. after switching chapters).
+  useEffect(() => {
+    if (!chapterKey) return;
+    suggestionCache.set(chapterKey, {
+      suggestions,
+      accepted: Array.from(accepted.entries()),
+      rejected: Array.from(rejected),
+      error,
+    });
+  }, [chapterKey, suggestions, accepted, rejected, error]);
 
   const enrichWithImages = async (s: Suggestion): Promise<Suggestion> => {
     if (s.op !== "insert_timeline" && s.op !== "insert_scrollytelling") return s;
