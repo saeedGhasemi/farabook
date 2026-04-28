@@ -39,20 +39,20 @@ export interface Hotspot {
 }
 
 export type Block =
-  | { type: "heading"; text: string }
-  | { type: "paragraph"; text: string }
-  | { type: "quote"; text: string; author?: string }
+  | { type: "heading"; text: string; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }
+  | { type: "paragraph"; text: string; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }
+  | { type: "quote"; text: string; author?: string; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }
   | { type: "highlight"; text: string }
   | { type: "image"; src: string; caption?: string; figureNumber?: string; hotspots?: Hotspot[]; hideCaption?: boolean }
   | { type: "gallery"; images: string[]; caption?: string }
   | { type: "slideshow"; images: { src: string; caption?: string }[]; autoplay?: boolean; interval?: number; hideCaption?: boolean }
   | { type: "video"; src: string; poster?: string; caption?: string }
-  | { type: "callout"; icon?: "info" | "sparkle" | "tip" | "warning" | "success" | "danger" | "note" | "question" | "quote" | "definition" | "example"; text: string }
+  | { type: "callout"; icon?: "info" | "sparkle" | "tip" | "warning" | "success" | "danger" | "note" | "question" | "quote" | "definition" | "example"; text: string; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }
   | { type: "table"; caption?: string; tableNumber?: string; headers: string[]; rows: string[][] }
   | { type: "references"; items: { id?: string; text: string; url?: string }[] }
   | { type: "timeline"; title?: string; steps: TimelineStep[] }
   | { type: "scrollytelling"; title?: string; steps: ScrollyStep[] }
-  | { type: "list"; ordered?: boolean; items: string[] };
+  | { type: "list"; ordered?: boolean; items: string[]; itemAttrs?: Array<{ textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }>; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" };
 
 interface SavedHL { id?: string; text: string; color: string }
 
