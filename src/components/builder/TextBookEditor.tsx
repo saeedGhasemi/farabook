@@ -200,6 +200,10 @@ export const TextBookEditor = ({ initial }: Props) => {
     lastLoadedIdxRef.current = activeIdx;
     const target = pages[activeIdx]?.doc;
     if (target) editor.commands.setContent(target as any, { emitUpdate: false });
+    // Collapse the AI suggestions panel when the chapter changes — each
+    // chapter has its own cached suggestions which are restored when the
+    // user reopens the panel for that chapter.
+    setShowAi(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIdx, editor]);
 
