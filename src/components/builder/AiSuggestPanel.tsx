@@ -554,6 +554,11 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId }: Props) => {
                         </span>
                       </div>
                     </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {fa
+                        ? "اگر می‌خواهید بعداً خودتان عکس بگذارید، «بدون تولید عکس» را انتخاب کنید."
+                        : "Pick \"Without images\" if you want to add your own images later."}
+                    </p>
                   </>
                 )}
               </div>
