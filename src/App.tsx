@@ -21,6 +21,7 @@ import Credits from "./pages/Credits";
 import EditorRequests from "./pages/EditorRequests";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound.tsx";
+import { UploadProgressPanel } from "@/components/UploadProgressPanel";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,7 @@ const App = () => (
               <Route path="/profile" element={<Profile />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <UploadProgressPanel />
           </BrowserRouter>
         </TooltipProvider>
       </ThemeProvider>

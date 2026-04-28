@@ -298,13 +298,26 @@ const GalleryView = (props: NodeViewProps) => {
   const addFiles = async (files: FileList) => {
     if (!user || !files.length) return;
     setBusy(true);
-    const urls: string[] = [];
-    for (const f of Array.from(files)) {
-      const u = await uploadToBookMedia(user.id, f);
-      if (u) urls.push(u);
-    }
+    // Enqueue every file in parallel via the global upload manager —
+    // each one shows independent progress in the floating panel and
+    // the user can keep editing while uploads continue in background.
+    const { uploadManager } = await import("@/lib/upload-manager");
+    const promises = Array.from(files).map((f) =>
+      uploadManager.enqueue({ userId: user.id, file: f, prefix: "edit", label: "گالری" }),
+    );
+    // As each upload finishes, append its URL to the gallery so users
+    // see thumbnails arrive incrementally instead of in a single batch.
+    let appended = images.slice();
+    await Promise.all(
+      promises.map(async (p) => {
+        const url = await p;
+        if (url) {
+          appended = [...appended, url];
+          props.updateAttributes({ images: appended });
+        }
+      }),
+    );
     setBusy(false);
-    if (urls.length) props.updateAttributes({ images: [...images, ...urls] });
   };
 
   const removeAt = (i: number) => {
