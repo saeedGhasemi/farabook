@@ -106,10 +106,13 @@ const Edit = () => {
           <Back className="w-4 h-4 me-1.5" />
           {lang === "fa" ? "بازگشت" : "Back"}
         </Button>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Pencil className="w-4 h-4 text-accent" />
-          <span>{lang === "fa" ? "ویرایش زنده" : "Live editing"}</span>
-          <span className="text-[11px] hidden md:inline">
+        <div className="flex items-center gap-2 text-sm min-w-0">
+          <Pencil className="w-4 h-4 text-accent shrink-0" />
+          <span className="text-muted-foreground shrink-0">{lang === "fa" ? "ویرایش زنده:" : "Editing:"}</span>
+          <span className="font-display font-semibold truncate text-foreground" title={initial.title} dir="auto">
+            {initial.title}
+          </span>
+          <span className="text-[11px] hidden lg:inline text-muted-foreground shrink-0">
             · {lang === "fa" ? "ذخیره خودکار فعال" : "Autosaving"}
           </span>
         </div>
