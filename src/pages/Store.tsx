@@ -157,11 +157,7 @@ const Store = () => {
       </motion.div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {booksLoading && books.length === 0
-          ? Array.from({ length: 8 }).map((_, i) => (
-              <BookCardSkeleton key={`sk-${i}`} variant="grid" index={i} />
-            ))
-          : filtered.map((book, i) => {
+        {filtered.map((book, i) => {
           const isOwned = owned.has(book.id);
           const isOwner = !!user && book.publisher_id === user.id;
           const isDraft = book.status === "draft";
