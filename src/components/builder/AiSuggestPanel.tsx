@@ -478,6 +478,7 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
       }
     }
     setBusyIdx(null);
+    setGenFingerprint(computeDocFingerprint(editor));
     void refreshCredits();
     window.dispatchEvent(new Event(CREDITS_REFRESH_EVENT));
     toast.success(fa ? `${applied} پیشنهاد اعمال شد` : `${applied} suggestions applied`);
