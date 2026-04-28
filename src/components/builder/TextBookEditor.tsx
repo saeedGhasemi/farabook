@@ -314,20 +314,13 @@ export const TextBookEditor = ({ initial }: Props) => {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-accent" /></div>;
   }
 
-  const sidebarCol = chaptersCollapsed ? "44px" : "220px";
-  const aiCol = "340px";
+  const gridCols = chaptersCollapsed
+    ? (showAi ? "lg:grid-cols-[44px_1fr_340px]" : "lg:grid-cols-[44px_1fr]")
+    : (showAi ? "lg:grid-cols-[220px_1fr_340px]" : "lg:grid-cols-[260px_1fr]");
 
   return (
     <div
-      className={`grid grid-cols-1 gap-4 px-3 md:px-4 py-3`}
-      style={{
-        gridTemplateColumns:
-          typeof window !== "undefined" && window.innerWidth >= 1024
-            ? showAi
-              ? `${sidebarCol} 1fr ${aiCol}`
-              : `${sidebarCol} 1fr`
-            : undefined,
-      }}
+      className={`grid grid-cols-1 gap-4 px-3 md:px-4 py-3 ${gridCols}`}
       dir={fa ? "rtl" : "ltr"}
     >
       {/* ============ Chapter sidebar (collapsible) ============ */}
