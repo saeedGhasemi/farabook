@@ -48,6 +48,7 @@ export interface ImageNode {
 }
 export interface GalleryNode { type: "gallery"; attrs: { images: string[]; caption?: string } }
 export interface VideoNode { type: "video"; attrs: { src: string; caption?: string } }
+export interface TableNode { type: "table"; attrs: { headers: string[]; rows: string[][]; caption?: string; tableNumber?: string } }
 export interface TimelineNode { type: "timeline"; attrs: { title?: string; steps: TimelineStep[] } }
 export interface ScrollyNode { type: "scrollytelling"; attrs: { title?: string; steps: ScrollyStep[] } }
 
@@ -59,6 +60,7 @@ export type DocNode =
   | ImageNode
   | GalleryNode
   | VideoNode
+  | TableNode
   | TimelineNode
   | ScrollyNode
   // Lists are passed through as-is from Tiptap (StarterKit) — we only
