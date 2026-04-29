@@ -75,6 +75,13 @@ const Upload = () => {
         (lang === "fa" ? "کتاب با " : "Imported with ") + (data?.chapters ?? 0) +
         (lang === "fa" ? " فصل ساخته شد — در حال انتقال…" : " chapters — opening editor…")
       );
+      if (data?.skippedImages > 0) {
+        toast.warning(
+          lang === "fa"
+            ? `${data.skippedImages} تصویر بزرگ‌تر از ۴ مگابایت حذف شد. می‌توانید بعداً آنها را به‌صورت دستی اضافه کنید.`
+            : `${data.skippedImages} large images (>4MB) were skipped. You can re-add them manually.`,
+        );
+      }
       // Brief pause so the user sees the success state, then redirect.
       setTimeout(() => nav(`/edit/${data.book.id}`), 700);
     } catch (e) {
