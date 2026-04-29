@@ -1,26 +1,20 @@
 // User-facing earnings & expenses dashboard.
-// Shows credit transaction history split into income vs spending,
-// plus running totals. Reads from RLS-protected `credit_transactions`.
+// Two distinct columns: «واریز» (green / orange for top-ups) and «برداشت» (red).
+// Reads from RLS-protected `credit_transactions`.
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, Wallet, ArrowDownCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-const REASON_FA: Record<string, string> = {
-  book_purchase: "خرید کتاب",
-  revenue_share_publisher: "سهم ناشر از فروش",
-  revenue_share_author: "سهم نویسنده از فروش",
-  revenue_share_editor: "سهم ادیتور از فروش",
-  publisher_signup_fee: "هزینه درخواست ناشر",
-  book_publish_fee: "هزینه انتشار کتاب",
-  editor_order_fee: "هزینه سفارش ادیت",
-  credit_purchase_approved: "خرید اعتبار (تأیید شده)",
-  admin_grant: "اعطای ادمین",
-  admin_deduct: "کسر ادمین",
-  seed_starter_credits: "اعتبار اولیه",
-};
+import {
+  classifyTx,
+  computeTotals,
+  formatFa,
+  reasonLabel,
+  txAmountClass,
+  txBadgeClass,
+} from "@/lib/tx-display";
 
 interface Props {
   userId: string;
@@ -48,14 +42,7 @@ export const UserEarnings = ({ userId }: Props) => {
     return () => { cancelled = true; };
   }, [userId]);
 
-  const stats = useMemo(() => {
-    let income = 0, spent = 0;
-    tx.forEach((t) => {
-      const a = Number(t.amount);
-      if (a > 0) income += a; else spent += Math.abs(a);
-    });
-    return { income, spent, balance: income - spent };
-  }, [tx]);
+  const stats = useMemo(() => computeTotals(tx), [tx]);
 
   if (loading) {
     return (
@@ -67,26 +54,43 @@ export const UserEarnings = ({ userId }: Props) => {
 
   return (
     <div className="space-y-4">
-      <div className="grid sm:grid-cols-3 gap-3">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Card className="glass">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-accent" />
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">جمع درآمد</div>
-              <div className="text-xl font-display font-bold">{stats.income.toLocaleString("fa-IR")}</div>
+              <div className="text-xs text-muted-foreground">جمع واریز</div>
+              <div className="text-xl font-display font-bold text-emerald-600 dark:text-emerald-400">
+                {formatFa(stats.income)}
+              </div>
             </div>
           </CardContent>
         </Card>
         <Card className="glass">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-destructive/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-orange-500/15 flex items-center justify-center">
+              <ArrowDownCircle className="w-5 h-5 text-orange-500 dark:text-orange-400" />
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">شارژ / اعطا</div>
+              <div className="text-xl font-display font-bold text-orange-500 dark:text-orange-400">
+                {formatFa(stats.topUp)}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="glass">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-destructive/15 flex items-center justify-center">
               <TrendingDown className="w-5 h-5 text-destructive" />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">جمع هزینه</div>
-              <div className="text-xl font-display font-bold">{stats.spent.toLocaleString("fa-IR")}</div>
+              <div className="text-xs text-muted-foreground">جمع برداشت</div>
+              <div className="text-xl font-display font-bold text-destructive">
+                {formatFa(stats.spent)}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -96,9 +100,9 @@ export const UserEarnings = ({ userId }: Props) => {
               <Wallet className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">موجودی فعلی</div>
+              <div className="text-xs text-muted-foreground">بالانس</div>
               <div className="text-xl font-display font-bold gold-text">
-                {stats.balance.toLocaleString("fa-IR")}
+                {formatFa(stats.balance)}
               </div>
             </div>
           </CardContent>
@@ -116,38 +120,32 @@ export const UserEarnings = ({ userId }: Props) => {
                   <TableRow>
                     <TableHead className="text-right">زمان</TableHead>
                     <TableHead className="text-right">عنوان</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">مبلغ</TableHead>
+                    <TableHead className="text-right whitespace-nowrap text-emerald-600 dark:text-emerald-400">واریز</TableHead>
+                    <TableHead className="text-right whitespace-nowrap text-destructive">برداشت</TableHead>
                     <TableHead className="text-right">جزئیات</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tx.map((t) => {
                     const amt = Number(t.amount);
-                    const positive = amt > 0;
+                    const kind = classifyTx(amt, t.reason);
                     const meta = (t.metadata || {}) as any;
+                    const isWithdrawal = kind === "withdrawal";
                     return (
                       <TableRow key={t.id}>
                         <TableCell className="text-xs whitespace-nowrap">
                           {new Date(t.created_at).toLocaleString("fa-IR")}
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            className={`text-[11px] border-0 ${
-                              positive
-                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                                : "bg-destructive/15 text-destructive"
-                            }`}
-                          >
-                            {REASON_FA[t.reason] || t.reason}
+                          <Badge className={`text-[11px] border-0 ${txBadgeClass[kind]}`}>
+                            {reasonLabel(t.reason)}
                           </Badge>
                         </TableCell>
-                        <TableCell
-                          className={`text-sm font-bold whitespace-nowrap tabular-nums ${
-                            positive ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
-                          }`}
-                        >
-                          {positive ? "+" : "−"}
-                          {Math.abs(amt).toLocaleString("fa-IR")} اعتبار
+                        <TableCell className={`text-sm font-bold whitespace-nowrap tabular-nums ${isWithdrawal ? "text-muted-foreground/30" : txAmountClass[kind]}`}>
+                          {isWithdrawal ? "—" : `+${formatFa(Math.abs(amt))}`}
+                        </TableCell>
+                        <TableCell className={`text-sm font-bold whitespace-nowrap tabular-nums ${isWithdrawal ? txAmountClass[kind] : "text-muted-foreground/30"}`}>
+                          {isWithdrawal ? `−${formatFa(Math.abs(amt))}` : "—"}
                         </TableCell>
                         <TableCell className="text-[11px] text-muted-foreground max-w-[260px]">
                           {meta.book_title

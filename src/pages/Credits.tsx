@@ -11,9 +11,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Navigate } from "react-router-dom";
 import { CREDITS_PER_TOMAN, creditsToToman } from "@/lib/purchase";
+import {
+  classifyTx,
+  computeTotals,
+  formatFa,
+  reasonLabel,
+  txAmountClass,
+  txBadgeClass,
+} from "@/lib/tx-display";
 
 const PRESETS = [50, 100, 250, 500, 1000];
 const PUBLISHER_FEE = 200;
@@ -236,7 +245,38 @@ const Credits = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="history" className="mt-4">
+        <TabsContent value="history" className="mt-4 space-y-4">
+          {(() => {
+            const totals = computeTotals(tx);
+            return (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <Card className="glass">
+                  <CardContent className="p-3">
+                    <div className="text-xs text-muted-foreground">جمع واریز</div>
+                    <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatFa(totals.income)}</div>
+                  </CardContent>
+                </Card>
+                <Card className="glass">
+                  <CardContent className="p-3">
+                    <div className="text-xs text-muted-foreground">شارژ / اعطا</div>
+                    <div className="text-xl font-bold text-orange-500 dark:text-orange-400">{formatFa(totals.topUp)}</div>
+                  </CardContent>
+                </Card>
+                <Card className="glass">
+                  <CardContent className="p-3">
+                    <div className="text-xs text-muted-foreground">جمع برداشت</div>
+                    <div className="text-xl font-bold text-destructive">{formatFa(totals.spent)}</div>
+                  </CardContent>
+                </Card>
+                <Card className="glass">
+                  <CardContent className="p-3">
+                    <div className="text-xs text-muted-foreground">بالانس</div>
+                    <div className="text-xl font-bold gold-text">{formatFa(totals.balance)}</div>
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          })()}
           <Card className="glass">
             <CardHeader>
               <CardTitle>تاریخچه تراکنش‌ها</CardTitle>
@@ -245,61 +285,53 @@ const Credits = () => {
               {tx.length === 0 ? (
                 <p className="text-sm text-muted-foreground">تراکنشی وجود ندارد.</p>
               ) : (
-                <div className="space-y-1">
-                  {tx.map((r) => {
-                    const amt = Number(r.amount);
-                    const positive = amt >= 0;
-                    const REASON_FA: Record<string, string> = {
-                      book_purchase: "خرید کتاب",
-                      revenue_share_publisher: "سهم ناشر از فروش",
-                      revenue_share_author: "سهم نویسنده از فروش",
-                      revenue_share_editor: "سهم ادیتور از فروش",
-                      publisher_signup_fee: "هزینه درخواست ناشر",
-                      book_publish_fee: "هزینه انتشار کتاب",
-                      editor_order_fee: "هزینه سفارش ادیت",
-                      credit_purchase_approved: "خرید اعتبار (تأیید شده)",
-                      admin_grant: "اعطای ادمین",
-                      admin_deduct: "کسر ادمین",
-                      seed_starter_credits: "اعتبار اولیه",
-                      admin_adjust: "تنظیم دستی ادمین",
-                    };
-                    const label = REASON_FA[r.reason] || r.reason;
-                    const meta = (r.metadata || {}) as any;
-                    const details: string[] = [];
-                    if (meta.book_title) details.push(`کتاب: ${meta.book_title}`);
-                    else if (meta.book_id) details.push(`کتاب #${String(meta.book_id).slice(0, 6)}`);
-                    if (meta.percent) details.push(`${meta.percent}٪ سهم`);
-                    if (meta.complexity) details.push(`ضریب پیچیدگی ${meta.complexity}×`);
-                    if (meta.note) details.push(String(meta.note));
-                    return (
-                      <div
-                        key={r.id}
-                        className={`flex items-center justify-between gap-3 text-sm border-b py-2 last:border-0 ${
-                          positive ? "border-l-2 border-l-emerald-500/60 ps-3" : "border-l-2 border-l-destructive/60 ps-3"
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium">{label}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(r.created_at).toLocaleString("fa-IR")}
-                          </div>
-                          {details.length > 0 && (
-                            <div className="text-[11px] text-muted-foreground/90 mt-0.5 truncate">
-                              {details.join(" · ")}
-                            </div>
-                          )}
-                        </div>
-                        <span
-                          className={`font-bold tabular-nums whitespace-nowrap ${
-                            positive ? "text-emerald-600" : "text-destructive"
-                          }`}
-                        >
-                          {positive ? "+" : "−"}
-                          {Math.abs(amt).toLocaleString("fa-IR")} اعتبار
-                        </span>
-                      </div>
-                    );
-                  })}
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-right">زمان</TableHead>
+                        <TableHead className="text-right">عنوان</TableHead>
+                        <TableHead className="text-right whitespace-nowrap text-emerald-600 dark:text-emerald-400">واریز</TableHead>
+                        <TableHead className="text-right whitespace-nowrap text-destructive">برداشت</TableHead>
+                        <TableHead className="text-right">جزئیات</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tx.map((r) => {
+                        const amt = Number(r.amount);
+                        const kind = classifyTx(amt, r.reason);
+                        const isWithdrawal = kind === "withdrawal";
+                        const meta = (r.metadata || {}) as any;
+                        const details: string[] = [];
+                        if (meta.book_title) details.push(`کتاب: ${meta.book_title}`);
+                        else if (meta.book_id) details.push(`کتاب #${String(meta.book_id).slice(0, 6)}`);
+                        if (meta.percent) details.push(`${meta.percent}٪ سهم`);
+                        if (meta.complexity) details.push(`ضریب ${meta.complexity}×`);
+                        if (meta.note) details.push(String(meta.note));
+                        return (
+                          <TableRow key={r.id}>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {new Date(r.created_at).toLocaleString("fa-IR")}
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={`text-[11px] border-0 ${txBadgeClass[kind]}`}>
+                                {reasonLabel(r.reason)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className={`text-sm font-bold whitespace-nowrap tabular-nums ${isWithdrawal ? "text-muted-foreground/30" : txAmountClass[kind]}`}>
+                              {isWithdrawal ? "—" : `+${formatFa(Math.abs(amt))}`}
+                            </TableCell>
+                            <TableCell className={`text-sm font-bold whitespace-nowrap tabular-nums ${isWithdrawal ? txAmountClass[kind] : "text-muted-foreground/30"}`}>
+                              {isWithdrawal ? `−${formatFa(Math.abs(amt))}` : "—"}
+                            </TableCell>
+                            <TableCell className="text-[11px] text-muted-foreground max-w-[260px]">
+                              {details.length > 0 ? details.join(" · ") : "—"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </CardContent>
