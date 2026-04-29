@@ -11,9 +11,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Navigate } from "react-router-dom";
 import { CREDITS_PER_TOMAN, creditsToToman } from "@/lib/purchase";
+import {
+  classifyTx,
+  computeTotals,
+  formatFa,
+  reasonLabel,
+  txAmountClass,
+  txBadgeClass,
+} from "@/lib/tx-display";
 
 const PRESETS = [50, 100, 250, 500, 1000];
 const PUBLISHER_FEE = 200;
