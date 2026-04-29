@@ -589,14 +589,18 @@ Deno.serve(async (req) => {
     }
     const originalBuffer = Buffer.from(arrayBuffer);
     let buffer = originalBuffer;
+    let textOnlyPages: Page[] | null = null;
     let strippedImageCount = 0;
     if (skipImages) {
       try {
+        const textOnly = docxToPagesTextOnly(originalBuffer);
+        textOnlyPages = textOnly.pages;
+        strippedImageCount = textOnly.removedImages;
+      } catch (e) {
+        console.warn("direct text-only docx extraction failed; falling back to mammoth", e);
         const stripped = stripDocxImages(originalBuffer);
         buffer = stripped.buffer;
         strippedImageCount = stripped.removedImages;
-      } catch (e) {
-        console.warn("strip docx images failed; falling back to original buffer", e);
       }
     }
 
@@ -667,28 +671,30 @@ Deno.serve(async (req) => {
       );
     };
 
-    let result;
-    try {
-      result = await tryConvert(!skipImages);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.warn("first pass failed, retrying without images:", msg);
-      // Memory pressure or mammoth crash on images: retry text-only so the
-      // user still gets the manuscript inside the editor.
-      imgIdx = 0;
+    let pages = textOnlyPages ?? [];
+    if (!textOnlyPages) {
+      let result;
       try {
-        result = await tryConvert(false);
-      } catch (e2) {
-        const finalMsg = `پردازش فایل ورد با خطا مواجه شد. می‌توانید با گزینه «تبدیل بدون تصاویر» دوباره تلاش کنید. (${e2 instanceof Error ? e2.message : String(e2)})`;
-        await failImport(finalMsg);
-        return new Response(
-          JSON.stringify({ error: finalMsg }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+        result = await tryConvert(!skipImages);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn("first pass failed, retrying without images:", msg);
+        // Memory pressure or mammoth crash on images: retry text-only so the
+        // user still gets the manuscript inside the editor.
+        imgIdx = 0;
+        try {
+          result = await tryConvert(false);
+        } catch (e2) {
+          const finalMsg = `پردازش فایل ورد با خطا مواجه شد. می‌توانید با گزینه «تبدیل بدون تصاویر» دوباره تلاش کنید. (${e2 instanceof Error ? e2.message : String(e2)})`;
+          await failImport(finalMsg);
+          return new Response(
+            JSON.stringify({ error: finalMsg }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
       }
+      pages = htmlToPages(result.value || "");
     }
-
-    const pages = htmlToPages(result.value || "");
     if (pages.length === 0) {
       const msg = "no content extracted";
       await failImport(msg);
