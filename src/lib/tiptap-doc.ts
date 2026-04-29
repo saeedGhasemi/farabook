@@ -429,6 +429,15 @@ export const docToLegacyBlocks = (doc: TiptapDoc): any[] => {
       case "video":
         out.push({ type: "video", src: n.attrs.src, caption: n.attrs.caption });
         break;
+      case "table":
+        out.push({
+          type: "table",
+          headers: Array.isArray(n.attrs.headers) ? n.attrs.headers : [],
+          rows: Array.isArray(n.attrs.rows) ? n.attrs.rows : [],
+          caption: n.attrs.caption,
+          tableNumber: n.attrs.tableNumber,
+        });
+        break;
       case "timeline":
         out.push({ type: "timeline", title: n.attrs.title, steps: n.attrs.steps });
         break;
