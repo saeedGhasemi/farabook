@@ -308,17 +308,26 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
       }
     }
 
-    const text = textFromWordXml(token);
-    if (!text) continue;
     const style = /<w:pStyle\b[^>]*(?:w:val|val)=["']([^"']+)["']/i.exec(token)?.[1] || "";
     const headingMatch = /heading\s*([1-4])|Heading([1-4])|عنوان\s*([1-4])/i.exec(style);
     const level = Number(headingMatch?.[1] || headingMatch?.[2] || headingMatch?.[3] || 0);
-    if (level === 1 || level === 2) {
-      pushPage();
-      cur = { title: text.slice(0, 120), blocks: [] };
-    } else {
-      ensureRoom();
-      cur.blocks.push(level ? { type: "heading", level: Math.min(level, 3), text } : { type: "paragraph", text });
+    const parts = token.split(/<w:lastRenderedPageBreak\b[^>]*\/>|<w:br\b[^>]*(?:w:)?type=["']page["'][^>]*\/>/gi);
+    for (let i = 0; i < parts.length; i += 1) {
+      const part = parts[i];
+      const text = textFromWordXml(part);
+      if (text) {
+        if (level === 1 || level === 2) {
+          pushPage();
+          cur = { title: text.slice(0, 120), blocks: [] };
+        } else {
+          ensureRoom();
+          cur.blocks.push(level ? { type: "heading", level: Math.min(level, 3), text } : { type: "paragraph", text });
+        }
+      }
+      if (i < parts.length - 1) {
+        pushPage();
+        cur = { title: `صفحه ${pages.length + 1}`, blocks: [] };
+      }
     }
   }
   pushPage();
