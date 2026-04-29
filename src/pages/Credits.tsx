@@ -315,12 +315,8 @@ const Credits = () => {
                         const kind = classifyTx(amt, r.reason);
                         const isWithdrawal = kind === "withdrawal";
                         const meta = (r.metadata || {}) as any;
-                        const details: string[] = [];
-                        if (meta.book_title) details.push(`کتاب: ${meta.book_title}`);
-                        else if (meta.book_id) details.push(`کتاب #${String(meta.book_id).slice(0, 6)}`);
-                        if (meta.percent) details.push(`${meta.percent}٪ سهم`);
-                        if (meta.complexity) details.push(`ضریب ${meta.complexity}×`);
-                        if (meta.note) details.push(String(meta.note));
+                        const title = meta.book_id ? bookTitles[meta.book_id] : undefined;
+                        const description = describeTx(r.reason, amt, meta, title);
                         return (
                           <TableRow key={r.id}>
                             <TableCell className="text-xs whitespace-nowrap">
