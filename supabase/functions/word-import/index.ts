@@ -26,6 +26,8 @@ type Block =
       reason?: string;
       caption?: string;
       figureNumber?: string;
+      originalPath?: string;
+      slot?: number;
     }
   | { type: "table"; headers: string[]; rows: string[][]; caption?: string; tableNumber?: string };
 
