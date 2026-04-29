@@ -463,6 +463,17 @@ export const docToLegacyBlocks = (doc: TiptapDoc): any[] => {
       case "image":
         out.push({ type: "image", src: n.attrs.src, caption: n.attrs.caption, hideCaption: n.attrs.hideCaption });
         break;
+      case "image_placeholder":
+        out.push({
+          type: "image_placeholder",
+          pendingSrc: n.attrs.pendingSrc,
+          bytes: n.attrs.bytes,
+          contentType: n.attrs.contentType,
+          reason: n.attrs.reason,
+          caption: n.attrs.caption,
+          figureNumber: n.attrs.figureNumber,
+        });
+        break;
       case "gallery":
         out.push({ type: "gallery", images: n.attrs.images, caption: n.attrs.caption });
         break;
