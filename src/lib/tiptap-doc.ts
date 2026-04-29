@@ -84,6 +84,12 @@ export const isTiptapPage = (p: unknown): p is { title: string; doc: TiptapDoc }
   !!p && typeof p === "object" && "doc" in (p as Record<string, unknown>) &&
   (p as { doc?: { type?: string } }).doc?.type === "doc";
 
+const countDocTables = (doc?: TiptapDoc | null): number =>
+  Array.isArray(doc?.content) ? doc.content.filter((node) => node?.type === "table").length : 0;
+
+const countLegacyTables = (blocks?: any[] | null): number =>
+  Array.isArray(blocks) ? blocks.filter((block) => block?.type === "table").length : 0;
+
 /* ------------------------------------------------------------------ */
 /* Inline text helpers                                                */
 /* ------------------------------------------------------------------ */
@@ -303,10 +309,20 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
 
 /** Convert a legacy page (`{ title, blocks: [...] }`) to a new TextPage. */
 export const legacyPageToTextPage = (p: any): TextPage => {
+  const blocks: any[] = Array.isArray(p?.blocks) ? p.blocks : [];
   if (isTiptapPage(p)) {
+    // Some books were saved while the editor schema did not yet support
+    // imported tables. In that state `doc` exists but is missing table nodes,
+    // while the legacy `blocks` array still has them. Prefer the richer source
+    // so opening the editor can no longer erase imported Word tables.
+    if (countLegacyTables(blocks) > countDocTables(p.doc)) {
+      const nodes = blocks.flatMap(legacyBlockToNodes);
+      if (nodes.length) {
+        return { title: typeof p.title === "string" ? p.title : "", doc: { type: "doc", content: nodes } };
+      }
+    }
     return { title: typeof p.title === "string" ? p.title : "", doc: p.doc };
   }
-  const blocks: any[] = Array.isArray(p?.blocks) ? p.blocks : [];
   const nodes: DocNode[] = blocks.flatMap(legacyBlockToNodes);
   if (!nodes.length) nodes.push({ type: "paragraph" });
   return {
