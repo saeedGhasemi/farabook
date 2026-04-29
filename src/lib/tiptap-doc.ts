@@ -86,8 +86,52 @@ export const isTiptapPage = (p: unknown): p is { title: string; doc: TiptapDoc }
 /* Inline text helpers                                                */
 /* ------------------------------------------------------------------ */
 
+const safeDecodeURIComponent = (value: string): string => {
+  try {
+    return decodeURIComponent(value.replace(/&amp;/g, "&"));
+  } catch {
+    return value.replace(/&amp;/g, "&");
+  }
+};
+
+const extractCitationTarget = (value: string): string | null => {
+  const decoded = safeDecodeURIComponent(value);
+  const directUrl = /"(?:url|resourceUrl)"\s*:\s*"(https?:\/\/[^"\\]+)"/.exec(decoded)?.[1];
+  if (directUrl) return directUrl.replace(/\\\//g, "/");
+
+  const runs = decoded.match(/[A-Za-z0-9+/_=-]{80,}/g) ?? [];
+  for (const run of runs) {
+    const maxOffset = Math.min(180, run.length - 24);
+    for (let offset = 0; offset <= maxOffset; offset += 1) {
+      try {
+        const candidate = run.slice(offset).replace(/-/g, "+").replace(/_/g, "/");
+        const padded = candidate.padEnd(Math.ceil(candidate.length / 4) * 4, "=");
+        const bytes = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+        const text = new TextDecoder().decode(bytes);
+        const url = /"(?:url|resourceUrl)"\s*:\s*"(https?:\/\/[^"\\]+)"/.exec(text)?.[1];
+        if (url) return url.replace(/\\\//g, "/");
+        const doi = /"doi"\s*:\s*"([^"\\]+)"/.exec(text)?.[1];
+        if (doi) return `https://doi.org/${doi}`;
+      } catch {
+        // Citation add-ins may prepend a few non-base64 bytes; keep scanning.
+      }
+    }
+  }
+
+  return null;
+};
+
+export const normalizeImportedText = (text: string): string =>
+  String(text ?? "")
+    .replace(/(\([0-9,\s\-–—]+\))\s*((?:%[0-9A-Fa-f]{2}|[A-Za-z0-9+/_=-]){80,})/g, (_m, label, payload) => {
+      const target = extractCitationTarget(payload);
+      return target ? `[${label}](${target})` : label;
+    })
+    .replace(/(\[[^\]\n]+\]\([^)]+\))(?:%3D|=)+/gi, "$1");
+
 /** Convert plain text (with light **bold** / *italic* / __under__ / [link](url)) to text nodes. */
 export const textToNodes = (text: string): TextNode[] => {
+  text = normalizeImportedText(text);
   if (!text) return [];
   const out: TextNode[] = [];
   const re = /(\[[^\]\n]+\]\([^\)\s]+\)|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*)/g;
