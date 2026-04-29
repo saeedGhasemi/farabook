@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
+type ImportedTableAttrs = { headers: string[]; rows: string[][]; caption?: string; tableNumber?: string };
+
 /* ------------------------------------------------------------------ */
 /* Shared upload helper                                                */
 /* ------------------------------------------------------------------ */
@@ -282,6 +284,53 @@ export const VideoBlock = Node.create({
   parseHTML() { return [{ tag: "div[data-video]" }]; },
   renderHTML({ HTMLAttributes }) { return ["div", mergeAttributes(HTMLAttributes, { "data-video": "true" })]; },
   addNodeView() { return ReactNodeViewRenderer(VideoView); },
+});
+
+/* ------------------------------------------------------------------ */
+/* Imported table (readable in the editor, preserved on save)          */
+/* ------------------------------------------------------------------ */
+
+const ImportedTableView = (props: NodeViewProps) => {
+  const attrs = props.node.attrs as ImportedTableAttrs;
+  const headers = Array.isArray(attrs.headers) ? attrs.headers : [];
+  const rows = Array.isArray(attrs.rows) ? attrs.rows : [];
+
+  return (
+    <NodeViewWrapper className="my-4 overflow-x-auto rounded-lg border bg-card/70" data-imported-table="true">
+      <table className="w-full min-w-[520px] border-collapse text-sm">
+        {headers.length > 0 && (
+          <thead className="bg-muted/60">
+            <tr>{headers.map((h, i) => <th key={i} className="border px-3 py-2 text-start font-semibold align-top">{h}</th>)}</tr>
+          </thead>
+        )}
+        <tbody>
+          {rows.map((row, r) => (
+            <tr key={r} className="odd:bg-background/35">
+              {row.map((cell, c) => <td key={c} className="border px-3 py-2 align-top whitespace-pre-line">{cell}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {(attrs.caption || attrs.tableNumber) && (
+        <div className="px-3 py-2 text-xs text-muted-foreground text-center border-t">
+          {attrs.tableNumber && <span className="font-semibold text-foreground/75 me-1">{attrs.tableNumber}</span>}
+          {attrs.caption}
+        </div>
+      )}
+    </NodeViewWrapper>
+  );
+};
+
+export const ImportedTable = Node.create({
+  name: "table",
+  group: "block",
+  atom: true,
+  addAttributes() {
+    return { headers: { default: [] }, rows: { default: [] }, caption: { default: "" }, tableNumber: { default: "" } };
+  },
+  parseHTML() { return [{ tag: "div[data-imported-table]" }]; },
+  renderHTML({ HTMLAttributes }) { return ["div", mergeAttributes(HTMLAttributes, { "data-imported-table": "true" })]; },
+  addNodeView() { return ReactNodeViewRenderer(ImportedTableView); },
 });
 
 /* ------------------------------------------------------------------ */

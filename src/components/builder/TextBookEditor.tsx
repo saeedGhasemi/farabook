@@ -36,7 +36,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import {
   Callout, Quote, ImageBlock, VideoBlock, GalleryBlock, TimelineBlock, ScrollyBlock,
-  useImageUpload,
+  ImportedTable, useImageUpload,
 } from "./tiptap-nodes";
 import {
   dbPagesToTextPages, textPagesToDbPages, type TextPage,
@@ -167,7 +167,7 @@ export const TextBookEditor = ({ initial }: Props) => {
       Placeholder.configure({
         placeholder: fa ? "اینجا بنویسید… با Enter پاراگراف بعدی." : "Write here… Enter for next paragraph.",
       }),
-      Callout, Quote, ImageBlock, VideoBlock, GalleryBlock, TimelineBlock, ScrollyBlock,
+      Callout, Quote, ImageBlock, VideoBlock, GalleryBlock, ImportedTable, TimelineBlock, ScrollyBlock,
     ],
     content: activePage?.doc ?? { type: "doc", content: [{ type: "paragraph" }] },
     editorProps: {

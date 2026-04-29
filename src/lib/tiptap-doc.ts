@@ -48,6 +48,7 @@ export interface ImageNode {
 }
 export interface GalleryNode { type: "gallery"; attrs: { images: string[]; caption?: string } }
 export interface VideoNode { type: "video"; attrs: { src: string; caption?: string } }
+export interface TableNode { type: "table"; attrs: { headers: string[]; rows: string[][]; caption?: string; tableNumber?: string } }
 export interface TimelineNode { type: "timeline"; attrs: { title?: string; steps: TimelineStep[] } }
 export interface ScrollyNode { type: "scrollytelling"; attrs: { title?: string; steps: ScrollyStep[] } }
 
@@ -59,6 +60,7 @@ export type DocNode =
   | ImageNode
   | GalleryNode
   | VideoNode
+  | TableNode
   | TimelineNode
   | ScrollyNode
   // Lists are passed through as-is from Tiptap (StarterKit) — we only
@@ -257,6 +259,16 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
     }
     case "video":
       return [{ type: "video", attrs: { src: String(b.src ?? ""), caption: b.caption ? String(b.caption) : undefined } }];
+    case "table":
+      return [{
+        type: "table",
+        attrs: {
+          headers: Array.isArray(b.headers) ? b.headers.map((x: any) => String(x ?? "")) : [],
+          rows: Array.isArray(b.rows) ? b.rows.map((r: any) => (Array.isArray(r) ? r.map((x: any) => String(x ?? "")) : [])) : [],
+          caption: b.caption ? String(b.caption) : undefined,
+          tableNumber: b.tableNumber ? String(b.tableNumber) : undefined,
+        },
+      }];
     case "timeline":
       return [{
         type: "timeline",
@@ -416,6 +428,15 @@ export const docToLegacyBlocks = (doc: TiptapDoc): any[] => {
         break;
       case "video":
         out.push({ type: "video", src: n.attrs.src, caption: n.attrs.caption });
+        break;
+      case "table":
+        out.push({
+          type: "table",
+          headers: Array.isArray(n.attrs.headers) ? n.attrs.headers : [],
+          rows: Array.isArray(n.attrs.rows) ? n.attrs.rows : [],
+          caption: n.attrs.caption,
+          tableNumber: n.attrs.tableNumber,
+        });
         break;
       case "timeline":
         out.push({ type: "timeline", title: n.attrs.title, steps: n.attrs.steps });
