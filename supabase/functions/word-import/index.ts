@@ -342,11 +342,53 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const path: string = body.path;
-    const title: string = (body.title || "کتاب جدید").toString().slice(0, 200);
-    const author: string = (body.author || "ناشناس").toString().slice(0, 120);
-    const description: string = (body.description || "").toString().slice(0, 600);
+    let path: string = body.path;
+    let title: string = (body.title || "کتاب جدید").toString().slice(0, 200);
+    let author: string = (body.author || "ناشناس").toString().slice(0, 120);
+    let description: string = (body.description || "").toString().slice(0, 600);
     const replaceBookId: string | undefined = body.replaceBookId;
+    const importId: string | undefined = body.importId;
+    // Caller can opt out of image extraction (faster + lower-memory) — useful
+    // as a fallback after a previous failed attempt with images.
+    const skipImages: boolean = body.skipImages === true;
+
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // If an importId is provided, hydrate path/title/author/description from
+    // the saved row so the user does not have to re-upload or retype.
+    if (importId) {
+      const { data: imp, error: impErr } = await admin
+        .from("word_imports")
+        .select("user_id, file_path, title, author, description, attempt_count")
+        .eq("id", importId)
+        .maybeSingle();
+      if (impErr || !imp) {
+        return new Response(JSON.stringify({ error: "import_not_found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (imp.user_id !== u.user.id) {
+        return new Response(JSON.stringify({ error: "forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      path = imp.file_path;
+      title = body.title || imp.title || title;
+      author = body.author || imp.author || author;
+      description = body.description ?? imp.description ?? description;
+
+      await admin.from("word_imports").update({
+        status: "converting",
+        last_error: null,
+        attempt_count: (imp.attempt_count || 0) + 1,
+        title, author, description,
+      }).eq("id", importId);
+    }
 
     if (!path || typeof path !== "string") {
       return new Response(JSON.stringify({ error: "missing path" }), {
@@ -361,15 +403,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    // Helper to record failure on the import row before bailing out.
+    const failImport = async (msg: string) => {
+      if (importId) {
+        await admin.from("word_imports").update({
+          status: "failed",
+          last_error: msg.slice(0, 500),
+        }).eq("id", importId);
+      }
+    };
+
     const { data: file, error: dlErr } = await admin.storage
       .from("book-uploads")
       .download(path);
     if (dlErr || !file) {
-      return new Response(JSON.stringify({ error: dlErr?.message || "download failed" }), {
+      const msg = dlErr?.message || "download failed";
+      await failImport(msg);
+      return new Response(JSON.stringify({ error: msg }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -378,14 +428,15 @@ Deno.serve(async (req) => {
     const arrayBuffer = await file.arrayBuffer();
     const fileSize = arrayBuffer.byteLength;
     // Edge runtime memory cap is around 256MB. Mammoth roughly needs 5-8x the
-    // file size while parsing a docx full of images, so anything beyond ~25MB
-    // risks OOM. Reject early with a Persian message instead of crashing.
-    const HARD_LIMIT = 35 * 1024 * 1024;
+    // file size while parsing a docx full of images, so anything beyond ~80MB
+    // risks OOM even in text-only mode. The file is already saved in storage,
+    // so the user can split or re-import without re-uploading.
+    const HARD_LIMIT = 80 * 1024 * 1024;
     if (fileSize > HARD_LIMIT) {
+      const msg = `حجم فایل ورد (${(fileSize / 1024 / 1024).toFixed(1)} مگابایت) بیش از حد قابل پردازش است. لطفاً کتاب را به چند فایل کوچک‌تر تقسیم کنید.`;
+      await failImport(msg);
       return new Response(
-        JSON.stringify({
-          error: `حجم فایل ورد (${(fileSize / 1024 / 1024).toFixed(1)} مگابایت) بیش از حد مجاز (۳۵ مگابایت) است. لطفاً تصاویر را فشرده یا کتاب را به چند فایل کوچکتر تقسیم کنید.`,
-        }),
+        JSON.stringify({ error: msg }),
         { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -435,7 +486,7 @@ Deno.serve(async (req) => {
 
     let result;
     try {
-      result = await tryConvert(true);
+      result = await tryConvert(!skipImages);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn("first pass failed, retrying without images:", msg);
@@ -445,10 +496,10 @@ Deno.serve(async (req) => {
       try {
         result = await tryConvert(false);
       } catch (e2) {
+        const finalMsg = `پردازش فایل ورد با خطا مواجه شد. می‌توانید با گزینه «تبدیل بدون تصاویر» دوباره تلاش کنید. (${e2 instanceof Error ? e2.message : String(e2)})`;
+        await failImport(finalMsg);
         return new Response(
-          JSON.stringify({
-            error: `پردازش فایل ورد با خطا مواجه شد. احتمالاً فایل بسیار بزرگ یا پیچیده است. (${e2 instanceof Error ? e2.message : String(e2)})`,
-          }),
+          JSON.stringify({ error: finalMsg }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
@@ -456,7 +507,9 @@ Deno.serve(async (req) => {
 
     const pages = htmlToPages(result.value || "");
     if (pages.length === 0) {
-      return new Response(JSON.stringify({ error: "no content extracted" }), {
+      const msg = "no content extracted";
+      await failImport(msg);
+      return new Response(JSON.stringify({ error: msg }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -479,7 +532,9 @@ Deno.serve(async (req) => {
         .select("id, title")
         .single();
       if (updErr || !upd) {
-        return new Response(JSON.stringify({ error: updErr?.message || "update failed" }), {
+        const msg = updErr?.message || "update failed";
+        await failImport(msg);
+        return new Response(JSON.stringify({ error: msg }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -504,7 +559,9 @@ Deno.serve(async (req) => {
         .select("id, title")
         .single();
       if (insErr || !book) {
-        return new Response(JSON.stringify({ error: insErr?.message || "insert failed" }), {
+        const msg = insErr?.message || "insert failed";
+        await failImport(msg);
+        return new Response(JSON.stringify({ error: msg }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -518,6 +575,17 @@ Deno.serve(async (req) => {
         acquired_via: "upload",
         status: "unread",
       });
+    }
+
+    if (importId) {
+      await admin.from("word_imports").update({
+        status: "done",
+        last_error: null,
+        book_id: bookId,
+        chapters_count: pages.length,
+        images_count: imgIdx,
+        skipped_images_count: skippedImages,
+      }).eq("id", importId);
     }
 
     return new Response(
