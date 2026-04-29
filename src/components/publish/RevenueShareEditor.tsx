@@ -247,7 +247,7 @@ export const RevenueShareEditor = ({
       </div>
 
       <div className="flex items-center gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={addByEmail} className="gap-1">
+        <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(true)} className="gap-1">
           <Plus className="w-3.5 h-3.5" />
           {lang === "fa" ? "افزودن نویسنده/ادیتور" : "Add author/editor"}
         </Button>
@@ -257,6 +257,63 @@ export const RevenueShareEditor = ({
           {lang === "fa" ? "ذخیره سهم‌بندی" : "Save split"}
         </Button>
       </div>
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent dir={lang === "fa" ? "rtl" : "ltr"} className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {lang === "fa" ? "افزودن نویسنده/ادیتور" : "Add author / editor"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">{lang === "fa" ? "نقش" : "Role"}</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={addRole === "author" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setAddRole("author")}
+                  className="justify-center"
+                >
+                  {lang === "fa" ? "نویسنده" : "Author"}
+                </Button>
+                <Button
+                  type="button"
+                  variant={addRole === "editor" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setAddRole("editor")}
+                  className="justify-center"
+                >
+                  {lang === "fa" ? "ادیتور" : "Editor"}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">
+                {lang === "fa" ? "ایمیل کاربر ثبت‌شده" : "Registered user email"}
+              </Label>
+              <Input
+                type="email"
+                placeholder="user@example.com"
+                value={addEmail}
+                onChange={(e) => setAddEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") submitAdd(); }}
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setAddOpen(false)}>
+                {lang === "fa" ? "انصراف" : "Cancel"}
+              </Button>
+              <Button type="button" size="sm" onClick={submitAdd} disabled={addingLookup}>
+                {addingLookup ? <Loader2 className="w-4 h-4 animate-spin me-1" /> : null}
+                {lang === "fa" ? "افزودن" : "Add"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
