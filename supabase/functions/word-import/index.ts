@@ -147,15 +147,17 @@ const stripTags = (s: string) =>
   normalizeImportedLinks(htmlText(convertAnchors(s)));
 
 function stripDocxImages(input: Buffer): { buffer: Buffer; removedImages: number } {
-  const files = unzipSync(new Uint8Array(input));
   let removedImages = 0;
-
-  for (const key of Object.keys(files)) {
-    if (/^word\/media\//i.test(key)) {
-      delete files[key];
-      removedImages += 1;
-    }
-  }
+  const files = unzipSync(new Uint8Array(input), {
+    // Critical for large books: do not inflate media entries at all. Inflating
+    // hundreds of embedded images can exceed the edge memory cap before we get
+    // a chance to remove them.
+    filter: (file: { name: string }) => {
+      const isMedia = /^word\/media\//i.test(file.name);
+      if (isMedia) removedImages += 1;
+      return !isMedia;
+    },
+  });
 
   for (const key of Object.keys(files)) {
     if (!/\.rels$/i.test(key)) continue;
@@ -177,7 +179,7 @@ function stripDocxImages(input: Buffer): { buffer: Buffer; removedImages: number
     if (next !== xml) files[key] = strToU8(next);
   }
 
-  return { buffer: Buffer.from(zipSync(files, { level: 6 })), removedImages };
+  return { buffer: Buffer.from(zipSync(files, { level: 0 })), removedImages };
 }
 
 // Find Persian/English figure or table label like "شکل ۹–۱" / "Figure 9.1" / "جدول ۲-۱"
