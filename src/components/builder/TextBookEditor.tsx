@@ -288,7 +288,20 @@ export const TextBookEditor = ({ initial }: Props) => {
 
   const splitChapterAtSelection = () => {
     if (!editor) return;
-    const { from } = editor.state.selection;
+    const { from, to, empty } = editor.state.selection;
+
+    // If the user has selected text, use that as the new chapter title and
+    // remove it from the source chapter — the split happens at the selection
+    // start so the new chapter begins with the content that followed it.
+    let selectedTitle = "";
+    if (!empty) {
+      selectedTitle = editor.state.doc.textBetween(from, to, " ", " ").trim();
+      if (selectedTitle) {
+        editor.chain().focus().deleteRange({ from, to }).run();
+      }
+    }
+
+    const splitFrom = editor.state.selection.from;
     const fullJson = editor.getJSON() as TextPage["doc"];
     const blocks = (fullJson.content ?? []) as any[];
     let pos = 1;
@@ -296,7 +309,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     for (let i = 0; i < blocks.length; i++) {
       const node = editor.state.doc.child(i);
       const blockSize = node.nodeSize;
-      if (from < pos + blockSize) { splitIdx = i; break; }
+      if (splitFrom < pos + blockSize) { splitIdx = i; break; }
       pos += blockSize;
     }
     if (splitIdx >= blocks.length) {
@@ -305,8 +318,9 @@ export const TextBookEditor = ({ initial }: Props) => {
     }
     const head = blocks.slice(0, splitIdx);
     const tail = blocks.slice(splitIdx);
+    const fallbackTitle = fa ? `فصل ${pages.length + 1}` : `Chapter ${pages.length + 1}`;
     const newPage: TextPage = {
-      title: fa ? `فصل ${pages.length + 1}` : `Chapter ${pages.length + 1}`,
+      title: (selectedTitle.slice(0, 120)) || fallbackTitle,
       doc: { type: "doc" as const, content: tail.length ? tail : [{ type: "paragraph" }] },
     };
     setPages((ps) => {
@@ -320,7 +334,11 @@ export const TextBookEditor = ({ initial }: Props) => {
     });
     setDirty(true);
     setTimeout(() => setActiveIdx(activeIdx + 1), 0);
-    toast.success(fa ? "فصل جدید ساخته شد" : "New chapter created");
+    toast.success(
+      selectedTitle
+        ? (fa ? `فصل «${selectedTitle.slice(0, 40)}» ساخته شد` : `Chapter "${selectedTitle.slice(0, 40)}" created`)
+        : (fa ? "فصل جدید ساخته شد" : "New chapter created"),
+    );
   };
 
   const insertInteractive = (kind: "video" | "gallery" | "timeline" | "scrollytelling") => {
