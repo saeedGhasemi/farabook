@@ -45,6 +45,7 @@ export type Block =
   | { type: "quote"; text: string; author?: string; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }
   | { type: "highlight"; text: string }
   | { type: "image"; src: string; caption?: string; figureNumber?: string; hotspots?: Hotspot[]; hideCaption?: boolean }
+  | { type: "image_placeholder"; pendingSrc?: string; bytes?: number; contentType?: string; reason?: string; caption?: string; figureNumber?: string }
   | { type: "gallery"; images: string[]; caption?: string }
   | { type: "slideshow"; images: { src: string; caption?: string }[]; autoplay?: boolean; interval?: number; hideCaption?: boolean }
   | { type: "video"; src: string; poster?: string; caption?: string }
