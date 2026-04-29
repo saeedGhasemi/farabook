@@ -521,7 +521,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ book: { id: bookId, title: bookTitle }, chapters: pages.length, images: imgIdx }),
+      JSON.stringify({ book: { id: bookId, title: bookTitle }, chapters: pages.length, images: imgIdx, skippedImages }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
