@@ -283,20 +283,67 @@ export const UserDetailDialog = ({ userId, open, onOpenChange, onChanged }: Prop
                 </div>
                 <Button onClick={adjustCredits} className="gap-1"><Plus className="w-4 h-4" /> تنظیم اعتبار</Button>
               </div>
-              <div className="space-y-1 max-h-72 overflow-y-auto">
+              {(() => {
+                const totals = computeTotals(transactions);
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                    <div className="p-2 rounded border">
+                      <div className="text-[10px] text-muted-foreground">واریز</div>
+                      <div className="font-bold text-sm text-emerald-600 dark:text-emerald-400">{formatFa(totals.income)}</div>
+                    </div>
+                    <div className="p-2 rounded border">
+                      <div className="text-[10px] text-muted-foreground">شارژ/اعطا</div>
+                      <div className="font-bold text-sm text-orange-500 dark:text-orange-400">{formatFa(totals.topUp)}</div>
+                    </div>
+                    <div className="p-2 rounded border">
+                      <div className="text-[10px] text-muted-foreground">برداشت</div>
+                      <div className="font-bold text-sm text-destructive">{formatFa(totals.spent)}</div>
+                    </div>
+                    <div className="p-2 rounded border">
+                      <div className="text-[10px] text-muted-foreground">بالانس</div>
+                      <div className="font-bold text-sm">{formatFa(totals.balance)}</div>
+                    </div>
+                  </div>
+                );
+              })()}
+              <div className="max-h-72 overflow-y-auto rounded border">
                 {transactions.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">تراکنشی نیست</p>
-                ) : transactions.map((t) => (
-                  <div key={t.id} className="flex items-center justify-between p-2 rounded border text-sm">
-                    <div>
-                      <div className={Number(t.amount) > 0 ? "text-green-600 font-medium" : "text-destructive font-medium"}>
-                        {Number(t.amount) > 0 ? "+" : ""}{Number(t.amount).toLocaleString("fa-IR")}
-                      </div>
-                      <div className="text-xs text-muted-foreground">{t.reason}</div>
-                    </div>
-                    <div className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString("fa-IR")}</div>
-                  </div>
-                ))}
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-right">زمان</TableHead>
+                        <TableHead className="text-right">عنوان</TableHead>
+                        <TableHead className="text-right text-emerald-600 dark:text-emerald-400">واریز</TableHead>
+                        <TableHead className="text-right text-destructive">برداشت</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {transactions.map((t) => {
+                        const amt = Number(t.amount);
+                        const kind = classifyTx(amt, t.reason);
+                        const isWithdrawal = kind === "withdrawal";
+                        return (
+                          <TableRow key={t.id}>
+                            <TableCell className="text-[11px] whitespace-nowrap">
+                              {new Date(t.created_at).toLocaleDateString("fa-IR")}
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={`text-[10px] border-0 ${txBadgeClass[kind]}`}>{reasonLabel(t.reason)}</Badge>
+                            </TableCell>
+                            <TableCell className={`text-xs font-bold tabular-nums ${isWithdrawal ? "text-muted-foreground/30" : txAmountClass[kind]}`}>
+                              {isWithdrawal ? "—" : `+${formatFa(Math.abs(amt))}`}
+                            </TableCell>
+                            <TableCell className={`text-xs font-bold tabular-nums ${isWithdrawal ? txAmountClass[kind] : "text-muted-foreground/30"}`}>
+                              {isWithdrawal ? `−${formatFa(Math.abs(amt))}` : "—"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
               </div>
             </TabsContent>
 
