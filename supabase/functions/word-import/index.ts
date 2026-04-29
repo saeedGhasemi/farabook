@@ -2,6 +2,7 @@
 // Extracts text, headings, tables, and images (uploaded to public storage).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import mammoth from "https://esm.sh/mammoth@1.8.0?target=deno";
+import { strFromU8, strToU8, unzipSync, zipSync } from "https://esm.sh/fflate@0.8.2?target=deno";
 import { Buffer } from "node:buffer";
 
 const corsHeaders = {
@@ -144,6 +145,40 @@ const convertAnchors = (s: string): string => {
 
 const stripTags = (s: string) =>
   normalizeImportedLinks(htmlText(convertAnchors(s)));
+
+function stripDocxImages(input: Buffer): { buffer: Buffer; removedImages: number } {
+  const files = unzipSync(new Uint8Array(input));
+  let removedImages = 0;
+
+  for (const key of Object.keys(files)) {
+    if (/^word\/media\//i.test(key)) {
+      delete files[key];
+      removedImages += 1;
+    }
+  }
+
+  for (const key of Object.keys(files)) {
+    if (!/\.rels$/i.test(key)) continue;
+    const xml = strFromU8(files[key]);
+    const next = xml.replace(/<Relationship\b[^>]*\/>/gi, (tag) =>
+      /Type=["'][^"']*\/image["']/i.test(tag) ? "" : tag,
+    );
+    if (next !== xml) files[key] = strToU8(next);
+  }
+
+  for (const key of Object.keys(files)) {
+    if (!/^word\/.*\.xml$/i.test(key)) continue;
+    const xml = strFromU8(files[key]);
+    const next = xml
+      .replace(/<mc:AlternateContent[\s\S]*?<\/mc:AlternateContent>/gi, "")
+      .replace(/<w:drawing[\s\S]*?<\/w:drawing>/gi, "")
+      .replace(/<w:pict[\s\S]*?<\/w:pict>/gi, "")
+      .replace(/<v:shape[\s\S]*?<\/v:shape>/gi, "");
+    if (next !== xml) files[key] = strToU8(next);
+  }
+
+  return { buffer: Buffer.from(zipSync(files, { level: 6 })), removedImages };
+}
 
 // Find Persian/English figure or table label like "شکل ۹–۱" / "Figure 9.1" / "جدول ۲-۱"
 const FIG_RE = /^(شکل|تصویر|نگاره|figure|fig\.?)\s*[\d\u06F0-\u06F9۰-۹]+([.\-\u2013\u2014][\d\u06F0-\u06F9۰-۹]+)?/i;
