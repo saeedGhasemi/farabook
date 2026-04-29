@@ -46,7 +46,10 @@ type ImportRow = {
   skipped_images_count: number | null;
   attempt_count: number;
   created_at: string;
+  updated_at: string;
 };
+
+const STALE_CONVERSION_MS = 3 * 60 * 1000;
 
 /** XHR-based upload to Supabase Storage so we get a real progress event.
  *  Returns the storage path on success. */
@@ -391,6 +394,12 @@ const Upload = () => {
                     const sizeMb = (Number(row.file_size) / 1024 / 1024).toFixed(2);
                     const isRetrying = retryingId?.id === row.id;
                     const isDone = row.status === "done";
+                    const updatedAt = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+                    const isStuckConverting = row.status === "converting" && updatedAt > 0 && Date.now() - updatedAt > STALE_CONVERSION_MS;
+                    const isActivelyConverting = row.status === "converting" && !isStuckConverting;
+                    const rowError = row.last_error || (isStuckConverting
+                      ? (fa ? "تبدیل قبلی متوقف شده است. فایل آپلودشده باقی مانده؛ می‌توانید دوباره تلاش کنید یا بدون تصاویر تبدیل کنید." : "The previous conversion stopped. The uploaded file is still available; retry or convert without images.")
+                      : null);
                     return (
                       <div key={row.id} className="rounded-xl border border-border bg-background/50 p-3 space-y-2">
                         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -411,15 +420,15 @@ const Upload = () => {
                             }
                           >
                             {row.status === "uploaded" && (fa ? "آماده تبدیل" : "Ready")}
-                            {row.status === "converting" && (fa ? "در حال تبدیل…" : "Converting…")}
+                            {row.status === "converting" && (isStuckConverting ? (fa ? "متوقف شده" : "Stopped") : (fa ? "در حال تبدیل…" : "Converting…"))}
                             {row.status === "failed" && (fa ? "خطا" : "Failed")}
                             {row.status === "done" && (fa ? "انجام شد" : "Done")}
                           </Badge>
                         </div>
-                        {row.last_error && (
+                        {rowError && (
                           <div className="flex items-start gap-2 text-[11px] text-destructive bg-destructive/10 rounded-md p-2">
                             <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                            <span className="break-words">{row.last_error}</span>
+                            <span className="break-words">{rowError}</span>
                           </div>
                         )}
                         <div className="flex items-center gap-2 flex-wrap">
@@ -428,7 +437,7 @@ const Upload = () => {
                               <Button
                                 size="sm"
                                 variant="default"
-                                disabled={isRetrying || row.status === "converting"}
+                                disabled={isRetrying || isActivelyConverting}
                                 onClick={() => retryImport(row, false)}
                               >
                                 {isRetrying && retryingId?.mode === "with"
@@ -439,7 +448,7 @@ const Upload = () => {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                disabled={isRetrying || row.status === "converting"}
+                                disabled={isRetrying || isActivelyConverting}
                                 onClick={() => retryImport(row, true)}
                                 title={fa ? "اگر فایل پر از تصویر است، این روش پایدارتر است" : "Use this if the file has many images and conversion fails"}
                               >
