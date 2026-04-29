@@ -278,6 +278,14 @@ export const TextBookEditor = ({ initial }: Props) => {
     }).run();
   };
 
+  const handleCoverUpload = async (file: File) => {
+    const url = await upload(file);
+    if (!url) return;
+    setCoverUrl(url);
+    setDirty(true);
+    toast.success(fa ? "کاور بارگذاری شد" : "Cover uploaded");
+  };
+
   const splitChapterAtSelection = () => {
     if (!editor) return;
     const { from } = editor.state.selection;
