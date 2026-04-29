@@ -35,7 +35,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  Callout, Quote, ImageBlock, VideoBlock, GalleryBlock, TimelineBlock, ScrollyBlock,
+  Callout, Quote, ImageBlock, ImagePlaceholderBlock, VideoBlock, GalleryBlock, TimelineBlock, ScrollyBlock,
   ImportedTable, useImageUpload,
 } from "./tiptap-nodes";
 import {
