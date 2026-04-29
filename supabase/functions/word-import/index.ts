@@ -342,11 +342,53 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const path: string = body.path;
-    const title: string = (body.title || "کتاب جدید").toString().slice(0, 200);
-    const author: string = (body.author || "ناشناس").toString().slice(0, 120);
-    const description: string = (body.description || "").toString().slice(0, 600);
+    let path: string = body.path;
+    let title: string = (body.title || "کتاب جدید").toString().slice(0, 200);
+    let author: string = (body.author || "ناشناس").toString().slice(0, 120);
+    let description: string = (body.description || "").toString().slice(0, 600);
     const replaceBookId: string | undefined = body.replaceBookId;
+    const importId: string | undefined = body.importId;
+    // Caller can opt out of image extraction (faster + lower-memory) — useful
+    // as a fallback after a previous failed attempt with images.
+    const skipImages: boolean = body.skipImages === true;
+
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // If an importId is provided, hydrate path/title/author/description from
+    // the saved row so the user does not have to re-upload or retype.
+    if (importId) {
+      const { data: imp, error: impErr } = await admin
+        .from("word_imports")
+        .select("user_id, file_path, title, author, description, attempt_count")
+        .eq("id", importId)
+        .maybeSingle();
+      if (impErr || !imp) {
+        return new Response(JSON.stringify({ error: "import_not_found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (imp.user_id !== u.user.id) {
+        return new Response(JSON.stringify({ error: "forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      path = imp.file_path;
+      title = body.title || imp.title || title;
+      author = body.author || imp.author || author;
+      description = body.description ?? imp.description ?? description;
+
+      await admin.from("word_imports").update({
+        status: "converting",
+        last_error: null,
+        attempt_count: (imp.attempt_count || 0) + 1,
+        title, author, description,
+      }).eq("id", importId);
+    }
 
     if (!path || typeof path !== "string") {
       return new Response(JSON.stringify({ error: "missing path" }), {
@@ -360,6 +402,16 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Helper to record failure on the import row before bailing out.
+    const failImport = async (msg: string) => {
+      if (importId) {
+        await admin.from("word_imports").update({
+          status: "failed",
+          last_error: msg.slice(0, 500),
+        }).eq("id", importId);
+      }
+    };
 
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
