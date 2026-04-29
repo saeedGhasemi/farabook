@@ -286,8 +286,14 @@ function htmlToPages(html: string): Page[] {
     } else if (tag === "table") {
       handleTable(inner);
     } else {
-      // p
-      handleParagraph(inner);
+      // p — but check for table placeholder first
+      const phMatch = /^\s*__TABLE_PLACEHOLDER_(\d+)__\s*$/.exec(stripTags(inner));
+      if (phMatch) {
+        const tblInner = extractedTables[parseInt(phMatch[1], 10)];
+        if (tblInner) handleTable(tblInner);
+      } else {
+        handleParagraph(inner);
+      }
     }
   }
   pushPage();
