@@ -225,6 +225,7 @@ export const TextBookEditor = ({ initial }: Props) => {
         .update({
           title: title || initial.title,
           author: author || initial.author,
+          cover_url: coverUrl,
           pages: dbPages,
           typography_preset: typography,
         })
