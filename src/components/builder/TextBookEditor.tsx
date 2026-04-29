@@ -382,13 +382,29 @@ export const TextBookEditor = ({ initial }: Props) => {
     editor.chain().focus().updateAttributes(node.type.name, { dir: next }).run();
   };
 
+  // Reload pages from DB after the auto-fill function applied a batch.
+  // We replace the local pages state and force the editor to refresh the
+  // currently active chapter so newly-attached pendingSrc values appear.
+  const reloadPagesFromDb = useCallback(async () => {
+    if (!isEdit || !initial?.id) return;
+    const { data } = await supabase.from("books").select("pages").eq("id", initial.id).maybeSingle();
+    if (!data?.pages) return;
+    const fresh = dbPagesToTextPages(data.pages);
+    setPages(fresh);
+    if (editor) {
+      const tgt = fresh[activeIdx]?.doc;
+      if (tgt) editor.commands.setContent(tgt as any, { emitUpdate: false });
+    }
+  }, [isEdit, initial?.id, editor, activeIdx]);
+
   if (!editor) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-accent" /></div>;
   }
 
+  const sidePanel = showAi || showAutoFill;
   const gridCols = chaptersCollapsed
-    ? (showAi ? "lg:grid-cols-[44px_1fr_340px]" : "lg:grid-cols-[44px_1fr]")
-    : (showAi ? "lg:grid-cols-[220px_1fr_340px]" : "lg:grid-cols-[260px_1fr]");
+    ? (sidePanel ? "lg:grid-cols-[44px_1fr_340px]" : "lg:grid-cols-[44px_1fr]")
+    : (sidePanel ? "lg:grid-cols-[220px_1fr_340px]" : "lg:grid-cols-[260px_1fr]");
 
   return (
     <div
