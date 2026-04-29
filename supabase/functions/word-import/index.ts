@@ -234,10 +234,10 @@ function htmlToPages(html: string): Page[] {
 
     // Caption immediately after an image?
     const last = cur.blocks[cur.blocks.length - 1];
-    if (last && last.type === "image" && !last.caption && (FIG_RE.test(tail) || tail.length < 220)) {
+    if (last && (last.type === "image" || last.type === "image_placeholder") && !last.caption && (FIG_RE.test(tail) || tail.length < 220)) {
       if (FIG_RE.test(tail)) {
         const { label, rest } = splitLabel(tail, FIG_RE);
-        last.figureNumber = label;
+        (last as any).figureNumber = label;
         last.caption = rest;
       } else {
         last.caption = tail;
