@@ -3,11 +3,15 @@
 //
 // Body: { bookId: string, importId?: string, batchSize?: number, startSlot?: number }
 //
-// The function is incremental: each invocation processes up to `batchSize`
-// (default 25) image slots and returns progress info so the client can call
-// it repeatedly to handle very large books without hitting CPU/memory caps.
+// Memory-safe strategy:
+//  1) Compute the list of slots to process for this batch FIRST (without unzipping).
+//  2) Use streaming `unzip` and only inflate the specific media files needed
+//     for this batch (plus the rels/content-types XML). This avoids decompressing
+//     all 100+ images at once which blows the 256MB edge function limit.
+//  3) Skip vector formats browsers cannot render (.emf, .wmf) — record as failure
+//     so the UI can show them but never retry forever.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
-import { strFromU8, unzipSync } from "https://esm.sh/fflate@0.8.2?target=deno";
+import { strFromU8, unzip, type Unzipped } from "https://esm.sh/fflate@0.8.2?target=deno";
 import { Buffer } from "node:buffer";
 
 const corsHeaders = {
@@ -23,15 +27,18 @@ const json = (status: number, body: unknown) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const extractAttr = (xml: string, name: string): string | undefined => {
-  const escaped = name.replace(/:/g, "(?::|&#58;)");
-  return new RegExp(`${escaped}=["']([^"']+)["']`, "i").exec(xml)?.[1];
-};
-
-const normalizeTarget = (target: string): string =>
-  target.startsWith("../") ? target.replace(/^\.\.\//, "word/") : `word/${target.replace(/^\//, "")}`;
-
 const PER_IMAGE_HARD_LIMIT = 6 * 1024 * 1024; // 6MB upload cap
+const UNRENDERABLE_EXT = new Set(["emf", "wmf"]); // vector formats browsers cannot show
+
+// Promisified streaming unzip with file filter — only inflates files matching `wanted`.
+function unzipFiltered(buf: Uint8Array, wanted: (name: string) => boolean): Promise<Unzipped> {
+  return new Promise((resolve, reject) => {
+    unzip(buf, { filter: (f) => wanted(f.name) }, (err, data) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -53,7 +60,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const bookId: string = body.bookId;
     const importId: string | undefined = body.importId;
-    const batchSize: number = Math.min(60, Math.max(1, Number(body.batchSize) || 25));
+    const batchSize: number = Math.min(40, Math.max(1, Number(body.batchSize) || 15));
     const startSlot: number = Math.max(0, Number(body.startSlot) || 0);
 
     if (!bookId) return json(400, { error: "missing bookId" });
@@ -63,7 +70,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Authorize: caller must own the book
     const { data: bookRow, error: bookErr } = await admin
       .from("books")
       .select("id, publisher_id, pages")
@@ -72,7 +78,6 @@ Deno.serve(async (req) => {
     if (bookErr || !bookRow) return json(404, { error: "book_not_found" });
     if (bookRow.publisher_id !== userId) return json(403, { error: "forbidden" });
 
-    // Resolve docx path: prefer explicit importId, otherwise pick latest import for this book.
     let filePath: string | null = null;
     if (importId) {
       const { data: imp } = await admin
@@ -94,43 +99,6 @@ Deno.serve(async (req) => {
       filePath = imp?.file_path ?? null;
     }
     if (!filePath) return json(400, { error: "no_source_docx" });
-
-    // Download the original docx
-    const { data: fileBlob, error: dlErr } = await admin.storage
-      .from("book-uploads")
-      .download(filePath);
-    if (dlErr || !fileBlob) return json(400, { error: dlErr?.message || "download failed" });
-
-    const ab = await fileBlob.arrayBuffer();
-
-    // Selectively unzip: media files + the rels file only.
-    const files = unzipSync(new Uint8Array(ab), {
-      filter: (f: { name: string }) =>
-        f.name === "word/_rels/document.xml.rels" ||
-        f.name === "[Content_Types].xml" ||
-        /^word\/media\//i.test(f.name),
-    });
-
-    const relsXml = files["word/_rels/document.xml.rels"]
-      ? strFromU8(files["word/_rels/document.xml.rels"]) : "";
-    const ctXml = files["[Content_Types].xml"]
-      ? strFromU8(files["[Content_Types].xml"]) : "";
-
-    const ctMap = new Map<string, string>();
-    for (const m of ctXml.matchAll(/<Default\b[^>]*Extension=["']([^"']+)["'][^>]*ContentType=["']([^"']+)["'][^>]*\/>/gi)) {
-      ctMap.set(m[1].toLowerCase(), m[2]);
-    }
-    // Also Override entries (less common for media but safe).
-    for (const m of ctXml.matchAll(/<Override\b[^>]*PartName=["']\/?([^"']+)["'][^>]*ContentType=["']([^"']+)["'][^>]*\/>/gi)) {
-      const ext = m[1].split(".").pop()?.toLowerCase();
-      if (ext) ctMap.set(ext, m[2]);
-    }
-
-    // Map originalPath -> media bytes (basename of word/media/* matched against rels target normalization).
-    const mediaByPath = new Map<string, Uint8Array>();
-    for (const key of Object.keys(files)) {
-      if (/^word\/media\//i.test(key)) mediaByPath.set(key.toLowerCase(), files[key]);
-    }
 
     // Walk pages.blocks and find image_placeholder nodes that still need images.
     const pagesArr: any[] = Array.isArray(bookRow.pages) ? bookRow.pages : [];
@@ -158,8 +126,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    const remaining = allSlots.filter((s) => s.slot > startSlot);
     const totalSlots = allSlots.length;
+    const remaining = allSlots.filter((s) => s.slot > startSlot);
     const batch = remaining.slice(0, batchSize);
 
     if (batch.length === 0) {
@@ -173,15 +141,46 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Also walk sibling ".doc" pages-array structure produced by tiptap-doc:
-    // tiptap-doc.ts saves both `blocks` and `doc.content`. We must update both
-    // representations so the editor (which reads `doc.content`) sees the fill.
+    // Download the original docx
+    const { data: fileBlob, error: dlErr } = await admin.storage
+      .from("book-uploads")
+      .download(filePath);
+    if (dlErr || !fileBlob) return json(400, { error: dlErr?.message || "download failed" });
+
+    const ab = await fileBlob.arrayBuffer();
+    const zipBytes = new Uint8Array(ab);
+
+    // Build set of media file names this batch actually needs (skip unrenderable).
+    const wantedMedia = new Set<string>();
+    for (const s of batch) {
+      const ext = (s.originalPath.split(".").pop() || "").toLowerCase();
+      if (UNRENDERABLE_EXT.has(ext)) continue;
+      wantedMedia.add(s.originalPath.toLowerCase());
+    }
+
+    // Streaming unzip — only inflate the specific files we need.
+    const files = await unzipFiltered(zipBytes, (name) => {
+      if (name === "word/_rels/document.xml.rels") return true;
+      if (name === "[Content_Types].xml") return true;
+      return wantedMedia.has(name.toLowerCase());
+    });
+
+    const ctXml = files["[Content_Types].xml"]
+      ? strFromU8(files["[Content_Types].xml"]) : "";
+
+    const ctMap = new Map<string, string>();
+    for (const m of ctXml.matchAll(/<Default\b[^>]*Extension=["']([^"']+)["'][^>]*ContentType=["']([^"']+)["'][^>]*\/>/gi)) {
+      ctMap.set(m[1].toLowerCase(), m[2]);
+    }
+
+    const mediaByPath = new Map<string, Uint8Array>();
+    for (const key of Object.keys(files)) {
+      if (/^word\/media\//i.test(key)) mediaByPath.set(key.toLowerCase(), files[key]);
+    }
+
     const updateDocNode = (page: any, blockIdx: number, mut: (n: any) => void) => {
       const docContent = page?.doc?.content;
       if (!Array.isArray(docContent)) return;
-      // The `blocks` and `doc.content` arrays are produced from the same source
-      // and have a 1:1 correspondence in word-import. Locate the matching
-      // image_placeholder by scanning forward from blockIdx for safety.
       let domI = -1;
       let plIdx = -1;
       for (let i = 0; i < docContent.length; i++) {
@@ -190,7 +189,6 @@ Deno.serve(async (req) => {
           if (plIdx === blockIdx) { domI = i; break; }
         }
       }
-      // Fallback: blockIdx may not be 1:1 if doc has paragraphs split. Find by slot.
       if (domI === -1) {
         const targetSlot = Number(page.blocks?.[blockIdx]?.slot || 0);
         for (let i = 0; i < docContent.length; i++) {
@@ -205,12 +203,33 @@ Deno.serve(async (req) => {
 
     const failures: { slot: number; reason: string; originalPath: string }[] = [];
     let filled = 0;
-    let lastSlotProcessed = startSlot;
 
     const folder = `${userId}/${bookId}/auto-fill`;
 
     for (const sl of batch) {
-      lastSlotProcessed = sl.slot;
+      const ext = (sl.originalPath.split(".").pop() || "png").toLowerCase().replace("jpeg", "jpg");
+
+      if (UNRENDERABLE_EXT.has(ext)) {
+        failures.push({
+          slot: sl.slot,
+          reason: `unsupported_format: .${ext} (cannot display in browser — please replace manually)`,
+          originalPath: sl.originalPath,
+        });
+        // Mark placeholder so UI shows the issue
+        const page = pagesArr[sl.pageIdx];
+        const block = page?.blocks?.[sl.blockIdx];
+        if (block) {
+          block.reason = `unsupported_${ext}`;
+          block.unsupported = true;
+        }
+        updateDocNode(page, sl.blockIdx, (node) => {
+          node.attrs = node.attrs || {};
+          node.attrs.reason = `unsupported_${ext}`;
+          node.attrs.unsupported = true;
+        });
+        continue;
+      }
+
       const norm = sl.originalPath.toLowerCase();
       const data = mediaByPath.get(norm);
       if (!data) {
@@ -221,7 +240,6 @@ Deno.serve(async (req) => {
         failures.push({ slot: sl.slot, reason: "too_large", originalPath: sl.originalPath });
         continue;
       }
-      const ext = (sl.originalPath.split(".").pop() || "png").toLowerCase().replace("jpeg", "jpg");
       const ct = ctMap.get(ext) || (
         ext === "png" ? "image/png" :
         ext === "jpg" || ext === "jpeg" ? "image/jpeg" :
@@ -241,7 +259,6 @@ Deno.serve(async (req) => {
       const pub = admin.storage.from("book-media").getPublicUrl(key);
       const url = pub.data.publicUrl;
 
-      // Patch BOTH the legacy `blocks` array and the new `doc.content` array.
       const page = pagesArr[sl.pageIdx];
       if (!page) continue;
       const block = page.blocks?.[sl.blockIdx];
@@ -261,7 +278,6 @@ Deno.serve(async (req) => {
       filled += 1;
     }
 
-    // Persist book once per batch
     const { error: updErr } = await admin
       .from("books")
       .update({ pages: pagesArr })
