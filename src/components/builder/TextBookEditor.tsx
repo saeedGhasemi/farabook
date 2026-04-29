@@ -42,6 +42,7 @@ import {
   dbPagesToTextPages, textPagesToDbPages, type TextPage,
 } from "@/lib/tiptap-doc";
 import { AiSuggestPanel } from "./AiSuggestPanel";
+import { ImageAutoPlacementPanel } from "./ImageAutoPlacementPanel";
 
 const TYPOGRAPHY_PRESETS = [
   { value: "editorial", label_fa: "روزنامه‌ای", label_en: "Editorial" },
