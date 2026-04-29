@@ -187,6 +187,8 @@ export const docToPlainText = (doc: TiptapDoc): string => {
       if (t.trim()) lines.push(t);
     } else if (n.type === "image" && n.attrs.caption) {
       lines.push(`[image: ${n.attrs.caption}]`);
+    } else if (n.type === "image_placeholder") {
+      lines.push(`[image placeholder${n.attrs.caption ? `: ${n.attrs.caption}` : ""}]`);
     } else if (n.type === "video" && n.attrs.caption) {
       lines.push(`[video: ${n.attrs.caption}]`);
     }
