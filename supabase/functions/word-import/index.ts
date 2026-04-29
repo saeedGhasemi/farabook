@@ -498,12 +498,23 @@ Deno.serve(async (req) => {
         { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-    const buffer = Buffer.from(arrayBuffer);
+    const originalBuffer = Buffer.from(arrayBuffer);
+    let buffer = originalBuffer;
+    let strippedImageCount = 0;
+    if (skipImages) {
+      try {
+        const stripped = stripDocxImages(originalBuffer);
+        buffer = stripped.buffer;
+        strippedImageCount = stripped.removedImages;
+      } catch (e) {
+        console.warn("strip docx images failed; falling back to original buffer", e);
+      }
+    }
 
     // Decide a stable folder for this import's images
     const folder = `${u.user.id}/${crypto.randomUUID()}`;
     let imgIdx = 0;
-    let skippedImages = 0;
+    let skippedImages = strippedImageCount;
     // Images larger than this are uploaded but kept out of the editor as
     // placeholders, so the user can review and insert them manually.
     const PER_IMAGE_LIMIT = 4 * 1024 * 1024;
