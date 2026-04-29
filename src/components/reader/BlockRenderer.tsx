@@ -594,6 +594,31 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
         </motion.div>
       );
 
+    case "image_placeholder":
+      // Reader-side: if the importer managed to upload the original file,
+      // show it like a normal image so the reading experience is preserved.
+      // Otherwise show a small marker so the layout is not broken.
+      if (block.pendingSrc) {
+        return (
+          <motion.div {...fade} id={blockId}>
+            <InteractiveImage
+              src={block.pendingSrc}
+              caption={block.caption}
+              mediaKey={blockId}
+              figureNumber={block.figureNumber}
+            />
+          </motion.div>
+        );
+      }
+      return (
+        <motion.figure {...fade} className="my-6">
+          <div className="rounded-xl border border-dashed bg-muted/40 px-4 py-6 text-center text-xs text-muted-foreground">
+            {block.figureNumber ? <strong className="me-1">{block.figureNumber}.</strong> : null}
+            {block.caption || "تصویر در دسترس نیست"}
+          </div>
+        </motion.figure>
+      );
+
     case "slideshow":
       return (
         <motion.div {...fade}>
