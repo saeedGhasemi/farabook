@@ -50,6 +50,7 @@ export const UserDetailDialog = ({ userId, open, onOpenChange, onChanged }: Prop
   const [transactions, setTransactions] = useState<any[]>([]);
   const [userBooks, setUserBooks] = useState<any[]>([]);
   const [authoredBooks, setAuthoredBooks] = useState<any[]>([]);
+  const [txBookTitles, setTxBookTitles] = useState<Record<string, string>>({});
   const [comments, setComments] = useState<any[]>([]);
   const [highlights, setHighlights] = useState<any[]>([]);
   const [publisherProfile, setPublisherProfile] = useState<any>(null);
