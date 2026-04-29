@@ -25,6 +25,7 @@ interface Props {
 export const UserEarnings = ({ userId }: Props) => {
   const [loading, setLoading] = useState(true);
   const [tx, setTx] = useState<any[]>([]);
+  const [bookTitles, setBookTitles] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -36,10 +37,19 @@ export const UserEarnings = ({ userId }: Props) => {
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(300);
-      if (!cancelled) {
-        setTx((data as any[]) || []);
-        setLoading(false);
+      if (cancelled) return;
+      const txs = (data as any[]) || [];
+      setTx(txs);
+      const ids = collectBookIds(txs);
+      if (ids.length) {
+        const { data: bs } = await supabase.from("books").select("id, title").in("id", ids);
+        const map: Record<string, string> = {};
+        for (const b of (bs as any[]) || []) map[b.id] = b.title;
+        if (!cancelled) setBookTitles(map);
+      } else {
+        setBookTitles({});
       }
+      setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [userId]);
