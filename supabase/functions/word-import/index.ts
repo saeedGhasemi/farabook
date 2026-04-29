@@ -413,15 +413,13 @@ Deno.serve(async (req) => {
       }
     };
 
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
     const { data: file, error: dlErr } = await admin.storage
       .from("book-uploads")
       .download(path);
     if (dlErr || !file) {
-      return new Response(JSON.stringify({ error: dlErr?.message || "download failed" }), {
+      const msg = dlErr?.message || "download failed";
+      await failImport(msg);
+      return new Response(JSON.stringify({ error: msg }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -430,14 +428,15 @@ Deno.serve(async (req) => {
     const arrayBuffer = await file.arrayBuffer();
     const fileSize = arrayBuffer.byteLength;
     // Edge runtime memory cap is around 256MB. Mammoth roughly needs 5-8x the
-    // file size while parsing a docx full of images, so anything beyond ~25MB
-    // risks OOM. Reject early with a Persian message instead of crashing.
-    const HARD_LIMIT = 35 * 1024 * 1024;
+    // file size while parsing a docx full of images, so anything beyond ~80MB
+    // risks OOM even in text-only mode. The file is already saved in storage,
+    // so the user can split or re-import without re-uploading.
+    const HARD_LIMIT = 80 * 1024 * 1024;
     if (fileSize > HARD_LIMIT) {
+      const msg = `حجم فایل ورد (${(fileSize / 1024 / 1024).toFixed(1)} مگابایت) بیش از حد قابل پردازش است. لطفاً کتاب را به چند فایل کوچک‌تر تقسیم کنید.`;
+      await failImport(msg);
       return new Response(
-        JSON.stringify({
-          error: `حجم فایل ورد (${(fileSize / 1024 / 1024).toFixed(1)} مگابایت) بیش از حد مجاز (۳۵ مگابایت) است. لطفاً تصاویر را فشرده یا کتاب را به چند فایل کوچکتر تقسیم کنید.`,
-        }),
+        JSON.stringify({ error: msg }),
         { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
