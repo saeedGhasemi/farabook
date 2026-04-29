@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 export interface ShareRow {
@@ -110,20 +111,20 @@ export const RevenueShareEditor = ({
   const removeRow = (i: number) => {
     setShares((cur) => cur.filter((_, idx) => idx !== i));
   };
-  const addByEmail = async () => {
-    const email = window.prompt(
-      lang === "fa" ? "ایمیل کاربر ثبت‌شده در سامانه:" : "Registered user email:",
-    );
-    if (!email) return;
-    const role = (window.prompt(
-      lang === "fa" ? "نقش (author یا editor):" : "Role (author or editor):",
-      "editor",
-    ) || "").toLowerCase().trim();
-    if (role !== "author" && role !== "editor") {
-      toast.error(lang === "fa" ? "نقش نامعتبر" : "Invalid role");
+  const [addOpen, setAddOpen] = useState(false);
+  const [addEmail, setAddEmail] = useState("");
+  const [addRole, setAddRole] = useState<"author" | "editor">("editor");
+  const [addingLookup, setAddingLookup] = useState(false);
+
+  const submitAdd = async () => {
+    const email = addEmail.trim();
+    if (!email) {
+      toast.error(lang === "fa" ? "ایمیل را وارد کنید" : "Enter an email");
       return;
     }
+    setAddingLookup(true);
     const { data: uid, error } = await (supabase.rpc as any)("find_user_by_email", { _email: email });
+    setAddingLookup(false);
     if (error) return toast.error(error.message);
     if (!uid) {
       toast.error(lang === "fa"
@@ -135,13 +136,19 @@ export const RevenueShareEditor = ({
       toast.message(lang === "fa" ? "ناشر سهم باقیمانده را خودکار دریافت می‌کند." : "Publisher gets the remainder automatically.");
       return;
     }
-    setShares((cur) => [...cur, { user_id: uid, role: role as any, percent: 0 }]);
-    // fetch name
+    if (shares.some((s) => s.user_id === uid && s.role === addRole)) {
+      toast.error(lang === "fa" ? "این کاربر با همین نقش قبلاً اضافه شده" : "Already added with this role");
+      return;
+    }
+    setShares((cur) => [...cur, { user_id: uid, role: addRole, percent: 0 }]);
     const { data: prof } = await supabase
       .from("profiles").select("display_name, username").eq("id", uid).maybeSingle();
     if (prof) {
       setProfilesById((m) => ({ ...m, [uid]: (prof as any).display_name || (prof as any).username || uid.slice(0, 8) }));
     }
+    setAddEmail("");
+    setAddRole("editor");
+    setAddOpen(false);
   };
 
   const save = async () => {
@@ -241,7 +248,7 @@ export const RevenueShareEditor = ({
       </div>
 
       <div className="flex items-center gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={addByEmail} className="gap-1">
+        <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(true)} className="gap-1">
           <Plus className="w-3.5 h-3.5" />
           {lang === "fa" ? "افزودن نویسنده/ادیتور" : "Add author/editor"}
         </Button>
@@ -251,6 +258,63 @@ export const RevenueShareEditor = ({
           {lang === "fa" ? "ذخیره سهم‌بندی" : "Save split"}
         </Button>
       </div>
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent dir={lang === "fa" ? "rtl" : "ltr"} className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {lang === "fa" ? "افزودن نویسنده/ادیتور" : "Add author / editor"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">{lang === "fa" ? "نقش" : "Role"}</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={addRole === "author" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setAddRole("author")}
+                  className="justify-center"
+                >
+                  {lang === "fa" ? "نویسنده" : "Author"}
+                </Button>
+                <Button
+                  type="button"
+                  variant={addRole === "editor" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setAddRole("editor")}
+                  className="justify-center"
+                >
+                  {lang === "fa" ? "ادیتور" : "Editor"}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">
+                {lang === "fa" ? "ایمیل کاربر ثبت‌شده" : "Registered user email"}
+              </Label>
+              <Input
+                type="email"
+                placeholder="user@example.com"
+                value={addEmail}
+                onChange={(e) => setAddEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") submitAdd(); }}
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setAddOpen(false)}>
+                {lang === "fa" ? "انصراف" : "Cancel"}
+              </Button>
+              <Button type="button" size="sm" onClick={submitAdd} disabled={addingLookup}>
+                {addingLookup ? <Loader2 className="w-4 h-4 animate-spin me-1" /> : null}
+                {lang === "fa" ? "افزودن" : "Add"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
