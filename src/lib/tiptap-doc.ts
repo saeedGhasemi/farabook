@@ -259,6 +259,16 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
     }
     case "video":
       return [{ type: "video", attrs: { src: String(b.src ?? ""), caption: b.caption ? String(b.caption) : undefined } }];
+    case "table":
+      return [{
+        type: "table",
+        attrs: {
+          headers: Array.isArray(b.headers) ? b.headers.map((x: any) => String(x ?? "")) : [],
+          rows: Array.isArray(b.rows) ? b.rows.map((r: any) => (Array.isArray(r) ? r.map((x: any) => String(x ?? "")) : [])) : [],
+          caption: b.caption ? String(b.caption) : undefined,
+          tableNumber: b.tableNumber ? String(b.tableNumber) : undefined,
+        },
+      }];
     case "timeline":
       return [{
         type: "timeline",
