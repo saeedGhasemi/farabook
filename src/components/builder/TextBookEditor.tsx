@@ -215,6 +215,24 @@ export const TextBookEditor = ({ initial }: Props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIdx, editor]);
 
+  // Look up the most recent Word import for this book so the auto-fill
+  // panel knows which .docx to re-extract images from.
+  useEffect(() => {
+    if (!isEdit || !initial?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("word_imports")
+        .select("id")
+        .eq("book_id", initial.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled && data?.id) setImportId(data.id);
+    })();
+    return () => { cancelled = true; };
+  }, [isEdit, initial?.id]);
+
   const persist = useCallback(async (showToast = false) => {
     if (!isEdit || !initial?.id || !user) return;
     setSaving(true);
