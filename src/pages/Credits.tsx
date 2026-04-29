@@ -334,7 +334,7 @@ const Credits = () => {
                               {isWithdrawal ? `−${formatFa(Math.abs(amt))}` : "—"}
                             </TableCell>
                             <TableCell className="text-[11px] text-muted-foreground max-w-[260px]">
-                              {details.length > 0 ? details.join(" · ") : "—"}
+                              {description}
                             </TableCell>
                           </TableRow>
                         );
