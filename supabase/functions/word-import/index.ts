@@ -206,12 +206,26 @@ function htmlToPages(html: string): Page[] {
           cur.blocks.push({ type: "paragraph", text: beforeText });
         }
       }
-      cur.blocks.push({
-        type: "image",
-        src: im[1],
-        caption: pendingImageCaption?.text,
-        figureNumber: pendingImageCaption?.fig,
-      });
+      const rawSrc = im[1];
+      if (rawSrc.startsWith("__WI_PLACEHOLDER__|")) {
+        const [, bytesStr, ct, reason, url] = rawSrc.split("|");
+        cur.blocks.push({
+          type: "image_placeholder",
+          pendingSrc: url || "",
+          bytes: Number(bytesStr) || 0,
+          contentType: ct || undefined,
+          reason: reason || undefined,
+          caption: pendingImageCaption?.text,
+          figureNumber: pendingImageCaption?.fig,
+        });
+      } else {
+        cur.blocks.push({
+          type: "image",
+          src: rawSrc,
+          caption: pendingImageCaption?.text,
+          figureNumber: pendingImageCaption?.fig,
+        });
+      }
       pendingImageCaption = null;
       lastIdx = im.index + im[0].length;
     }
