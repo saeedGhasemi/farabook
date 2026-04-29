@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Info, Sparkles, Quote as QuoteIcon, ChevronLeft, ChevronRight, Play, Pause, Plus, X, Lightbulb, AlertTriangle, CheckCircle2, ShieldAlert, Pencil, HelpCircle, BookMarked } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { resolveBookMedia } from "@/lib/book-media";
+import { normalizeImportedText } from "@/lib/tiptap-doc";
 import { SmartImage } from "@/components/SmartImage";
 import { Timeline, type TimelineStep } from "./Timeline";
 import { Scrollytelling, type ScrollyStep } from "./Scrollytelling";
@@ -70,6 +71,7 @@ interface Props {
 const safeInlineColor = (value: string) => value.replace(/[;{}<>]/g, "").trim();
 
 const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
+  text = normalizeImportedText(text);
   // Order matters — color spans first (they may wrap other inline marks),
   // then bold (**), italic (*), underline, links, urls.
   const re =
