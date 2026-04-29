@@ -240,7 +240,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     } finally {
       setSaving(false);
     }
-  }, [isEdit, initial, user, pages, activeIdx, editor, title, author, typography, fa]);
+  }, [isEdit, initial, user, pages, activeIdx, editor, title, author, typography, coverUrl, fa]);
 
   const skipFirst = useRef(true);
   useEffect(() => {
