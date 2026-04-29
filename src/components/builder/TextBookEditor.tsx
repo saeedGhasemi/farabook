@@ -427,6 +427,50 @@ export const TextBookEditor = ({ initial }: Props) => {
 
       {/* ============ Main editor ============ */}
       <section className="min-w-0">
+        {/* Book cover */}
+        <div className="flex items-center gap-3 mb-3 p-2 rounded-lg border bg-card/50">
+          <div className="relative w-14 h-20 rounded-md overflow-hidden border bg-muted shrink-0 flex items-center justify-center">
+            {coverUrl ? (
+              <img src={coverUrl} alt="cover" className="w-full h-full object-cover" />
+            ) : (
+              <ImageIcon className="w-5 h-5 text-muted-foreground" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-semibold mb-0.5">{fa ? "کاور کتاب" : "Book cover"}</div>
+            <div className="text-[11px] text-muted-foreground truncate mb-1.5">
+              {coverUrl ? (fa ? "روی تغییر کلیک کنید" : "Click change to replace") : (fa ? "هنوز کاوری انتخاب نشده" : "No cover yet")}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <input
+                ref={coverFileRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void handleCoverUpload(f);
+                  if (coverFileRef.current) coverFileRef.current.value = "";
+                }}
+              />
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => coverFileRef.current?.click()}>
+                <ImageIcon className="w-3.5 h-3.5 me-1" />
+                {coverUrl ? (fa ? "تغییر" : "Change") : (fa ? "بارگذاری" : "Upload")}
+              </Button>
+              {coverUrl && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs text-destructive"
+                  onClick={() => { setCoverUrl(null); setDirty(true); }}
+                >
+                  <Trash2 className="w-3.5 h-3.5 me-1" /> {fa ? "حذف" : "Remove"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Chapter title + meta */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           <Input
