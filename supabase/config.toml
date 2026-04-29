@@ -24,3 +24,6 @@ verify_jwt = false
 [functions.book-image-gen]
 verify_jwt = true
 
+[functions.docx-image-fill]
+verify_jwt = false
+
