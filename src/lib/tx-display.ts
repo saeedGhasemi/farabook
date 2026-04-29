@@ -94,3 +94,97 @@ export const computeTotals = (txs: { amount: number | string; reason: string }[]
 };
 
 export const formatFa = (n: number) => n.toLocaleString("fa-IR");
+
+// Build a human-readable Persian sentence describing what a transaction was for.
+// `bookTitle` is optional — pass it when you've resolved book_id → title from the
+// books table; otherwise we fall back to a short id reference.
+export const describeTx = (
+  reason: string,
+  amount: number | string,
+  metadata: any,
+  bookTitle?: string | null,
+): string => {
+  const meta = (metadata || {}) as Record<string, any>;
+  const amt = Math.abs(Number(amount || 0));
+  const fa = (n: number) => n.toLocaleString("fa-IR");
+  const bookRef = bookTitle
+    ? `«${bookTitle}»`
+    : meta.book_title
+      ? `«${meta.book_title}»`
+      : meta.book_id
+        ? `#${String(meta.book_id).slice(0, 6)}`
+        : "";
+  const pct = meta.percent ? `${fa(Number(meta.percent))}٪ ` : "";
+
+  switch (reason) {
+    case "book_purchase":
+      return bookRef ? `خرید کتاب ${bookRef}` : "خرید کتاب";
+    case "revenue_share_publisher":
+      return bookRef
+        ? `${pct || ""}سهم ناشر از فروش یک نسخه از کتاب ${bookRef}`
+        : "سهم ناشر از فروش کتاب";
+    case "revenue_share_author":
+      return bookRef
+        ? `${pct}سهم نویسنده از فروش یک نسخه از کتاب ${bookRef}`
+        : "سهم نویسنده از فروش کتاب";
+    case "revenue_share_editor":
+      return bookRef
+        ? `${pct}سهم ادیتور از فروش یک نسخه از کتاب ${bookRef}`
+        : "سهم ادیتور از فروش کتاب";
+    case "book_publish_fee": {
+      const cx = meta.complexity ? ` (ضریب پیچیدگی ${fa(Number(meta.complexity))}×)` : "";
+      return bookRef ? `هزینه انتشار کتاب ${bookRef}${cx}` : `هزینه انتشار کتاب${cx}`;
+    }
+    case "publisher_signup_fee":
+      return "هزینه ثبت درخواست ناشر";
+    case "publisher_upgrade_fee":
+      return "هزینه ارتقا حساب به ناشر";
+    case "editor_order_fee":
+      return bookRef ? `هزینه سفارش ادیت برای کتاب ${bookRef}` : "هزینه سفارش ادیت";
+    case "ai_text_suggest": {
+      const chars = meta.chars ? ` (${fa(Number(meta.chars))} کاراکتر)` : "";
+      return bookRef
+        ? `استفاده از هوش مصنوعی برای پیشنهاد متن در کتاب ${bookRef}${chars}`
+        : `استفاده از هوش مصنوعی برای پیشنهاد متن${chars}`;
+    }
+    case "ai_text_suggest_refund":
+      return bookRef
+        ? `بازگشت اعتبار هوش مصنوعی متن در کتاب ${bookRef}`
+        : "بازگشت اعتبار هوش مصنوعی متن";
+    case "ai_image_gen":
+      return bookRef
+        ? `ساخت تصویر با هوش مصنوعی برای کتاب ${bookRef}`
+        : "ساخت تصویر با هوش مصنوعی";
+    case "credit_purchase_approved":
+      return `خرید اعتبار (${fa(amt)} اعتبار، تأییدشده توسط ادمین)`;
+    case "admin_grant":
+      return meta.note ? `اعطای ادمین — ${meta.note}` : "اعطای اعتبار توسط ادمین";
+    case "admin_deduct":
+      return meta.note ? `کسر توسط ادمین — ${meta.note}` : "کسر اعتبار توسط ادمین";
+    case "admin_adjust":
+      return meta.note ? `تنظیم دستی ادمین — ${meta.note}` : "تنظیم دستی اعتبار توسط ادمین";
+    case "bulk_grant":
+      return "اعطای گروهی اعتبار توسط ادمین";
+    case "bulk_deduct":
+      return "کسر گروهی اعتبار توسط ادمین";
+    case "seed_starter_credits":
+      return "اعتبار اولیه هدیه به حساب جدید";
+    case "revenue_received":
+      return bookRef ? `دریافت درآمد از کتاب ${bookRef}` : "دریافت درآمد";
+    case "fee_charged":
+      return meta.note ? `هزینه پلتفرم — ${meta.note}` : "هزینه پلتفرم";
+    default:
+      return reasonLabel(reason);
+  }
+};
+
+// Helper: collect unique book_ids referenced in a list of transactions so the
+// caller can fetch their titles in one query.
+export const collectBookIds = (txs: { metadata?: any }[]): string[] => {
+  const ids = new Set<string>();
+  for (const t of txs) {
+    const id = (t.metadata as any)?.book_id;
+    if (id && typeof id === "string") ids.add(id);
+  }
+  return Array.from(ids);
+};

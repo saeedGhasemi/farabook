@@ -14,7 +14,9 @@ import { toast } from "sonner";
 import type { AppRole } from "@/hooks/useRoles";
 import {
   classifyTx,
+  collectBookIds,
   computeTotals,
+  describeTx,
   formatFa,
   reasonLabel,
   txAmountClass,
@@ -48,6 +50,7 @@ export const UserDetailDialog = ({ userId, open, onOpenChange, onChanged }: Prop
   const [transactions, setTransactions] = useState<any[]>([]);
   const [userBooks, setUserBooks] = useState<any[]>([]);
   const [authoredBooks, setAuthoredBooks] = useState<any[]>([]);
+  const [txBookTitles, setTxBookTitles] = useState<Record<string, string>>({});
   const [comments, setComments] = useState<any[]>([]);
   const [highlights, setHighlights] = useState<any[]>([]);
   const [publisherProfile, setPublisherProfile] = useState<any>(null);
@@ -79,6 +82,15 @@ export const UserDetailDialog = ({ userId, open, onOpenChange, onChanged }: Prop
     const total = ((tx as any[]) || []).reduce((s, t) => s + Number(t.amount || 0), 0);
     setCredits(total);
     setTransactions((tx as any[]) || []);
+    const ids = collectBookIds((tx as any[]) || []);
+    if (ids.length) {
+      const { data: bs } = await supabase.from("books").select("id, title").in("id", ids);
+      const map: Record<string, string> = {};
+      for (const b of (bs as any[]) || []) map[b.id] = b.title;
+      setTxBookTitles(map);
+    } else {
+      setTxBookTitles({});
+    }
     setUserBooks((ub as any[]) || []);
     setAuthoredBooks((ab as any[]) || []);
     setComments((cm as any[]) || []);
@@ -317,6 +329,7 @@ export const UserDetailDialog = ({ userId, open, onOpenChange, onChanged }: Prop
                         <TableHead className="text-right">عنوان</TableHead>
                         <TableHead className="text-right text-emerald-600 dark:text-emerald-400">واریز</TableHead>
                         <TableHead className="text-right text-destructive">برداشت</TableHead>
+                        <TableHead className="text-right">شرح</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -324,6 +337,8 @@ export const UserDetailDialog = ({ userId, open, onOpenChange, onChanged }: Prop
                         const amt = Number(t.amount);
                         const kind = classifyTx(amt, t.reason);
                         const isWithdrawal = kind === "withdrawal";
+                        const meta = (t.metadata || {}) as any;
+                        const title = meta.book_id ? txBookTitles[meta.book_id] : undefined;
                         return (
                           <TableRow key={t.id}>
                             <TableCell className="text-[11px] whitespace-nowrap">
@@ -337,6 +352,9 @@ export const UserDetailDialog = ({ userId, open, onOpenChange, onChanged }: Prop
                             </TableCell>
                             <TableCell className={`text-xs font-bold tabular-nums ${isWithdrawal ? txAmountClass[kind] : "text-muted-foreground/30"}`}>
                               {isWithdrawal ? `−${formatFa(Math.abs(amt))}` : "—"}
+                            </TableCell>
+                            <TableCell className="text-[11px] text-muted-foreground max-w-[280px] leading-relaxed">
+                              {describeTx(t.reason, amt, meta, title)}
                             </TableCell>
                           </TableRow>
                         );

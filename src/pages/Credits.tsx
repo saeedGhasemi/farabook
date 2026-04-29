@@ -17,7 +17,9 @@ import { Navigate } from "react-router-dom";
 import { CREDITS_PER_TOMAN, creditsToToman } from "@/lib/purchase";
 import {
   classifyTx,
+  collectBookIds,
   computeTotals,
+  describeTx,
   formatFa,
   reasonLabel,
   txAmountClass,
@@ -41,6 +43,7 @@ const Credits = () => {
   const [pubSite, setPubSite] = useState("");
   const [pubReqs, setPubReqs] = useState<any[]>([]);
   const [tx, setTx] = useState<any[]>([]);
+  const [bookTitles, setBookTitles] = useState<Record<string, string>>({});
 
   const load = async () => {
     if (!user) return;
@@ -64,7 +67,17 @@ const Credits = () => {
     ]);
     setRequests((cr as any[]) || []);
     setPubReqs((pr as any[]) || []);
-    setTx((t as any[]) || []);
+    const txs = (t as any[]) || [];
+    setTx(txs);
+    const ids = collectBookIds(txs);
+    if (ids.length) {
+      const { data: bs } = await supabase.from("books").select("id, title").in("id", ids);
+      const map: Record<string, string> = {};
+      for (const b of (bs as any[]) || []) map[b.id] = b.title;
+      setBookTitles(map);
+    } else {
+      setBookTitles({});
+    }
   };
 
   useEffect(() => {
@@ -302,12 +315,8 @@ const Credits = () => {
                         const kind = classifyTx(amt, r.reason);
                         const isWithdrawal = kind === "withdrawal";
                         const meta = (r.metadata || {}) as any;
-                        const details: string[] = [];
-                        if (meta.book_title) details.push(`کتاب: ${meta.book_title}`);
-                        else if (meta.book_id) details.push(`کتاب #${String(meta.book_id).slice(0, 6)}`);
-                        if (meta.percent) details.push(`${meta.percent}٪ سهم`);
-                        if (meta.complexity) details.push(`ضریب ${meta.complexity}×`);
-                        if (meta.note) details.push(String(meta.note));
+                        const title = meta.book_id ? bookTitles[meta.book_id] : undefined;
+                        const description = describeTx(r.reason, amt, meta, title);
                         return (
                           <TableRow key={r.id}>
                             <TableCell className="text-xs whitespace-nowrap">
@@ -325,7 +334,7 @@ const Credits = () => {
                               {isWithdrawal ? `−${formatFa(Math.abs(amt))}` : "—"}
                             </TableCell>
                             <TableCell className="text-[11px] text-muted-foreground max-w-[260px]">
-                              {details.length > 0 ? details.join(" · ") : "—"}
+                              {description}
                             </TableCell>
                           </TableRow>
                         );

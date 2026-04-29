@@ -9,7 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   classifyTx,
+  collectBookIds,
   computeTotals,
+  describeTx,
   formatFa,
   reasonLabel,
   txAmountClass,
@@ -23,6 +25,7 @@ interface Props {
 export const UserEarnings = ({ userId }: Props) => {
   const [loading, setLoading] = useState(true);
   const [tx, setTx] = useState<any[]>([]);
+  const [bookTitles, setBookTitles] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -34,10 +37,19 @@ export const UserEarnings = ({ userId }: Props) => {
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(300);
-      if (!cancelled) {
-        setTx((data as any[]) || []);
-        setLoading(false);
+      if (cancelled) return;
+      const txs = (data as any[]) || [];
+      setTx(txs);
+      const ids = collectBookIds(txs);
+      if (ids.length) {
+        const { data: bs } = await supabase.from("books").select("id, title").in("id", ids);
+        const map: Record<string, string> = {};
+        for (const b of (bs as any[]) || []) map[b.id] = b.title;
+        if (!cancelled) setBookTitles(map);
+      } else {
+        setBookTitles({});
       }
+      setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [userId]);
@@ -147,15 +159,8 @@ export const UserEarnings = ({ userId }: Props) => {
                         <TableCell className={`text-sm font-bold whitespace-nowrap tabular-nums ${isWithdrawal ? txAmountClass[kind] : "text-muted-foreground/30"}`}>
                           {isWithdrawal ? `−${formatFa(Math.abs(amt))}` : "—"}
                         </TableCell>
-                        <TableCell className="text-[11px] text-muted-foreground max-w-[260px]">
-                          {meta.book_title
-                            ? <span>کتاب: <span className="text-foreground font-medium">{meta.book_title}</span></span>
-                            : meta.book_id
-                              ? <span>کتاب #{String(meta.book_id).slice(0, 6)}</span>
-                              : null}
-                          {meta.percent ? <span> · {meta.percent}٪ سهم</span> : null}
-                          {meta.complexity ? <span> · ضریب {meta.complexity}×</span> : null}
-                          {meta.note ? <div className="opacity-80">{meta.note}</div> : null}
+                        <TableCell className="text-[11px] text-muted-foreground max-w-[320px] leading-relaxed">
+                          {describeTx(t.reason, amt, meta, meta.book_id ? bookTitles[meta.book_id] : undefined)}
                         </TableCell>
                       </TableRow>
                     );
