@@ -9,7 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   classifyTx,
+  collectBookIds,
   computeTotals,
+  describeTx,
   formatFa,
   reasonLabel,
   txAmountClass,
