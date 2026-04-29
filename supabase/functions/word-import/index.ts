@@ -17,6 +17,15 @@ type Block =
   | { type: "quote"; text: string }
   | { type: "callout"; text: string }
   | { type: "image"; src: string; caption?: string; figureNumber?: string }
+  | {
+      type: "image_placeholder";
+      pendingSrc: string;
+      bytes: number;
+      contentType?: string;
+      reason?: string;
+      caption?: string;
+      figureNumber?: string;
+    }
   | { type: "table"; headers: string[]; rows: string[][]; caption?: string; tableNumber?: string };
 
 interface Page { title: string; blocks: Block[]; }
