@@ -45,6 +45,7 @@ export type Block =
   | { type: "quote"; text: string; author?: string; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }
   | { type: "highlight"; text: string }
   | { type: "image"; src: string; caption?: string; figureNumber?: string; hotspots?: Hotspot[]; hideCaption?: boolean }
+  | { type: "image_placeholder"; pendingSrc?: string; bytes?: number; contentType?: string; reason?: string; caption?: string; figureNumber?: string }
   | { type: "gallery"; images: string[]; caption?: string }
   | { type: "slideshow"; images: { src: string; caption?: string }[]; autoplay?: boolean; interval?: number; hideCaption?: boolean }
   | { type: "video"; src: string; poster?: string; caption?: string }
@@ -591,6 +592,31 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
             <InteractiveImage src={block.src} caption={block.caption} hotspots={block.hotspots} mediaKey={blockId} figureNumber={block.figureNumber} />
           )}
         </motion.div>
+      );
+
+    case "image_placeholder":
+      // Reader-side: if the importer managed to upload the original file,
+      // show it like a normal image so the reading experience is preserved.
+      // Otherwise show a small marker so the layout is not broken.
+      if (block.pendingSrc) {
+        return (
+          <motion.div {...fade} id={blockId}>
+            <InteractiveImage
+              src={block.pendingSrc}
+              caption={block.caption}
+              mediaKey={blockId}
+              figureNumber={block.figureNumber}
+            />
+          </motion.div>
+        );
+      }
+      return (
+        <motion.figure {...fade} className="my-6">
+          <div className="rounded-xl border border-dashed bg-muted/40 px-4 py-6 text-center text-xs text-muted-foreground">
+            {block.figureNumber ? <strong className="me-1">{block.figureNumber}.</strong> : null}
+            {block.caption || "تصویر در دسترس نیست"}
+          </div>
+        </motion.figure>
       );
 
     case "slideshow":

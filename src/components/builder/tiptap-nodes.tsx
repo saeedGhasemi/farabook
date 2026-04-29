@@ -222,6 +222,145 @@ export const ImageBlock = Node.create({
 });
 
 /* ------------------------------------------------------------------ */
+/* Image placeholder (large/oversize/failed images from Word import)   */
+/* ------------------------------------------------------------------ */
+
+const formatBytes = (b: number) => {
+  if (!b) return "—";
+  const mb = b / (1024 * 1024);
+  if (mb >= 1) return `${mb.toFixed(1)} مگابایت`;
+  return `${Math.round(b / 1024)} کیلوبایت`;
+};
+
+const ImagePlaceholderView = (props: NodeViewProps) => {
+  const { user } = useAuth();
+  const { pendingSrc, bytes, contentType, reason, caption, figureNumber } =
+    props.node.attrs as {
+      pendingSrc?: string;
+      bytes?: number;
+      contentType?: string;
+      reason?: string;
+      caption?: string;
+      figureNumber?: string;
+    };
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const reasonLabel =
+    reason === "oversize" ? "تصویر بزرگ‌تر از حد توصیه‌شده برای متن کتاب"
+    : reason === "too_large" ? "تصویر بسیار حجیم — برای جلوگیری از خطا کنار گذاشته شد"
+    : reason === "upload_failed" ? "بارگذاری خودکار این تصویر ناموفق بود"
+    : "تصویر در زمان وارد کردن کتاب درج نشد";
+
+  const replaceWithImage = (src: string) => {
+    props.editor
+      .chain()
+      .focus()
+      .insertContentAt(
+        { from: props.getPos(), to: props.getPos() + props.node.nodeSize },
+        { type: "image", attrs: { src, caption: caption || "", hideCaption: false } },
+      )
+      .run();
+  };
+
+  const acceptPending = () => {
+    if (!pendingSrc) return;
+    replaceWithImage(pendingSrc);
+    toast.success("تصویر در همین محل درج شد");
+  };
+
+  const onFile = async (f: File) => {
+    if (!user) { toast.error("لطفاً وارد شوید"); return; }
+    setBusy(true);
+    const url = await uploadToBookMedia(user.id, f);
+    setBusy(false);
+    if (url) {
+      replaceWithImage(url);
+      toast.success("تصویر جدید جای پلیس‌هولدر نشست");
+    }
+  };
+
+  return (
+    <NodeViewWrapper className="my-4">
+      <figure className="rounded-xl border border-dashed border-amber-500/60 bg-amber-500/5 overflow-hidden">
+        <div className="grid sm:grid-cols-[160px_1fr] gap-3 p-3">
+          <div className="relative rounded-md overflow-hidden bg-muted/40 aspect-[4/3] flex items-center justify-center">
+            {pendingSrc ? (
+              <img
+                src={resolveBookMedia(pendingSrc)}
+                alt={caption || ""}
+                className="w-full h-full object-cover opacity-90"
+                loading="lazy"
+              />
+            ) : (
+              <ImageIcon className="w-8 h-8 text-muted-foreground" />
+            )}
+            <div className="absolute inset-x-0 bottom-0 text-[10px] text-center bg-background/80 py-0.5">
+              {formatBytes(bytes || 0)}{contentType ? ` · ${contentType}` : ""}
+            </div>
+          </div>
+          <div className="min-w-0 flex flex-col gap-2">
+            <div className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+              {figureNumber ? <span className="font-semibold me-1">{figureNumber}.</span> : null}
+              {reasonLabel}. می‌توانید همین تصویر را در محل دقیق آن درج کنید یا تصویر جدیدی جایگزین کنید.
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {pendingSrc && (
+                <Button type="button" size="sm" onClick={acceptPending}>
+                  درج همین تصویر
+                </Button>
+              )}
+              <Button type="button" size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={busy}>
+                <Upload className="w-3.5 h-3.5 me-1" />
+                {busy ? "در حال بارگذاری…" : "آپلود جایگزین"}
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => props.deleteNode()}>
+                <Trash2 className="w-3.5 h-3.5 me-1" /> حذف
+              </Button>
+            </div>
+            <Input
+              defaultValue={caption || ""}
+              placeholder="کپشن (اختیاری)…"
+              className="h-8 text-xs"
+              onBlur={(e) => props.updateAttributes({ caption: e.target.value })}
+            />
+          </div>
+        </div>
+      </figure>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={async (e) => { const f = e.target.files?.[0]; if (f) await onFile(f); e.target.value = ""; }}
+      />
+    </NodeViewWrapper>
+  );
+};
+
+export const ImagePlaceholderBlock = Node.create({
+  name: "image_placeholder",
+  group: "block",
+  atom: true,
+  draggable: true,
+  addAttributes() {
+    return {
+      pendingSrc: { default: "" },
+      bytes: { default: 0 },
+      contentType: { default: "" },
+      reason: { default: "" },
+      caption: { default: "" },
+      figureNumber: { default: "" },
+    };
+  },
+  parseHTML() { return [{ tag: "div[data-image-placeholder]" }]; },
+  renderHTML({ HTMLAttributes }) {
+    return ["div", mergeAttributes(HTMLAttributes, { "data-image-placeholder": "true" })];
+  },
+  addNodeView() { return ReactNodeViewRenderer(ImagePlaceholderView); },
+});
+
+/* ------------------------------------------------------------------ */
 /* Video (editable: URL or upload)                                     */
 /* ------------------------------------------------------------------ */
 

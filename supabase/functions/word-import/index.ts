@@ -17,6 +17,15 @@ type Block =
   | { type: "quote"; text: string }
   | { type: "callout"; text: string }
   | { type: "image"; src: string; caption?: string; figureNumber?: string }
+  | {
+      type: "image_placeholder";
+      pendingSrc: string;
+      bytes: number;
+      contentType?: string;
+      reason?: string;
+      caption?: string;
+      figureNumber?: string;
+    }
   | { type: "table"; headers: string[]; rows: string[][]; caption?: string; tableNumber?: string };
 
 interface Page { title: string; blocks: Block[]; }
@@ -197,12 +206,26 @@ function htmlToPages(html: string): Page[] {
           cur.blocks.push({ type: "paragraph", text: beforeText });
         }
       }
-      cur.blocks.push({
-        type: "image",
-        src: im[1],
-        caption: pendingImageCaption?.text,
-        figureNumber: pendingImageCaption?.fig,
-      });
+      const rawSrc = im[1];
+      if (rawSrc.startsWith("__WI_PLACEHOLDER__|")) {
+        const [, bytesStr, ct, reason, url] = rawSrc.split("|");
+        cur.blocks.push({
+          type: "image_placeholder",
+          pendingSrc: url || "",
+          bytes: Number(bytesStr) || 0,
+          contentType: ct || undefined,
+          reason: reason || undefined,
+          caption: pendingImageCaption?.text,
+          figureNumber: pendingImageCaption?.fig,
+        });
+      } else {
+        cur.blocks.push({
+          type: "image",
+          src: rawSrc,
+          caption: pendingImageCaption?.text,
+          figureNumber: pendingImageCaption?.fig,
+        });
+      }
       pendingImageCaption = null;
       lastIdx = im.index + im[0].length;
     }
@@ -211,10 +234,10 @@ function htmlToPages(html: string): Page[] {
 
     // Caption immediately after an image?
     const last = cur.blocks[cur.blocks.length - 1];
-    if (last && last.type === "image" && !last.caption && (FIG_RE.test(tail) || tail.length < 220)) {
+    if (last && (last.type === "image" || last.type === "image_placeholder") && !last.caption && (FIG_RE.test(tail) || tail.length < 220)) {
       if (FIG_RE.test(tail)) {
         const { label, rest } = splitLabel(tail, FIG_RE);
-        last.figureNumber = label;
+        (last as any).figureNumber = label;
         last.caption = rest;
       } else {
         last.caption = tail;
@@ -446,8 +469,13 @@ Deno.serve(async (req) => {
     const folder = `${u.user.id}/${crypto.randomUUID()}`;
     let imgIdx = 0;
     let skippedImages = 0;
-    // Skip embedded images larger than 4MB to keep memory bounded.
+    // Images larger than this are uploaded but kept out of the editor as
+    // placeholders, so the user can review and insert them manually.
     const PER_IMAGE_LIMIT = 4 * 1024 * 1024;
+    // Anything bigger than this is too risky to even buffer in mammoth's
+    // memory pipeline – we still record the slot so the editor can prompt
+    // the user to upload the image manually later.
+    const HARD_IMAGE_LIMIT = 12 * 1024 * 1024;
 
     const tryConvert = async (includeImages: boolean) => {
       return await mammoth.convertToHtml(
@@ -459,25 +487,45 @@ Deno.serve(async (req) => {
               const ct: string = image.contentType || "image/png";
               const ext = (ct.split("/")[1] || "png").replace("jpeg", "jpg");
               const buf: Buffer = await image.read();
-              if (buf.length > PER_IMAGE_LIMIT) {
+              const isOversize = buf.length > PER_IMAGE_LIMIT;
+              if (buf.length > HARD_IMAGE_LIMIT) {
+                // Don't even try to upload – just leave a metadata-only slot.
                 skippedImages += 1;
-                return { src: "" };
+                const token =
+                  `__WI_PLACEHOLDER__|${buf.length}|${ct}|too_large|`;
+                return { src: token };
               }
               imgIdx += 1;
-              const key = `${folder}/img-${String(imgIdx).padStart(3, "0")}.${ext}`;
-              const up = await admin.storage.from("book-media").upload(key, buf, {
-                contentType: ct,
-                upsert: true,
-              });
+              const subfolder = isOversize ? "pending" : "img";
+              const key =
+                `${folder}/${subfolder}-${String(imgIdx).padStart(3, "0")}.${ext}`;
+              const up = await admin.storage.from("book-media").upload(
+                key,
+                buf,
+                { contentType: ct, upsert: true },
+              );
               if (up.error) {
                 console.warn("upload failed", up.error);
-                return { src: "" };
+                skippedImages += 1;
+                const token =
+                  `__WI_PLACEHOLDER__|${buf.length}|${ct}|upload_failed|`;
+                return { src: token };
               }
               const pub = admin.storage.from("book-media").getPublicUrl(key);
+              if (isOversize) {
+                // Big image: keep it out of the running text but remember
+                // the URL + position so the editor can offer to insert it.
+                skippedImages += 1;
+                const token =
+                  `__WI_PLACEHOLDER__|${buf.length}|${ct}|oversize|${pub.data.publicUrl}`;
+                return { src: token };
+              }
               return { src: pub.data.publicUrl };
             } catch (e) {
               console.warn("image convert error", e);
-              return { src: "" };
+              skippedImages += 1;
+              const token = `__WI_PLACEHOLDER__|0||error|`;
+              return { src: token };
             }
           }),
         },

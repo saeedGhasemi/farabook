@@ -46,6 +46,17 @@ export interface ImageNode {
   type: "image";
   attrs: { src: string; caption?: string; hideCaption?: boolean };
 }
+export interface ImagePlaceholderNode {
+  type: "image_placeholder";
+  attrs: {
+    pendingSrc?: string;
+    bytes?: number;
+    contentType?: string;
+    reason?: string;
+    caption?: string;
+    figureNumber?: string;
+  };
+}
 export interface GalleryNode { type: "gallery"; attrs: { images: string[]; caption?: string } }
 export interface VideoNode { type: "video"; attrs: { src: string; caption?: string } }
 export interface TableNode { type: "table"; attrs: { headers: string[]; rows: string[][]; caption?: string; tableNumber?: string } }
@@ -58,6 +69,7 @@ export type DocNode =
   | QuoteNode
   | CalloutNode
   | ImageNode
+  | ImagePlaceholderNode
   | GalleryNode
   | VideoNode
   | TableNode
@@ -175,6 +187,8 @@ export const docToPlainText = (doc: TiptapDoc): string => {
       if (t.trim()) lines.push(t);
     } else if (n.type === "image" && n.attrs.caption) {
       lines.push(`[image: ${n.attrs.caption}]`);
+    } else if (n.type === "image_placeholder") {
+      lines.push(`[image placeholder${n.attrs.caption ? `: ${n.attrs.caption}` : ""}]`);
     } else if (n.type === "video" && n.attrs.caption) {
       lines.push(`[video: ${n.attrs.caption}]`);
     }
@@ -250,6 +264,18 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
           src: String(b.src ?? ""),
           caption: b.caption ? String(b.caption) : undefined,
           hideCaption: !!b.hideCaption,
+        },
+      }];
+    case "image_placeholder":
+      return [{
+        type: "image_placeholder",
+        attrs: {
+          pendingSrc: b.pendingSrc ? String(b.pendingSrc) : undefined,
+          bytes: typeof b.bytes === "number" ? b.bytes : undefined,
+          contentType: b.contentType ? String(b.contentType) : undefined,
+          reason: b.reason ? String(b.reason) : undefined,
+          caption: b.caption ? String(b.caption) : undefined,
+          figureNumber: b.figureNumber ? String(b.figureNumber) : undefined,
         },
       }];
     case "gallery":
@@ -438,6 +464,17 @@ export const docToLegacyBlocks = (doc: TiptapDoc): any[] => {
         break;
       case "image":
         out.push({ type: "image", src: n.attrs.src, caption: n.attrs.caption, hideCaption: n.attrs.hideCaption });
+        break;
+      case "image_placeholder":
+        out.push({
+          type: "image_placeholder",
+          pendingSrc: n.attrs.pendingSrc,
+          bytes: n.attrs.bytes,
+          contentType: n.attrs.contentType,
+          reason: n.attrs.reason,
+          caption: n.attrs.caption,
+          figureNumber: n.attrs.figureNumber,
+        });
         break;
       case "gallery":
         out.push({ type: "gallery", images: n.attrs.images, caption: n.attrs.caption });
