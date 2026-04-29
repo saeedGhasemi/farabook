@@ -264,6 +264,18 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
           hideCaption: !!b.hideCaption,
         },
       }];
+    case "image_placeholder":
+      return [{
+        type: "image_placeholder",
+        attrs: {
+          pendingSrc: b.pendingSrc ? String(b.pendingSrc) : undefined,
+          bytes: typeof b.bytes === "number" ? b.bytes : undefined,
+          contentType: b.contentType ? String(b.contentType) : undefined,
+          reason: b.reason ? String(b.reason) : undefined,
+          caption: b.caption ? String(b.caption) : undefined,
+          figureNumber: b.figureNumber ? String(b.figureNumber) : undefined,
+        },
+      }];
     case "gallery":
       return [{
         type: "gallery",
