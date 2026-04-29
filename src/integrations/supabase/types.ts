@@ -779,6 +779,66 @@ export type Database = {
         }
         Relationships: []
       }
+      word_imports: {
+        Row: {
+          attempt_count: number
+          author: string
+          book_id: string | null
+          chapters_count: number | null
+          created_at: string
+          description: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          images_count: number | null
+          last_error: string | null
+          skipped_images_count: number | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          author?: string
+          book_id?: string | null
+          chapters_count?: number | null
+          created_at?: string
+          description?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number
+          id?: string
+          images_count?: number | null
+          last_error?: string | null
+          skipped_images_count?: number | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempt_count?: number
+          author?: string
+          book_id?: string | null
+          chapters_count?: number | null
+          created_at?: string
+          description?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          images_count?: number | null
+          last_error?: string | null
+          skipped_images_count?: number | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       public_profiles: {
