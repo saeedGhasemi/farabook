@@ -46,6 +46,17 @@ export interface ImageNode {
   type: "image";
   attrs: { src: string; caption?: string; hideCaption?: boolean };
 }
+export interface ImagePlaceholderNode {
+  type: "image_placeholder";
+  attrs: {
+    pendingSrc?: string;
+    bytes?: number;
+    contentType?: string;
+    reason?: string;
+    caption?: string;
+    figureNumber?: string;
+  };
+}
 export interface GalleryNode { type: "gallery"; attrs: { images: string[]; caption?: string } }
 export interface VideoNode { type: "video"; attrs: { src: string; caption?: string } }
 export interface TableNode { type: "table"; attrs: { headers: string[]; rows: string[][]; caption?: string; tableNumber?: string } }
@@ -58,6 +69,7 @@ export type DocNode =
   | QuoteNode
   | CalloutNode
   | ImageNode
+  | ImagePlaceholderNode
   | GalleryNode
   | VideoNode
   | TableNode
