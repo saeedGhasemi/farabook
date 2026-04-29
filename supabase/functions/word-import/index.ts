@@ -206,6 +206,16 @@ const textFromWordXml = (xml: string): string => {
     .trim();
 };
 
+const extractAttr = (xml: string, name: string): string | undefined => {
+  const escaped = name.replace(/:/g, "(?::|&#58;)");
+  return new RegExp(`${escaped}=["']([^"']+)["']`, "i").exec(xml)?.[1];
+};
+
+const normalizeTarget = (target: string): string =>
+  target.startsWith("../") ? target.replace(/^\.\.\//, "word/") : `word/${target.replace(/^\//, "")}`;
+
+type DocxImageRef = { path: string; bytes: number; contentType?: string };
+
 function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: number } {
   let removedImages = 0;
   const files = unzipSync(new Uint8Array(input), {
