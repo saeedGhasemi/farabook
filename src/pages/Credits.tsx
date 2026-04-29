@@ -43,6 +43,7 @@ const Credits = () => {
   const [pubSite, setPubSite] = useState("");
   const [pubReqs, setPubReqs] = useState<any[]>([]);
   const [tx, setTx] = useState<any[]>([]);
+  const [bookTitles, setBookTitles] = useState<Record<string, string>>({});
 
   const load = async () => {
     if (!user) return;
