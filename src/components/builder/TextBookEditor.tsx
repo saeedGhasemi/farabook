@@ -249,7 +249,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     if (!dirty) return;
     const t = window.setTimeout(() => { void persist(false); }, 3500);
     return () => window.clearTimeout(t);
-  }, [pages, title, author, typography, dirty, isEdit, persist]);
+  }, [pages, title, author, typography, coverUrl, dirty, isEdit, persist]);
 
   const addChapter = () => {
     setPages((ps) => [...ps, newEmptyPage(fa ? `فصل ${ps.length + 1}` : `Chapter ${ps.length + 1}`)]);
