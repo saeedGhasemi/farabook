@@ -376,40 +376,83 @@ Deno.serve(async (req) => {
     }
 
     const arrayBuffer = await file.arrayBuffer();
+    const fileSize = arrayBuffer.byteLength;
+    // Edge runtime memory cap is around 256MB. Mammoth roughly needs 5-8x the
+    // file size while parsing a docx full of images, so anything beyond ~25MB
+    // risks OOM. Reject early with a Persian message instead of crashing.
+    const HARD_LIMIT = 35 * 1024 * 1024;
+    if (fileSize > HARD_LIMIT) {
+      return new Response(
+        JSON.stringify({
+          error: `حجم فایل ورد (${(fileSize / 1024 / 1024).toFixed(1)} مگابایت) بیش از حد مجاز (۳۵ مگابایت) است. لطفاً تصاویر را فشرده یا کتاب را به چند فایل کوچکتر تقسیم کنید.`,
+        }),
+        { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
     const buffer = Buffer.from(arrayBuffer);
 
     // Decide a stable folder for this import's images
     const folder = `${u.user.id}/${crypto.randomUUID()}`;
     let imgIdx = 0;
-    const supaUrl = Deno.env.get("SUPABASE_URL")!;
+    let skippedImages = 0;
+    // Skip embedded images larger than 4MB to keep memory bounded.
+    const PER_IMAGE_LIMIT = 4 * 1024 * 1024;
 
-    const result = await mammoth.convertToHtml(
-      { buffer },
-      {
-        convertImage: mammoth.images.imgElement(async (image: any) => {
-          try {
-            const ct: string = image.contentType || "image/png";
-            const ext = (ct.split("/")[1] || "png").replace("jpeg", "jpg");
-            const buf: Buffer = await image.read();
-            imgIdx += 1;
-            const key = `${folder}/img-${String(imgIdx).padStart(3, "0")}.${ext}`;
-            const up = await admin.storage.from("book-media").upload(key, buf, {
-              contentType: ct,
-              upsert: true,
-            });
-            if (up.error) {
-              console.warn("upload failed", up.error);
+    const tryConvert = async (includeImages: boolean) => {
+      return await mammoth.convertToHtml(
+        { buffer },
+        {
+          convertImage: mammoth.images.imgElement(async (image: any) => {
+            if (!includeImages) return { src: "" };
+            try {
+              const ct: string = image.contentType || "image/png";
+              const ext = (ct.split("/")[1] || "png").replace("jpeg", "jpg");
+              const buf: Buffer = await image.read();
+              if (buf.length > PER_IMAGE_LIMIT) {
+                skippedImages += 1;
+                return { src: "" };
+              }
+              imgIdx += 1;
+              const key = `${folder}/img-${String(imgIdx).padStart(3, "0")}.${ext}`;
+              const up = await admin.storage.from("book-media").upload(key, buf, {
+                contentType: ct,
+                upsert: true,
+              });
+              if (up.error) {
+                console.warn("upload failed", up.error);
+                return { src: "" };
+              }
+              const pub = admin.storage.from("book-media").getPublicUrl(key);
+              return { src: pub.data.publicUrl };
+            } catch (e) {
+              console.warn("image convert error", e);
               return { src: "" };
             }
-            const pub = admin.storage.from("book-media").getPublicUrl(key);
-            return { src: pub.data.publicUrl };
-          } catch (e) {
-            console.warn("image convert error", e);
-            return { src: "" };
-          }
-        }),
-      },
-    );
+          }),
+        },
+      );
+    };
+
+    let result;
+    try {
+      result = await tryConvert(true);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn("first pass failed, retrying without images:", msg);
+      // Memory pressure or mammoth crash on images: retry text-only so the
+      // user still gets the manuscript inside the editor.
+      imgIdx = 0;
+      try {
+        result = await tryConvert(false);
+      } catch (e2) {
+        return new Response(
+          JSON.stringify({
+            error: `پردازش فایل ورد با خطا مواجه شد. احتمالاً فایل بسیار بزرگ یا پیچیده است. (${e2 instanceof Error ? e2.message : String(e2)})`,
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
 
     const pages = htmlToPages(result.value || "");
     if (pages.length === 0) {
@@ -478,7 +521,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ book: { id: bookId, title: bookTitle }, chapters: pages.length, images: imgIdx }),
+      JSON.stringify({ book: { id: bookId, title: bookTitle }, chapters: pages.length, images: imgIdx, skippedImages }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
