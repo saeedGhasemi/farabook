@@ -718,6 +718,38 @@ export const TextBookEditor = ({ initial }: Props) => {
           }}
         />
 
+        {/* Image-placeholder banner: surfaces images that the Word importer
+            had to leave out, so the user can review/insert them in place. */}
+        {(() => {
+          const countPlaceholders = (doc: any): number => {
+            let n = 0;
+            for (const node of doc?.content ?? []) {
+              if (node?.type === "image_placeholder") n += 1;
+            }
+            return n;
+          };
+          const inChapter = countPlaceholders(pages[activeIdx]?.doc);
+          const total = pages.reduce((acc, p) => acc + countPlaceholders(p.doc), 0);
+          if (!total) return null;
+          return (
+            <div className="mb-3 rounded-xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm flex items-start gap-3">
+              <ImageIcon className="w-4 h-4 mt-0.5 text-amber-700 dark:text-amber-400 shrink-0" />
+              <div className="min-w-0">
+                <div className="font-medium text-amber-800 dark:text-amber-300">
+                  {fa
+                    ? `${inChapter} تصویر در این فصل (و ${total} تصویر در کل کتاب) هنگام وارد کردن از Word کنار گذاشته شد.`
+                    : `${inChapter} image(s) in this chapter (${total} total) were set aside during Word import.`}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {fa
+                    ? "هر کدام در محل دقیق خود به‌عنوان پلیس‌هولدر نمایش داده می‌شود. می‌توانید با دکمهٔ «درج همین تصویر» آن را بپذیرید یا تصویر بهتری آپلود کنید."
+                    : "Each appears in place as a placeholder. Use “Insert this image” to accept it, or upload a replacement."}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* The actual editor */}
         <div className={`rounded-2xl border bg-card/50 px-4 md:px-8 py-6 md:py-8 shadow-paper typo-${typography}`}>
           <EditorContent editor={editor} />
