@@ -182,6 +182,93 @@ function stripDocxImages(input: Buffer): { buffer: Buffer; removedImages: number
   return { buffer: Buffer.from(zipSync(files, { level: 0 })), removedImages };
 }
 
+const xmlText = (value: string): string =>
+  value
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+
+const textFromWordXml = (xml: string): string => {
+  const normalized = xml
+    .replace(/<w:tab\b[^>]*\/>/gi, " ")
+    .replace(/<w:br\b[^>]*\/>/gi, "\n");
+  const parts: string[] = [];
+  const re = /<w:t\b[^>]*>([\s\S]*?)<\/w:t>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(normalized)) !== null) parts.push(xmlText(m[1]));
+  return normalizeImportedLinks(parts.join(""))
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};
+
+function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: number } {
+  let removedImages = 0;
+  const files = unzipSync(new Uint8Array(input), {
+    filter: (file: { name: string }) => {
+      if (/^word\/media\//i.test(file.name)) {
+        removedImages += 1;
+        return false;
+      }
+      return file.name === "word/document.xml";
+    },
+  });
+  const doc = files["word/document.xml"] ? strFromU8(files["word/document.xml"]) : "";
+  if (!doc) return { pages: [], removedImages };
+
+  const pages: Page[] = [];
+  let cur: Page = { title: "مقدمه", blocks: [] };
+  const pushPage = () => {
+    if (cur.blocks.length) pages.push(cur);
+  };
+  const maxBlocksPerPage = 80;
+  const ensureRoom = () => {
+    if (cur.blocks.length < maxBlocksPerPage) return;
+    pushPage();
+    cur = { title: `بخش ${pages.length + 1}`, blocks: [] };
+  };
+
+  const tokenRe = /<w:p\b[\s\S]*?<\/w:p>|<w:tbl\b[\s\S]*?<\/w:tbl>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = tokenRe.exec(doc)) !== null) {
+    const token = m[0];
+    if (/^<w:tbl\b/i.test(token)) {
+      const rows: string[][] = [];
+      const rowRe = /<w:tr\b[\s\S]*?<\/w:tr>/gi;
+      let rm: RegExpExecArray | null;
+      while ((rm = rowRe.exec(token)) !== null) {
+        const cells: string[] = [];
+        const cellRe = /<w:tc\b[\s\S]*?<\/w:tc>/gi;
+        let cm: RegExpExecArray | null;
+        while ((cm = cellRe.exec(rm[0])) !== null) cells.push(textFromWordXml(cm[0]));
+        if (cells.some(Boolean)) rows.push(cells);
+      }
+      if (rows.length) {
+        ensureRoom();
+        cur.blocks.push({ type: "table", headers: rows.shift() ?? [], rows });
+      }
+      continue;
+    }
+
+    const text = textFromWordXml(token);
+    if (!text) continue;
+    const style = /<w:pStyle\b[^>]*(?:w:val|val)=["']([^"']+)["']/i.exec(token)?.[1] || "";
+    const headingMatch = /heading\s*([1-4])|Heading([1-4])|عنوان\s*([1-4])/i.exec(style);
+    const level = Number(headingMatch?.[1] || headingMatch?.[2] || headingMatch?.[3] || 0);
+    if (level === 1 || level === 2) {
+      pushPage();
+      cur = { title: text.slice(0, 120), blocks: [] };
+    } else {
+      ensureRoom();
+      cur.blocks.push(level ? { type: "heading", level: Math.min(level, 3), text } : { type: "paragraph", text });
+    }
+  }
+  pushPage();
+  return { pages: pages.filter((p) => p.blocks.length > 0), removedImages };
+}
+
 // Find Persian/English figure or table label like "شکل ۹–۱" / "Figure 9.1" / "جدول ۲-۱"
 const FIG_RE = /^(شکل|تصویر|نگاره|figure|fig\.?)\s*[\d\u06F0-\u06F9۰-۹]+([.\-\u2013\u2014][\d\u06F0-\u06F9۰-۹]+)?/i;
 const TBL_RE = /^(جدول|table)\s*[\d\u06F0-\u06F9۰-۹]+([.\-\u2013\u2014][\d\u06F0-\u06F9۰-۹]+)?/i;
