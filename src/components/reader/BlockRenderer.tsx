@@ -45,7 +45,7 @@ export type Block =
   | { type: "quote"; text: string; author?: string; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }
   | { type: "highlight"; text: string }
   | { type: "image"; src: string; caption?: string; figureNumber?: string; hotspots?: Hotspot[]; hideCaption?: boolean }
-  | { type: "image_placeholder"; pendingSrc?: string; bytes?: number; contentType?: string; reason?: string; caption?: string; figureNumber?: string }
+  | { type: "image_placeholder"; pendingSrc?: string; bytes?: number; contentType?: string; reason?: string; caption?: string; figureNumber?: string; originalPath?: string; slot?: number }
   | { type: "gallery"; images: string[]; caption?: string }
   | { type: "slideshow"; images: { src: string; caption?: string }[]; autoplay?: boolean; interval?: number; hideCaption?: boolean }
   | { type: "video"; src: string; poster?: string; caption?: string }
@@ -614,7 +614,8 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
         <motion.figure {...fade} className="my-6">
           <div className="rounded-xl border border-dashed bg-muted/40 px-4 py-6 text-center text-xs text-muted-foreground">
             {block.figureNumber ? <strong className="me-1">{block.figureNumber}.</strong> : null}
-            {block.caption || "تصویر در دسترس نیست"}
+            {!block.figureNumber && block.slot ? <strong className="me-1">تصویر {block.slot}.</strong> : null}
+            {block.caption || "جایگاه تصویر حفظ شده است"}
           </div>
         </motion.figure>
       );
