@@ -159,15 +159,8 @@ export const UserEarnings = ({ userId }: Props) => {
                         <TableCell className={`text-sm font-bold whitespace-nowrap tabular-nums ${isWithdrawal ? txAmountClass[kind] : "text-muted-foreground/30"}`}>
                           {isWithdrawal ? `−${formatFa(Math.abs(amt))}` : "—"}
                         </TableCell>
-                        <TableCell className="text-[11px] text-muted-foreground max-w-[260px]">
-                          {meta.book_title
-                            ? <span>کتاب: <span className="text-foreground font-medium">{meta.book_title}</span></span>
-                            : meta.book_id
-                              ? <span>کتاب #{String(meta.book_id).slice(0, 6)}</span>
-                              : null}
-                          {meta.percent ? <span> · {meta.percent}٪ سهم</span> : null}
-                          {meta.complexity ? <span> · ضریب {meta.complexity}×</span> : null}
-                          {meta.note ? <div className="opacity-80">{meta.note}</div> : null}
+                        <TableCell className="text-[11px] text-muted-foreground max-w-[320px] leading-relaxed">
+                          {describeTx(t.reason, amt, meta, meta.book_id ? bookTitles[meta.book_id] : undefined)}
                         </TableCell>
                       </TableRow>
                     );
