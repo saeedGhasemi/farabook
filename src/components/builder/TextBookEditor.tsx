@@ -144,6 +144,8 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [showAi, setShowAi] = useState(false);
+  const [showAutoFill, setShowAutoFill] = useState(false);
+  const [importId, setImportId] = useState<string | undefined>(undefined);
   const [chaptersCollapsed, setChaptersCollapsed] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [typography, setTypography] = useState<string>(initial?.typography_preset || "editorial");
