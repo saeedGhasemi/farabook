@@ -151,12 +151,22 @@ function splitLabel(text: string, re: RegExp): { label?: string; rest: string } 
 /* Walk the produced HTML token by token in document order so images and
    tables appear in the right place inside chapters. */
 function htmlToPages(html: string): Page[] {
-  const cleaned = html
+  let cleaned = html
     .replace(/<br\s*\/?>/g, "\n")
     .replace(/&nbsp;/g, " ");
 
-  // tokenize: headings, paragraphs, blockquote, lists, tables, standalone images
-  const tokenRe = /<(h1|h2|h3|h4|p|blockquote|ul|ol|table)[^>]*>([\s\S]*?)<\/\1>/gi;
+  // Extract tables FIRST and replace them with placeholder tokens, so the
+  // generic tokenizer below doesn't accidentally swallow `<p>` cells inside
+  // tables (which would leave the outer `<table>` un-matched).
+  const extractedTables: string[] = [];
+  cleaned = cleaned.replace(/<table\b[^>]*>([\s\S]*?)<\/table>/gi, (_m, inner) => {
+    const idx = extractedTables.length;
+    extractedTables.push(inner);
+    return `<p>__TABLE_PLACEHOLDER_${idx}__</p>`;
+  });
+
+  // tokenize: headings, paragraphs, blockquote, lists, standalone images
+  const tokenRe = /<(h1|h2|h3|h4|p|blockquote|ul|ol)[^>]*>([\s\S]*?)<\/\1>/gi;
 
   const pages: Page[] = [];
   let cur: Page = { title: "مقدمه", blocks: [] };
@@ -276,8 +286,14 @@ function htmlToPages(html: string): Page[] {
     } else if (tag === "table") {
       handleTable(inner);
     } else {
-      // p
-      handleParagraph(inner);
+      // p — but check for table placeholder first
+      const phMatch = /^\s*__TABLE_PLACEHOLDER_(\d+)__\s*$/.exec(stripTags(inner));
+      if (phMatch) {
+        const tblInner = extractedTables[parseInt(phMatch[1], 10)];
+        if (tblInner) handleTable(tblInner);
+      } else {
+        handleParagraph(inner);
+      }
     }
   }
   pushPage();

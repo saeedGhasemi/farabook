@@ -130,6 +130,8 @@ export const TextBookEditor = ({ initial }: Props) => {
 
   const [title, setTitle] = useState(initial?.title ?? "");
   const [author, setAuthor] = useState(initial?.author ?? "");
+  const [coverUrl, setCoverUrl] = useState<string | null>(initial?.cover_url ?? null);
+  const coverFileRef = useRef<HTMLInputElement | null>(null);
 
   const [pages, setPages] = useState<TextPage[]>(
     initial?.pages?.length ? dbPagesToTextPages(initial.pages) : [newEmptyPage(fa ? "فصل ۱" : "Chapter 1")],
@@ -223,6 +225,7 @@ export const TextBookEditor = ({ initial }: Props) => {
         .update({
           title: title || initial.title,
           author: author || initial.author,
+          cover_url: coverUrl,
           pages: dbPages,
           typography_preset: typography,
         })
@@ -237,7 +240,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     } finally {
       setSaving(false);
     }
-  }, [isEdit, initial, user, pages, activeIdx, editor, title, author, typography, fa]);
+  }, [isEdit, initial, user, pages, activeIdx, editor, title, author, typography, coverUrl, fa]);
 
   const skipFirst = useRef(true);
   useEffect(() => {
@@ -246,7 +249,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     if (!dirty) return;
     const t = window.setTimeout(() => { void persist(false); }, 3500);
     return () => window.clearTimeout(t);
-  }, [pages, title, author, typography, dirty, isEdit, persist]);
+  }, [pages, title, author, typography, coverUrl, dirty, isEdit, persist]);
 
   const addChapter = () => {
     setPages((ps) => [...ps, newEmptyPage(fa ? `فصل ${ps.length + 1}` : `Chapter ${ps.length + 1}`)]);
@@ -273,6 +276,14 @@ export const TextBookEditor = ({ initial }: Props) => {
     editor.chain().focus().insertContent({
       type: "image", attrs: { src: url, caption: "", hideCaption: false },
     }).run();
+  };
+
+  const handleCoverUpload = async (file: File) => {
+    const url = await upload(file);
+    if (!url) return;
+    setCoverUrl(url);
+    setDirty(true);
+    toast.success(fa ? "کاور بارگذاری شد" : "Cover uploaded");
   };
 
   const splitChapterAtSelection = () => {
@@ -416,6 +427,50 @@ export const TextBookEditor = ({ initial }: Props) => {
 
       {/* ============ Main editor ============ */}
       <section className="min-w-0">
+        {/* Book cover */}
+        <div className="flex items-center gap-3 mb-3 p-2 rounded-lg border bg-card/50">
+          <div className="relative w-14 h-20 rounded-md overflow-hidden border bg-muted shrink-0 flex items-center justify-center">
+            {coverUrl ? (
+              <img src={coverUrl} alt="cover" className="w-full h-full object-cover" />
+            ) : (
+              <ImageIcon className="w-5 h-5 text-muted-foreground" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-semibold mb-0.5">{fa ? "کاور کتاب" : "Book cover"}</div>
+            <div className="text-[11px] text-muted-foreground truncate mb-1.5">
+              {coverUrl ? (fa ? "روی تغییر کلیک کنید" : "Click change to replace") : (fa ? "هنوز کاوری انتخاب نشده" : "No cover yet")}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <input
+                ref={coverFileRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void handleCoverUpload(f);
+                  if (coverFileRef.current) coverFileRef.current.value = "";
+                }}
+              />
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => coverFileRef.current?.click()}>
+                <ImageIcon className="w-3.5 h-3.5 me-1" />
+                {coverUrl ? (fa ? "تغییر" : "Change") : (fa ? "بارگذاری" : "Upload")}
+              </Button>
+              {coverUrl && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs text-destructive"
+                  onClick={() => { setCoverUrl(null); setDirty(true); }}
+                >
+                  <Trash2 className="w-3.5 h-3.5 me-1" /> {fa ? "حذف" : "Remove"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Chapter title + meta */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           <Input
