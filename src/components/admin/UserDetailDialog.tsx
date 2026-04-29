@@ -9,8 +9,17 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Check, X, Save, Trash2, Plus, BookOpen, CreditCard, Shield, User as UserIcon, MessageSquare } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import type { AppRole } from "@/hooks/useRoles";
+import {
+  classifyTx,
+  computeTotals,
+  formatFa,
+  reasonLabel,
+  txAmountClass,
+  txBadgeClass,
+} from "@/lib/tx-display";
 
 const ALL_ROLES: AppRole[] = ["super_admin", "admin", "moderator", "reviewer", "publisher", "editor", "user"];
 const ROLE_LABEL: Record<AppRole, string> = {
