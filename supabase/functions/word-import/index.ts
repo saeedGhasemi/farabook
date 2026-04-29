@@ -26,6 +26,8 @@ type Block =
       reason?: string;
       caption?: string;
       figureNumber?: string;
+      originalPath?: string;
+      slot?: number;
     }
   | { type: "table"; headers: string[]; rows: string[][]; caption?: string; tableNumber?: string };
 
@@ -204,19 +206,56 @@ const textFromWordXml = (xml: string): string => {
     .trim();
 };
 
+const extractAttr = (xml: string, name: string): string | undefined => {
+  const escaped = name.replace(/:/g, "(?::|&#58;)");
+  return new RegExp(`${escaped}=["']([^"']+)["']`, "i").exec(xml)?.[1];
+};
+
+const normalizeTarget = (target: string): string =>
+  target.startsWith("../") ? target.replace(/^\.\.\//, "word/") : `word/${target.replace(/^\//, "")}`;
+
+type DocxImageRef = { path: string; bytes: number; contentType?: string };
+
 function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: number } {
   let removedImages = 0;
   const files = unzipSync(new Uint8Array(input), {
     filter: (file: { name: string }) => {
+      const keep = file.name === "word/document.xml" || file.name === "word/_rels/document.xml.rels" || file.name === "[Content_Types].xml";
       if (/^word\/media\//i.test(file.name)) {
         removedImages += 1;
         return false;
       }
-      return file.name === "word/document.xml";
+      return keep;
     },
   });
   const doc = files["word/document.xml"] ? strFromU8(files["word/document.xml"]) : "";
   if (!doc) return { pages: [], removedImages };
+
+  const relsXml = files["word/_rels/document.xml.rels"] ? strFromU8(files["word/_rels/document.xml.rels"]) : "";
+  const contentTypesXml = files["[Content_Types].xml"] ? strFromU8(files["[Content_Types].xml"]) : "";
+  const contentTypes = new Map<string, string>();
+  for (const m of contentTypesXml.matchAll(/<Default\b[^>]*Extension=["']([^"']+)["'][^>]*ContentType=["']([^"']+)["'][^>]*\/>/gi)) {
+    contentTypes.set(m[1].toLowerCase(), m[2]);
+  }
+  const rels = new Map<string, string>();
+  for (const m of relsXml.matchAll(/<Relationship\b[^>]*\/>/gi)) {
+    const tag = m[0];
+    if (!/Type=["'][^"']*\/image["']/i.test(tag)) continue;
+    const id = extractAttr(tag, "Id");
+    const target = extractAttr(tag, "Target");
+    if (id && target) rels.set(id, normalizeTarget(target));
+  }
+  let imageSlot = 0;
+  const imageRefsFromXml = (xml: string): DocxImageRef[] => {
+    const refs: DocxImageRef[] = [];
+    for (const m of xml.matchAll(/(?:r:embed|r:id)=["']([^"']+)["']/gi)) {
+      const path = rels.get(m[1]);
+      if (!path) continue;
+      const ext = path.split(".").pop()?.toLowerCase() || "";
+      refs.push({ path, bytes: 0, contentType: contentTypes.get(ext) });
+    }
+    return refs;
+  };
 
   const pages: Page[] = [];
   let cur: Page = { title: "مقدمه", blocks: [] };
@@ -252,17 +291,43 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
       continue;
     }
 
-    const text = textFromWordXml(token);
-    if (!text) continue;
+    const imageRefs = imageRefsFromXml(token);
+    if (imageRefs.length) {
+      ensureRoom();
+      for (const ref of imageRefs) {
+        imageSlot += 1;
+        cur.blocks.push({
+          type: "image_placeholder",
+          pendingSrc: "",
+          bytes: ref.bytes,
+          contentType: ref.contentType,
+          reason: "text_only",
+          originalPath: ref.path,
+          slot: imageSlot,
+        });
+      }
+    }
+
     const style = /<w:pStyle\b[^>]*(?:w:val|val)=["']([^"']+)["']/i.exec(token)?.[1] || "";
     const headingMatch = /heading\s*([1-4])|Heading([1-4])|عنوان\s*([1-4])/i.exec(style);
     const level = Number(headingMatch?.[1] || headingMatch?.[2] || headingMatch?.[3] || 0);
-    if (level === 1 || level === 2) {
-      pushPage();
-      cur = { title: text.slice(0, 120), blocks: [] };
-    } else {
-      ensureRoom();
-      cur.blocks.push(level ? { type: "heading", level: Math.min(level, 3), text } : { type: "paragraph", text });
+    const parts = token.split(/<w:lastRenderedPageBreak\b[^>]*\/>|<w:br\b[^>]*(?:w:)?type=["']page["'][^>]*\/>/gi);
+    for (let i = 0; i < parts.length; i += 1) {
+      const part = parts[i];
+      const text = textFromWordXml(part);
+      if (text) {
+        if (level === 1 || level === 2) {
+          pushPage();
+          cur = { title: text.slice(0, 120), blocks: [] };
+        } else {
+          ensureRoom();
+          cur.blocks.push(level ? { type: "heading", level: Math.min(level, 3), text } : { type: "paragraph", text });
+        }
+      }
+      if (i < parts.length - 1) {
+        pushPage();
+        cur = { title: `صفحه ${pages.length + 1}`, blocks: [] };
+      }
     }
   }
   pushPage();

@@ -234,7 +234,7 @@ const formatBytes = (b: number) => {
 
 const ImagePlaceholderView = (props: NodeViewProps) => {
   const { user } = useAuth();
-  const { pendingSrc, bytes, contentType, reason, caption, figureNumber } =
+  const { pendingSrc, bytes, contentType, reason, caption, figureNumber, originalPath, slot } =
     props.node.attrs as {
       pendingSrc?: string;
       bytes?: number;
@@ -242,6 +242,8 @@ const ImagePlaceholderView = (props: NodeViewProps) => {
       reason?: string;
       caption?: string;
       figureNumber?: string;
+      originalPath?: string;
+      slot?: number;
     };
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
@@ -250,6 +252,7 @@ const ImagePlaceholderView = (props: NodeViewProps) => {
     reason === "oversize" ? "تصویر بزرگ‌تر از حد توصیه‌شده برای متن کتاب"
     : reason === "too_large" ? "تصویر بسیار حجیم — برای جلوگیری از خطا کنار گذاشته شد"
     : reason === "upload_failed" ? "بارگذاری خودکار این تصویر ناموفق بود"
+    : reason === "text_only" ? "جایگاه تصویر از فایل Word حفظ شد، اما خود تصویر هنوز وارد متن نشده است"
     : "تصویر در زمان وارد کردن کتاب درج نشد";
 
   const replaceWithImage = (src: string) => {
@@ -302,7 +305,9 @@ const ImagePlaceholderView = (props: NodeViewProps) => {
           <div className="min-w-0 flex flex-col gap-2">
             <div className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
               {figureNumber ? <span className="font-semibold me-1">{figureNumber}.</span> : null}
+              {!figureNumber && slot ? <span className="font-semibold me-1">تصویر {slot}.</span> : null}
               {reasonLabel}. می‌توانید همین تصویر را در محل دقیق آن درج کنید یا تصویر جدیدی جایگزین کنید.
+              {originalPath ? <div className="mt-1 opacity-80 break-all">{originalPath}</div> : null}
             </div>
             <div className="flex flex-wrap gap-2">
               {pendingSrc && (
@@ -351,6 +356,8 @@ export const ImagePlaceholderBlock = Node.create({
       reason: { default: "" },
       caption: { default: "" },
       figureNumber: { default: "" },
+      originalPath: { default: "" },
+      slot: { default: 0 },
     };
   },
   parseHTML() { return [{ tag: "div[data-image-placeholder]" }]; },
