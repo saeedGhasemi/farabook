@@ -42,6 +42,7 @@ import {
   dbPagesToTextPages, textPagesToDbPages, type TextPage,
 } from "@/lib/tiptap-doc";
 import { AiSuggestPanel } from "./AiSuggestPanel";
+import { ImageAutoPlacementPanel } from "./ImageAutoPlacementPanel";
 
 const TYPOGRAPHY_PRESETS = [
   { value: "editorial", label_fa: "روزنامه‌ای", label_en: "Editorial" },
@@ -143,6 +144,8 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [showAi, setShowAi] = useState(false);
+  const [showAutoFill, setShowAutoFill] = useState(false);
+  const [importId, setImportId] = useState<string | undefined>(undefined);
   const [chaptersCollapsed, setChaptersCollapsed] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [typography, setTypography] = useState<string>(initial?.typography_preset || "editorial");
@@ -211,6 +214,24 @@ export const TextBookEditor = ({ initial }: Props) => {
     setShowAi(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIdx, editor]);
+
+  // Look up the most recent Word import for this book so the auto-fill
+  // panel knows which .docx to re-extract images from.
+  useEffect(() => {
+    if (!isEdit || !initial?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("word_imports")
+        .select("id")
+        .eq("book_id", initial.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled && data?.id) setImportId(data.id);
+    })();
+    return () => { cancelled = true; };
+  }, [isEdit, initial?.id]);
 
   const persist = useCallback(async (showToast = false) => {
     if (!isEdit || !initial?.id || !user) return;
@@ -361,13 +382,29 @@ export const TextBookEditor = ({ initial }: Props) => {
     editor.chain().focus().updateAttributes(node.type.name, { dir: next }).run();
   };
 
+  // Reload pages from DB after the auto-fill function applied a batch.
+  // We replace the local pages state and force the editor to refresh the
+  // currently active chapter so newly-attached pendingSrc values appear.
+  const reloadPagesFromDb = useCallback(async () => {
+    if (!isEdit || !initial?.id) return;
+    const { data } = await supabase.from("books").select("pages").eq("id", initial.id).maybeSingle();
+    if (!data?.pages) return;
+    const fresh = dbPagesToTextPages(data.pages);
+    setPages(fresh);
+    if (editor) {
+      const tgt = fresh[activeIdx]?.doc;
+      if (tgt) editor.commands.setContent(tgt as any, { emitUpdate: false });
+    }
+  }, [isEdit, initial?.id, editor, activeIdx]);
+
   if (!editor) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-accent" /></div>;
   }
 
+  const sidePanel = showAi || showAutoFill;
   const gridCols = chaptersCollapsed
-    ? (showAi ? "lg:grid-cols-[44px_1fr_340px]" : "lg:grid-cols-[44px_1fr]")
-    : (showAi ? "lg:grid-cols-[220px_1fr_340px]" : "lg:grid-cols-[260px_1fr]");
+    ? (sidePanel ? "lg:grid-cols-[44px_1fr_340px]" : "lg:grid-cols-[44px_1fr]")
+    : (sidePanel ? "lg:grid-cols-[220px_1fr_340px]" : "lg:grid-cols-[260px_1fr]");
 
   return (
     <div
@@ -721,31 +758,47 @@ export const TextBookEditor = ({ initial }: Props) => {
         {/* Image-placeholder banner: surfaces images that the Word importer
             had to leave out, so the user can review/insert them in place. */}
         {(() => {
-          const countPlaceholders = (doc: any): number => {
-            let n = 0;
+          const countPlaceholders = (doc: any): { total: number; pending: number } => {
+            let total = 0; let pending = 0;
             for (const node of doc?.content ?? []) {
-              if (node?.type === "image_placeholder") n += 1;
+              if (node?.type === "image_placeholder") {
+                total += 1;
+                if (!node.attrs?.pendingSrc) pending += 1;
+              }
             }
-            return n;
+            return { total, pending };
           };
-          const inChapter = countPlaceholders(pages[activeIdx]?.doc);
-          const total = pages.reduce((acc, p) => acc + countPlaceholders(p.doc), 0);
-          if (!total) return null;
+          const here = countPlaceholders(pages[activeIdx]?.doc);
+          const sum = pages.reduce((acc, p) => {
+            const c = countPlaceholders(p.doc);
+            return { total: acc.total + c.total, pending: acc.pending + c.pending };
+          }, { total: 0, pending: 0 });
+          if (!sum.total) return null;
           return (
-            <div className="mb-3 rounded-xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm flex items-start gap-3">
+            <div className="mb-3 rounded-xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm flex items-start gap-3 flex-wrap">
               <ImageIcon className="w-4 h-4 mt-0.5 text-amber-700 dark:text-amber-400 shrink-0" />
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="font-medium text-amber-800 dark:text-amber-300">
                   {fa
-                    ? `${inChapter} تصویر در این فصل (و ${total} تصویر در کل کتاب) هنگام وارد کردن از Word کنار گذاشته شد.`
-                    : `${inChapter} image(s) in this chapter (${total} total) were set aside during Word import.`}
+                    ? `${here.total} تصویر در این فصل (${sum.total} در کل) — ${sum.pending} هنوز بدون تصویر.`
+                    : `${here.total} image slot(s) in this chapter (${sum.total} total) — ${sum.pending} still empty.`}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   {fa
-                    ? "هر کدام در محل دقیق خود به‌عنوان پلیس‌هولدر نمایش داده می‌شود. می‌توانید با دکمهٔ «درج همین تصویر» آن را بپذیرید یا تصویر بهتری آپلود کنید."
-                    : "Each appears in place as a placeholder. Use “Insert this image” to accept it, or upload a replacement."}
+                    ? "می‌توانید همه تصاویر را خودکار از فایل Word اصلی استخراج و در همان جایگاه قرار دهید، یا هر کدام را دستی آپلود کنید."
+                    : "Auto-extract every image from the original Word file in place, or upload them manually."}
                 </div>
               </div>
+              {importId && sum.pending > 0 && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => { setShowAutoFill(true); setShowAi(false); }}
+                >
+                  <ImageIcon className="w-3.5 h-3.5 me-1" />
+                  {fa ? "جایگذاری خودکار تصاویر" : "Auto-place images"}
+                </Button>
+              )}
             </div>
           );
         })()}
@@ -773,6 +826,15 @@ export const TextBookEditor = ({ initial }: Props) => {
               chapterKey={`${initial?.id ?? "new"}:${activeIdx}`}
             />
           </motion.aside>
+        )}
+        {showAutoFill && initial?.id && (
+          <ImageAutoPlacementPanel
+            bookId={initial.id}
+            importId={importId}
+            totalPlaceholders={pages.reduce((acc, p) => acc + (p.doc?.content?.filter((n: any) => n?.type === "image_placeholder" && !n.attrs?.pendingSrc).length || 0), 0)}
+            onClose={() => setShowAutoFill(false)}
+            onBatchApplied={() => { void reloadPagesFromDb(); }}
+          />
         )}
       </AnimatePresence>
 
