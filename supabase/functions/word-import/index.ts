@@ -220,15 +220,42 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
   let removedImages = 0;
   const files = unzipSync(new Uint8Array(input), {
     filter: (file: { name: string }) => {
+      const keep = file.name === "word/document.xml" || file.name === "word/_rels/document.xml.rels" || file.name === "[Content_Types].xml";
       if (/^word\/media\//i.test(file.name)) {
         removedImages += 1;
         return false;
       }
-      return file.name === "word/document.xml";
+      return keep;
     },
   });
   const doc = files["word/document.xml"] ? strFromU8(files["word/document.xml"]) : "";
   if (!doc) return { pages: [], removedImages };
+
+  const relsXml = files["word/_rels/document.xml.rels"] ? strFromU8(files["word/_rels/document.xml.rels"]) : "";
+  const contentTypesXml = files["[Content_Types].xml"] ? strFromU8(files["[Content_Types].xml"]) : "";
+  const contentTypes = new Map<string, string>();
+  for (const m of contentTypesXml.matchAll(/<Default\b[^>]*Extension=["']([^"']+)["'][^>]*ContentType=["']([^"']+)["'][^>]*\/>/gi)) {
+    contentTypes.set(m[1].toLowerCase(), m[2]);
+  }
+  const rels = new Map<string, string>();
+  for (const m of relsXml.matchAll(/<Relationship\b[^>]*\/>/gi)) {
+    const tag = m[0];
+    if (!/Type=["'][^"']*\/image["']/i.test(tag)) continue;
+    const id = extractAttr(tag, "Id");
+    const target = extractAttr(tag, "Target");
+    if (id && target) rels.set(id, normalizeTarget(target));
+  }
+  let imageSlot = 0;
+  const imageRefsFromXml = (xml: string): DocxImageRef[] => {
+    const refs: DocxImageRef[] = [];
+    for (const m of xml.matchAll(/(?:r:embed|r:id)=["']([^"']+)["']/gi)) {
+      const path = rels.get(m[1]);
+      if (!path) continue;
+      const ext = path.split(".").pop()?.toLowerCase() || "";
+      refs.push({ path, bytes: 0, contentType: contentTypes.get(ext) });
+    }
+    return refs;
+  };
 
   const pages: Page[] = [];
   let cur: Page = { title: "مقدمه", blocks: [] };
