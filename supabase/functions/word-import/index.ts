@@ -486,7 +486,7 @@ Deno.serve(async (req) => {
 
     let result;
     try {
-      result = await tryConvert(true);
+      result = await tryConvert(!skipImages);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn("first pass failed, retrying without images:", msg);
@@ -496,10 +496,10 @@ Deno.serve(async (req) => {
       try {
         result = await tryConvert(false);
       } catch (e2) {
+        const finalMsg = `پردازش فایل ورد با خطا مواجه شد. می‌توانید با گزینه «تبدیل بدون تصاویر» دوباره تلاش کنید. (${e2 instanceof Error ? e2.message : String(e2)})`;
+        await failImport(finalMsg);
         return new Response(
-          JSON.stringify({
-            error: `پردازش فایل ورد با خطا مواجه شد. احتمالاً فایل بسیار بزرگ یا پیچیده است. (${e2 instanceof Error ? e2.message : String(e2)})`,
-          }),
+          JSON.stringify({ error: finalMsg }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
