@@ -8,7 +8,7 @@ import { Buffer } from "node:buffer";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-api-version, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -180,6 +180,93 @@ function stripDocxImages(input: Buffer): { buffer: Buffer; removedImages: number
   }
 
   return { buffer: Buffer.from(zipSync(files, { level: 0 })), removedImages };
+}
+
+const xmlText = (value: string): string =>
+  value
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+
+const textFromWordXml = (xml: string): string => {
+  const normalized = xml
+    .replace(/<w:tab\b[^>]*\/>/gi, " ")
+    .replace(/<w:br\b[^>]*\/>/gi, "\n");
+  const parts: string[] = [];
+  const re = /<w:t\b[^>]*>([\s\S]*?)<\/w:t>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(normalized)) !== null) parts.push(xmlText(m[1]));
+  return normalizeImportedLinks(parts.join(""))
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};
+
+function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: number } {
+  let removedImages = 0;
+  const files = unzipSync(new Uint8Array(input), {
+    filter: (file: { name: string }) => {
+      if (/^word\/media\//i.test(file.name)) {
+        removedImages += 1;
+        return false;
+      }
+      return file.name === "word/document.xml";
+    },
+  });
+  const doc = files["word/document.xml"] ? strFromU8(files["word/document.xml"]) : "";
+  if (!doc) return { pages: [], removedImages };
+
+  const pages: Page[] = [];
+  let cur: Page = { title: "مقدمه", blocks: [] };
+  const pushPage = () => {
+    if (cur.blocks.length) pages.push(cur);
+  };
+  const maxBlocksPerPage = 80;
+  const ensureRoom = () => {
+    if (cur.blocks.length < maxBlocksPerPage) return;
+    pushPage();
+    cur = { title: `بخش ${pages.length + 1}`, blocks: [] };
+  };
+
+  const tokenRe = /<w:p\b[\s\S]*?<\/w:p>|<w:tbl\b[\s\S]*?<\/w:tbl>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = tokenRe.exec(doc)) !== null) {
+    const token = m[0];
+    if (/^<w:tbl\b/i.test(token)) {
+      const rows: string[][] = [];
+      const rowRe = /<w:tr\b[\s\S]*?<\/w:tr>/gi;
+      let rm: RegExpExecArray | null;
+      while ((rm = rowRe.exec(token)) !== null) {
+        const cells: string[] = [];
+        const cellRe = /<w:tc\b[\s\S]*?<\/w:tc>/gi;
+        let cm: RegExpExecArray | null;
+        while ((cm = cellRe.exec(rm[0])) !== null) cells.push(textFromWordXml(cm[0]));
+        if (cells.some(Boolean)) rows.push(cells);
+      }
+      if (rows.length) {
+        ensureRoom();
+        cur.blocks.push({ type: "table", headers: rows.shift() ?? [], rows });
+      }
+      continue;
+    }
+
+    const text = textFromWordXml(token);
+    if (!text) continue;
+    const style = /<w:pStyle\b[^>]*(?:w:val|val)=["']([^"']+)["']/i.exec(token)?.[1] || "";
+    const headingMatch = /heading\s*([1-4])|Heading([1-4])|عنوان\s*([1-4])/i.exec(style);
+    const level = Number(headingMatch?.[1] || headingMatch?.[2] || headingMatch?.[3] || 0);
+    if (level === 1 || level === 2) {
+      pushPage();
+      cur = { title: text.slice(0, 120), blocks: [] };
+    } else {
+      ensureRoom();
+      cur.blocks.push(level ? { type: "heading", level: Math.min(level, 3), text } : { type: "paragraph", text });
+    }
+  }
+  pushPage();
+  return { pages: pages.filter((p) => p.blocks.length > 0), removedImages };
 }
 
 // Find Persian/English figure or table label like "شکل ۹–۱" / "Figure 9.1" / "جدول ۲-۱"
@@ -502,14 +589,18 @@ Deno.serve(async (req) => {
     }
     const originalBuffer = Buffer.from(arrayBuffer);
     let buffer = originalBuffer;
+    let textOnlyPages: Page[] | null = null;
     let strippedImageCount = 0;
     if (skipImages) {
       try {
+        const textOnly = docxToPagesTextOnly(originalBuffer);
+        textOnlyPages = textOnly.pages;
+        strippedImageCount = textOnly.removedImages;
+      } catch (e) {
+        console.warn("direct text-only docx extraction failed; falling back to mammoth", e);
         const stripped = stripDocxImages(originalBuffer);
         buffer = stripped.buffer;
         strippedImageCount = stripped.removedImages;
-      } catch (e) {
-        console.warn("strip docx images failed; falling back to original buffer", e);
       }
     }
 
@@ -580,28 +671,30 @@ Deno.serve(async (req) => {
       );
     };
 
-    let result;
-    try {
-      result = await tryConvert(!skipImages);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.warn("first pass failed, retrying without images:", msg);
-      // Memory pressure or mammoth crash on images: retry text-only so the
-      // user still gets the manuscript inside the editor.
-      imgIdx = 0;
+    let pages = textOnlyPages ?? [];
+    if (!textOnlyPages) {
+      let result;
       try {
-        result = await tryConvert(false);
-      } catch (e2) {
-        const finalMsg = `پردازش فایل ورد با خطا مواجه شد. می‌توانید با گزینه «تبدیل بدون تصاویر» دوباره تلاش کنید. (${e2 instanceof Error ? e2.message : String(e2)})`;
-        await failImport(finalMsg);
-        return new Response(
-          JSON.stringify({ error: finalMsg }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+        result = await tryConvert(!skipImages);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn("first pass failed, retrying without images:", msg);
+        // Memory pressure or mammoth crash on images: retry text-only so the
+        // user still gets the manuscript inside the editor.
+        imgIdx = 0;
+        try {
+          result = await tryConvert(false);
+        } catch (e2) {
+          const finalMsg = `پردازش فایل ورد با خطا مواجه شد. می‌توانید با گزینه «تبدیل بدون تصاویر» دوباره تلاش کنید. (${e2 instanceof Error ? e2.message : String(e2)})`;
+          await failImport(finalMsg);
+          return new Response(
+            JSON.stringify({ error: finalMsg }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
       }
+      pages = htmlToPages(result.value || "");
     }
-
-    const pages = htmlToPages(result.value || "");
     if (pages.length === 0) {
       const msg = "no content extracted";
       await failImport(msg);
