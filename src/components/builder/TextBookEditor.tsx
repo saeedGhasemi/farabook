@@ -758,31 +758,47 @@ export const TextBookEditor = ({ initial }: Props) => {
         {/* Image-placeholder banner: surfaces images that the Word importer
             had to leave out, so the user can review/insert them in place. */}
         {(() => {
-          const countPlaceholders = (doc: any): number => {
-            let n = 0;
+          const countPlaceholders = (doc: any): { total: number; pending: number } => {
+            let total = 0; let pending = 0;
             for (const node of doc?.content ?? []) {
-              if (node?.type === "image_placeholder") n += 1;
+              if (node?.type === "image_placeholder") {
+                total += 1;
+                if (!node.attrs?.pendingSrc) pending += 1;
+              }
             }
-            return n;
+            return { total, pending };
           };
-          const inChapter = countPlaceholders(pages[activeIdx]?.doc);
-          const total = pages.reduce((acc, p) => acc + countPlaceholders(p.doc), 0);
-          if (!total) return null;
+          const here = countPlaceholders(pages[activeIdx]?.doc);
+          const sum = pages.reduce((acc, p) => {
+            const c = countPlaceholders(p.doc);
+            return { total: acc.total + c.total, pending: acc.pending + c.pending };
+          }, { total: 0, pending: 0 });
+          if (!sum.total) return null;
           return (
-            <div className="mb-3 rounded-xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm flex items-start gap-3">
+            <div className="mb-3 rounded-xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm flex items-start gap-3 flex-wrap">
               <ImageIcon className="w-4 h-4 mt-0.5 text-amber-700 dark:text-amber-400 shrink-0" />
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="font-medium text-amber-800 dark:text-amber-300">
                   {fa
-                    ? `${inChapter} تصویر در این فصل (و ${total} تصویر در کل کتاب) هنگام وارد کردن از Word کنار گذاشته شد.`
-                    : `${inChapter} image(s) in this chapter (${total} total) were set aside during Word import.`}
+                    ? `${here.total} تصویر در این فصل (${sum.total} در کل) — ${sum.pending} هنوز بدون تصویر.`
+                    : `${here.total} image slot(s) in this chapter (${sum.total} total) — ${sum.pending} still empty.`}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   {fa
-                    ? "هر کدام در محل دقیق خود به‌عنوان پلیس‌هولدر نمایش داده می‌شود. می‌توانید با دکمهٔ «درج همین تصویر» آن را بپذیرید یا تصویر بهتری آپلود کنید."
-                    : "Each appears in place as a placeholder. Use “Insert this image” to accept it, or upload a replacement."}
+                    ? "می‌توانید همه تصاویر را خودکار از فایل Word اصلی استخراج و در همان جایگاه قرار دهید، یا هر کدام را دستی آپلود کنید."
+                    : "Auto-extract every image from the original Word file in place, or upload them manually."}
                 </div>
               </div>
+              {importId && sum.pending > 0 && (
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => { setShowAutoFill(true); setShowAi(false); }}
+                >
+                  <ImageIcon className="w-3.5 h-3.5 me-1" />
+                  {fa ? "جایگذاری خودکار تصاویر" : "Auto-place images"}
+                </Button>
+              )}
             </div>
           );
         })()}
