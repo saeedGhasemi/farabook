@@ -130,6 +130,8 @@ export const TextBookEditor = ({ initial }: Props) => {
 
   const [title, setTitle] = useState(initial?.title ?? "");
   const [author, setAuthor] = useState(initial?.author ?? "");
+  const [coverUrl, setCoverUrl] = useState<string | null>(initial?.cover_url ?? null);
+  const coverFileRef = useRef<HTMLInputElement | null>(null);
 
   const [pages, setPages] = useState<TextPage[]>(
     initial?.pages?.length ? dbPagesToTextPages(initial.pages) : [newEmptyPage(fa ? "فصل ۱" : "Chapter 1")],
