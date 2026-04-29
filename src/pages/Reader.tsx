@@ -64,7 +64,7 @@ const Reader = () => {
   const { id } = useParams();
   const nav = useNavigate();
   const { t, dir, lang } = useI18n();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [book, setBook] = useState<Book | null>(null);
   const [pageIdx, setPageIdx] = useState(0);
@@ -102,6 +102,7 @@ const Reader = () => {
   // Load book
   useEffect(() => {
     if (!id) return;
+    if (authLoading) return;
     (async () => {
       const { data } = await supabase.from("books").select("*").eq("id", id).maybeSingle();
       if (!data) {
@@ -133,7 +134,7 @@ const Reader = () => {
       setBook({ ...data, pages: pages as unknown as Page[] });
       if (data.ambient_theme && data.ambient_theme !== "paper") setAmbient(data.ambient_theme);
     })();
-  }, [id, nav, user, lang]);
+  }, [id, nav, user, authLoading, lang]);
 
   // Load progress
   useEffect(() => {
