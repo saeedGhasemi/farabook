@@ -82,6 +82,15 @@ export const UserDetailDialog = ({ userId, open, onOpenChange, onChanged }: Prop
     const total = ((tx as any[]) || []).reduce((s, t) => s + Number(t.amount || 0), 0);
     setCredits(total);
     setTransactions((tx as any[]) || []);
+    const ids = collectBookIds((tx as any[]) || []);
+    if (ids.length) {
+      const { data: bs } = await supabase.from("books").select("id, title").in("id", ids);
+      const map: Record<string, string> = {};
+      for (const b of (bs as any[]) || []) map[b.id] = b.title;
+      setTxBookTitles(map);
+    } else {
+      setTxBookTitles({});
+    }
     setUserBooks((ub as any[]) || []);
     setAuthoredBooks((ab as any[]) || []);
     setComments((cm as any[]) || []);
