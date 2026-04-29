@@ -291,6 +291,23 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
       continue;
     }
 
+    const imageRefs = imageRefsFromXml(token);
+    if (imageRefs.length) {
+      ensureRoom();
+      for (const ref of imageRefs) {
+        imageSlot += 1;
+        cur.blocks.push({
+          type: "image_placeholder",
+          pendingSrc: "",
+          bytes: ref.bytes,
+          contentType: ref.contentType,
+          reason: "text_only",
+          originalPath: ref.path,
+          slot: imageSlot,
+        });
+      }
+    }
+
     const text = textFromWordXml(token);
     if (!text) continue;
     const style = /<w:pStyle\b[^>]*(?:w:val|val)=["']([^"']+)["']/i.exec(token)?.[1] || "";
