@@ -827,6 +827,15 @@ export const TextBookEditor = ({ initial }: Props) => {
             />
           </motion.aside>
         )}
+        {showAutoFill && initial?.id && (
+          <ImageAutoPlacementPanel
+            bookId={initial.id}
+            importId={importId}
+            totalPlaceholders={pages.reduce((acc, p) => acc + (p.doc?.content?.filter((n: any) => n?.type === "image_placeholder" && !n.attrs?.pendingSrc).length || 0), 0)}
+            onClose={() => setShowAutoFill(false)}
+            onBatchApplied={() => { void reloadPagesFromDb(); }}
+          />
+        )}
       </AnimatePresence>
 
       {/* Confirm chapter delete */}
