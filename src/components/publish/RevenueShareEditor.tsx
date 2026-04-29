@@ -110,20 +110,20 @@ export const RevenueShareEditor = ({
   const removeRow = (i: number) => {
     setShares((cur) => cur.filter((_, idx) => idx !== i));
   };
-  const addByEmail = async () => {
-    const email = window.prompt(
-      lang === "fa" ? "ایمیل کاربر ثبت‌شده در سامانه:" : "Registered user email:",
-    );
-    if (!email) return;
-    const role = (window.prompt(
-      lang === "fa" ? "نقش (author یا editor):" : "Role (author or editor):",
-      "editor",
-    ) || "").toLowerCase().trim();
-    if (role !== "author" && role !== "editor") {
-      toast.error(lang === "fa" ? "نقش نامعتبر" : "Invalid role");
+  const [addOpen, setAddOpen] = useState(false);
+  const [addEmail, setAddEmail] = useState("");
+  const [addRole, setAddRole] = useState<"author" | "editor">("editor");
+  const [addingLookup, setAddingLookup] = useState(false);
+
+  const submitAdd = async () => {
+    const email = addEmail.trim();
+    if (!email) {
+      toast.error(lang === "fa" ? "ایمیل را وارد کنید" : "Enter an email");
       return;
     }
+    setAddingLookup(true);
     const { data: uid, error } = await (supabase.rpc as any)("find_user_by_email", { _email: email });
+    setAddingLookup(false);
     if (error) return toast.error(error.message);
     if (!uid) {
       toast.error(lang === "fa"
@@ -135,13 +135,19 @@ export const RevenueShareEditor = ({
       toast.message(lang === "fa" ? "ناشر سهم باقیمانده را خودکار دریافت می‌کند." : "Publisher gets the remainder automatically.");
       return;
     }
-    setShares((cur) => [...cur, { user_id: uid, role: role as any, percent: 0 }]);
-    // fetch name
+    if (shares.some((s) => s.user_id === uid && s.role === addRole)) {
+      toast.error(lang === "fa" ? "این کاربر با همین نقش قبلاً اضافه شده" : "Already added with this role");
+      return;
+    }
+    setShares((cur) => [...cur, { user_id: uid, role: addRole, percent: 0 }]);
     const { data: prof } = await supabase
       .from("profiles").select("display_name, username").eq("id", uid).maybeSingle();
     if (prof) {
       setProfilesById((m) => ({ ...m, [uid]: (prof as any).display_name || (prof as any).username || uid.slice(0, 8) }));
     }
+    setAddEmail("");
+    setAddRole("editor");
+    setAddOpen(false);
   };
 
   const save = async () => {
