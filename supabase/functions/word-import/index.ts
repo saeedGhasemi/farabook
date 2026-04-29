@@ -46,6 +46,44 @@ const dummyCitationTarget = (url: string): string | null => {
   }
 };
 
+const safeDecodeURIComponent = (value: string): string => {
+  try {
+    return decodeURIComponent(value.replace(/&amp;/g, "&"));
+  } catch {
+    return value.replace(/&amp;/g, "&");
+  }
+};
+
+const extractCitationTarget = (value: string): string | null => {
+  const dummy = dummyCitationTarget(value);
+  if (dummy) return dummy;
+
+  const decoded = safeDecodeURIComponent(value);
+  const directUrl = /"(?:url|resourceUrl)"\s*:\s*"(https?:\/\/[^"\\]+)"/.exec(decoded)?.[1];
+  if (directUrl) return directUrl.replace(/\\\//g, "/");
+
+  const runs = decoded.match(/[A-Za-z0-9+/_=-]{80,}/g) ?? [];
+  for (const run of runs) {
+    const maxOffset = Math.min(180, run.length - 24);
+    for (let offset = 0; offset <= maxOffset; offset += 1) {
+      const candidate = run.slice(offset).replace(/-/g, "+").replace(/_/g, "/");
+      try {
+        const padded = candidate.padEnd(Math.ceil(candidate.length / 4) * 4, "=");
+        const bytes = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+        const text = new TextDecoder().decode(bytes);
+        const url = /"(?:url|resourceUrl)"\s*:\s*"(https?:\/\/[^"\\]+)"/.exec(text)?.[1];
+        if (url) return url.replace(/\\\//g, "/");
+        const doi = /"doi"\s*:\s*"([^"\\]+)"/.exec(text)?.[1];
+        if (doi) return `https://doi.org/${doi}`;
+      } catch {
+        // Try the next possible start; citation add-ins often prepend bytes.
+      }
+    }
+  }
+
+  return null;
+};
+
 const wrapBareUrls = (text: string): string =>
   text
     .split(/(\[[^\]\n]+\]\([^\)\s]+\))/g)
@@ -56,13 +94,18 @@ const wrapBareUrls = (text: string): string =>
     .join("");
 
 const normalizeImportedLinks = (text: string): string => {
-  const withoutDummy = text
-    .replace(/(\([0-9,\s\-–—]+\))\s*(https:\/\/dummy-citation\.com\/citation\?d=[A-Za-z0-9_-]+)/g, (_m, label, url) => {
-      const target = dummyCitationTarget(url);
+  const withoutCitationPayloads = text
+    .replace(/(\([0-9,\s\-–—]+\))\s*((?:%[0-9A-Fa-f]{2}|[A-Za-z0-9+/_=-]){80,})/g, (_m, label, payload) => {
+      const target = extractCitationTarget(payload);
       return target ? `[${label}](${target})` : label;
     })
+    .replace(/(\([0-9,\s\-–—]+\))\s*(https:\/\/dummy-citation\.com\/citation\?d=[A-Za-z0-9_-]+)/g, (_m, label, url) => {
+      const target = extractCitationTarget(url);
+      return target ? `[${label}](${target})` : label;
+    })
+    .replace(/(\[[^\]\n]+\]\([^)]+\))(?:%3D|=)+/gi, "$1")
     .replace(/https:\/\/dummy-citation\.com\/citation\?d=[A-Za-z0-9_-]+/g, "");
-  return wrapBareUrls(withoutDummy).replace(/\s+/g, " ").trim();
+  return wrapBareUrls(withoutCitationPayloads).replace(/\s+/g, " ").trim();
 };
 
 // Convert <a href="URL">label</a> into the markdown form [label](URL) which
@@ -78,7 +121,7 @@ const convertAnchors = (s: string): string => {
       if (!url) return label;
       if (url.startsWith("#")) return label;
       if (url.includes("dummy-citation.com/citation")) {
-        const target = dummyCitationTarget(url);
+        const target = extractCitationTarget(url);
         if (!label || label === url || label.includes("dummy-citation.com/citation")) {
           return target ? `[${label || target}](${target})` : "";
         }
