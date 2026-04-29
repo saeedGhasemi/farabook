@@ -507,7 +507,9 @@ Deno.serve(async (req) => {
 
     const pages = htmlToPages(result.value || "");
     if (pages.length === 0) {
-      return new Response(JSON.stringify({ error: "no content extracted" }), {
+      const msg = "no content extracted";
+      await failImport(msg);
+      return new Response(JSON.stringify({ error: msg }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -530,7 +532,9 @@ Deno.serve(async (req) => {
         .select("id, title")
         .single();
       if (updErr || !upd) {
-        return new Response(JSON.stringify({ error: updErr?.message || "update failed" }), {
+        const msg = updErr?.message || "update failed";
+        await failImport(msg);
+        return new Response(JSON.stringify({ error: msg }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -555,7 +559,9 @@ Deno.serve(async (req) => {
         .select("id, title")
         .single();
       if (insErr || !book) {
-        return new Response(JSON.stringify({ error: insErr?.message || "insert failed" }), {
+        const msg = insErr?.message || "insert failed";
+        await failImport(msg);
+        return new Response(JSON.stringify({ error: msg }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -569,6 +575,17 @@ Deno.serve(async (req) => {
         acquired_via: "upload",
         status: "unread",
       });
+    }
+
+    if (importId) {
+      await admin.from("word_imports").update({
+        status: "done",
+        last_error: null,
+        book_id: bookId,
+        chapters_count: pages.length,
+        images_count: imgIdx,
+        skipped_images_count: skippedImages,
+      }).eq("id", importId);
     }
 
     return new Response(
