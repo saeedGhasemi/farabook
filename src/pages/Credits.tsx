@@ -67,7 +67,17 @@ const Credits = () => {
     ]);
     setRequests((cr as any[]) || []);
     setPubReqs((pr as any[]) || []);
-    setTx((t as any[]) || []);
+    const txs = (t as any[]) || [];
+    setTx(txs);
+    const ids = collectBookIds(txs);
+    if (ids.length) {
+      const { data: bs } = await supabase.from("books").select("id, title").in("id", ids);
+      const map: Record<string, string> = {};
+      for (const b of (bs as any[]) || []) map[b.id] = b.title;
+      setBookTitles(map);
+    } else {
+      setBookTitles({});
+    }
   };
 
   useEffect(() => {
