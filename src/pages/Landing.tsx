@@ -176,17 +176,16 @@ const Landing = () => {
           >
             {/* Image fills ~40% of section width, no padding */}
             <div className="relative md:col-span-2 bg-secondary overflow-hidden min-h-[260px] md:min-h-[420px]">
-              {featured.cover_url && (
-                <img
-                  src={resolveBookCover(featured.cover_url, { width: 900, quality: 78 })}
-                  srcSet={`${resolveBookCover(featured.cover_url, { width: 640, quality: 75 })} 640w, ${resolveBookCover(featured.cover_url, { width: 900, quality: 78 })} 900w, ${resolveBookCover(featured.cover_url, { width: 1280, quality: 80 })} 1280w`}
-                  sizes="(max-width: 768px) 100vw, 40vw"
-                  alt={titleOf(featured)}
-                  loading="eager"
-                  decoding="async"
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-              )}
+              <BookCover
+                bookId={featured.id}
+                cover={featured.cover_url}
+                title={titleOf(featured)}
+                width={900}
+                quality={78}
+                loading="eager"
+                sizes="(max-width: 768px) 100vw, 40vw"
+                className="absolute inset-0 w-full h-full object-cover"
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-background/40 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:via-transparent md:to-background/30 pointer-events-none" />
               <Badge className="absolute top-4 start-4 bg-gradient-warm text-primary-foreground border-0 gap-1.5 shadow-glow">
                 <Sparkles className="w-3.5 h-3.5" />
@@ -355,19 +354,15 @@ const BookRow = ({
         >
           <Link to={`/read/${b.id}`} className="block group">
             <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-secondary book-shadow">
-              {b.cover_url && (
-                <img
-                  src={resolveBookCover(b.cover_url, { width: 480, quality: 70 })}
-                  srcSet={`${resolveBookCover(b.cover_url, { width: 320, quality: 65 })} 320w, ${resolveBookCover(b.cover_url, { width: 480, quality: 70 })} 480w`}
-                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
-                  alt={title}
-                  loading="lazy"
-                  decoding="async"
-                  width={480}
-                  height={640}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                />
-              )}
+              <BookCover
+                bookId={b.id}
+                cover={b.cover_url}
+                title={title}
+                width={480}
+                quality={70}
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+              />
               {readers > 0 && (
                 <Badge className="absolute top-2 end-2 glass-strong text-foreground border-0 text-[10px] gap-1">
                   <BookOpen className="w-3 h-3" /> {readers}
