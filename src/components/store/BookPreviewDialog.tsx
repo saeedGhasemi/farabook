@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { speakSmart, stopSpeak } from "@/lib/tts";
 import { resolveBookCover } from "@/lib/book-media";
+import { useAutoCover } from "@/hooks/useAutoCover";
 import { BookComments } from "@/components/BookComments";
 import { BlockRenderer, type Block } from "@/components/reader/BlockRenderer";
 import { toast } from "sonner";
@@ -131,7 +132,8 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
 
   if (!book) return null;
 
-  const cover = book.cover_url ? resolveBookCover(book.cover_url, { width: 600, quality: 80 }) : null;
+  const autoCover = useAutoCover(book.id, book.cover_url);
+  const cover = autoCover ? resolveBookCover(autoCover, { width: 600, quality: 80 }) : null;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) stop(); onOpenChange(o); }}>
