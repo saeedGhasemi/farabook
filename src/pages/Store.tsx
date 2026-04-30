@@ -172,19 +172,15 @@ const Store = () => {
               className="paper-card rounded-2xl overflow-hidden flex flex-col group relative"
             >
               <div className="relative aspect-[3/4] overflow-hidden bg-secondary">
-                {book.cover_url && (
-                  <img
-                    src={resolveBookCover(book.cover_url, { width: 480, quality: 70 })}
-                    srcSet={`${resolveBookCover(book.cover_url, { width: 320, quality: 65 })} 320w, ${resolveBookCover(book.cover_url, { width: 480, quality: 70 })} 480w, ${resolveBookCover(book.cover_url, { width: 720, quality: 75 })} 720w`}
-                    alt={title}
-                    loading="lazy"
-                    decoding="async"
-                    width={480}
-                    height={640}
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700"
-                  />
-                )}
+                <BookCover
+                  bookId={book.id}
+                  cover={book.cover_url}
+                  title={title}
+                  width={480}
+                  quality={70}
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700"
+                />
                 {book.category && (
                   <Badge className="absolute top-3 start-3 bg-primary text-primary-foreground border-0 shadow-md font-medium">{book.category}</Badge>
                 )}
