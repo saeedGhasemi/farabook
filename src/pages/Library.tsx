@@ -127,14 +127,15 @@ const Library = () => {
               >
                 <Link to={`/read/${r.books.id}`} className="flex w-full">
                   <div className="w-32 flex-shrink-0 aspect-[3/4] overflow-hidden bg-secondary relative">
-                    {r.books.cover_url && (
-                      <img src={resolveBookCover(r.books.cover_url, { width: 256, quality: 65 })}
-                        srcSet={`${resolveBookCover(r.books.cover_url, { width: 200, quality: 60 })} 200w, ${resolveBookCover(r.books.cover_url, { width: 320, quality: 70 })} 320w`}
-                        alt={title}
-                        loading="lazy" decoding="async" width={256} height={342}
-                        sizes="128px"
-                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700" />
-                    )}
+                    <BookCover
+                      bookId={r.books.id}
+                      cover={r.books.cover_url}
+                      title={title}
+                      width={256}
+                      quality={65}
+                      sizes="128px"
+                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700"
+                    />
                     {isDraft && (
                       <Badge className="absolute top-1 start-1 bg-accent text-accent-foreground border-0 text-[10px] px-1.5 py-0">
                         {lang === "fa" ? "پیش‌نویس" : "Draft"}
