@@ -131,7 +131,8 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
 
   if (!book) return null;
 
-  const cover = book.cover_url ? resolveBookCover(book.cover_url, { width: 600, quality: 80 }) : null;
+  const autoCover = useAutoCover(book.id, book.cover_url);
+  const cover = autoCover ? resolveBookCover(autoCover, { width: 600, quality: 80 }) : null;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) stop(); onOpenChange(o); }}>

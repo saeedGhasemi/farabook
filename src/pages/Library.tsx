@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
+import { BookCover } from "@/components/store/BookCover";
 import { bookCreditCost } from "@/lib/purchase";
 
 
