@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { speakSmart, stopSpeak } from "@/lib/tts";
 import { resolveBookCover } from "@/lib/book-media";
+import { useAutoCover } from "@/hooks/useAutoCover";
 import { BookComments } from "@/components/BookComments";
 import { BlockRenderer, type Block } from "@/components/reader/BlockRenderer";
 import { toast } from "sonner";
