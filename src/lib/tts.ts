@@ -150,49 +150,118 @@ export interface SpeakOptions {
   onError?: (e: SpeechSynthesisErrorEvent) => void;
 }
 
-/** Speak text with the best available native voice for its language. */
+/** Languages where browsers commonly lack a native voice on Windows/Chromium → fall back to network TTS. */
+const NEEDS_NETWORK_FALLBACK: DetectedLang[] = ["fa", "ar", "ur"];
+
+/** Public Google Translate TTS endpoint; reliable for short Persian/Arabic chunks. */
+const buildGoogleTtsUrl = (text: string, langTag: string) => {
+  const tl = langTag.split("-")[0];
+  return `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${tl}&client=tw-ob`;
+};
+
+let activeAudio: HTMLAudioElement | null = null;
+
+/** Play a list of small audio chunks sequentially through HTMLAudio. */
+const playAudioChunks = async (
+  chunks: string[],
+  langTag: string,
+  rate: number,
+  onStart?: () => void,
+  onEnd?: () => void,
+  onError?: () => void,
+) => {
+  let started = false;
+  for (const c of chunks) {
+    if (!c.trim()) continue;
+    const url = buildGoogleTtsUrl(c, langTag);
+    const audio = new Audio(url);
+    audio.crossOrigin = "anonymous";
+    audio.playbackRate = rate;
+    activeAudio = audio;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        audio.onplay = () => { if (!started) { started = true; onStart?.(); } };
+        audio.onended = () => resolve();
+        audio.onerror = () => reject(new Error("audio_error"));
+        audio.play().catch(reject);
+      });
+    } catch {
+      onError?.();
+      return;
+    }
+    if (activeAudio !== audio) return; // cancelled mid-way
+  }
+  onEnd?.();
+};
+
+/** Speak text with the best available native voice for its language.
+ *  Falls back to a network TTS when no local Persian/Arabic voice is installed. */
 export const speakSmart = async (opts: SpeakOptions): Promise<void> => {
   const synth = window.speechSynthesis;
-  if (!synth) return;
-  synth.cancel();
+  // Stop anything currently playing
+  synth?.cancel();
+  if (activeAudio) { try { activeAudio.pause(); } catch { /* ignore */ } activeAudio = null; }
 
-  const voices = await waitForVoices();
+  const voices = synth ? await waitForVoices() : [];
   const segments = splitByLanguage(opts.text);
   if (!segments.length) return;
 
-  // Build a flat queue: [{ chunk, voice, lang }]
-  const queue: Array<{ chunk: string; voice?: SpeechSynthesisVoice; lang: DetectedLang }> = [];
+  // Group consecutive segments that need network fallback so we can play them in one batch.
   for (const seg of segments) {
     const lang = seg.lang || opts.fallbackLang || "en";
     const voice = pickBestVoice(voices, lang)
       ?? (opts.fallbackLang ? pickBestVoice(voices, opts.fallbackLang) : undefined);
-    for (const c of chunkText(seg.text)) queue.push({ chunk: c, voice, lang });
-  }
 
-  let started = false;
-  let cancelled = false;
+    // If we don't have a local voice for a script-heavy language, use network TTS.
+    const needsNetwork = !voice && NEEDS_NETWORK_FALLBACK.includes(lang);
 
-  for (const item of queue) {
-    if (cancelled) break;
-    await new Promise<void>((resolve) => {
-      const u = new SpeechSynthesisUtterance(item.chunk);
-      if (item.voice) u.voice = item.voice;
-      u.lang = item.voice?.lang || BCP47[item.lang][0];
-      u.rate = opts.rate ?? 1;
-      u.pitch = opts.pitch ?? 1;
-      u.onstart = () => {
-        if (!started) { started = true; opts.onStart?.(); }
-      };
-      u.onend = () => resolve();
-      u.onerror = (e) => {
-        cancelled = true;
-        opts.onError?.(e);
-        resolve();
-      };
-      synth.speak(u);
-    });
+    if (needsNetwork) {
+      const langTag = BCP47[lang][0];
+      // Google TTS limits ~200 chars per request — chunk smaller.
+      const chunks = chunkText(seg.text, 180);
+      let networkErrored = false;
+      await playAudioChunks(
+        chunks,
+        langTag,
+        opts.rate ?? 1,
+        opts.onStart,
+        undefined,
+        () => { networkErrored = true; },
+      );
+      if (networkErrored) {
+        opts.onError?.({ error: "no-voice" } as unknown as SpeechSynthesisErrorEvent);
+        return;
+      }
+      continue;
+    }
+
+    if (!synth) continue;
+    const queue = chunkText(seg.text).map((chunk) => ({ chunk, voice, lang }));
+    let started = false;
+    let cancelled = false;
+    for (const item of queue) {
+      if (cancelled) break;
+      await new Promise<void>((resolve) => {
+        const u = new SpeechSynthesisUtterance(item.chunk);
+        if (item.voice) u.voice = item.voice;
+        u.lang = item.voice?.lang || BCP47[item.lang][0];
+        u.rate = opts.rate ?? 1;
+        u.pitch = opts.pitch ?? 1;
+        u.onstart = () => { if (!started) { started = true; opts.onStart?.(); } };
+        u.onend = () => resolve();
+        u.onerror = (e) => { cancelled = true; opts.onError?.(e); resolve(); };
+        synth.speak(u);
+      });
+    }
+    if (cancelled) return;
   }
-  if (!cancelled) opts.onEnd?.();
+  opts.onEnd?.();
 };
 
-export const stopSpeak = () => window.speechSynthesis?.cancel();
+export const stopSpeak = () => {
+  window.speechSynthesis?.cancel();
+  if (activeAudio) {
+    try { activeAudio.pause(); } catch { /* ignore */ }
+    activeAudio = null;
+  }
+};

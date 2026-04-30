@@ -57,6 +57,7 @@ export type Database = {
           created_at: string
           edited: boolean
           id: string
+          is_hidden: boolean
           parent_id: string | null
           rating: number | null
           updated_at: string
@@ -68,6 +69,7 @@ export type Database = {
           created_at?: string
           edited?: boolean
           id?: string
+          is_hidden?: boolean
           parent_id?: string | null
           rating?: number | null
           updated_at?: string
@@ -79,6 +81,7 @@ export type Database = {
           created_at?: string
           edited?: boolean
           id?: string
+          is_hidden?: boolean
           parent_id?: string | null
           rating?: number | null
           updated_at?: string
@@ -221,6 +224,7 @@ export type Database = {
           author: string
           author_user_id: string | null
           category: string | null
+          comments_enabled: boolean
           cover_url: string | null
           created_at: string
           description: string | null
@@ -255,6 +259,7 @@ export type Database = {
           author: string
           author_user_id?: string | null
           category?: string | null
+          comments_enabled?: boolean
           cover_url?: string | null
           created_at?: string
           description?: string | null
@@ -289,6 +294,7 @@ export type Database = {
           author?: string
           author_user_id?: string | null
           category?: string | null
+          comments_enabled?: boolean
           cover_url?: string | null
           created_at?: string
           description?: string | null

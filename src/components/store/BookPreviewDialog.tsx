@@ -1,14 +1,13 @@
-// Preview dialog shown from the storefront. Lets visitors see the
-// first few pages of a book, generate / read its AI summary, and
-// listen to it as a spoken narration via the smart TTS helper.
+// Preview dialog shown from the storefront. Re-designed for a richer,
+// magazine-like layout: large cover hero with gradient overlay, tabbed
+// content (Summary / Preview / Comments) and clearer CTAs.
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Sparkles, Play, Square, BookOpen, ShoppingBag, Check } from "lucide-react";
+import { Loader2, Sparkles, Play, Square, BookOpen, ShoppingBag, Check, MessageCircle, Star, Volume2, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
-import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { speakSmart, stopSpeak } from "@/lib/tts";
@@ -58,25 +57,27 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
   const [summary, setSummary] = useState<string | null>(null);
   const [summarizing, setSummarizing] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [ratingAvg, setRatingAvg] = useState<number | null>(null);
+  const [ratingCount, setRatingCount] = useState(0);
+  const [ttsError, setTtsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !book) return;
-    setSummary(null);
-    setPages([]);
-    setLoading(true);
+    setSummary(null); setPages([]); setLoading(true); setTtsError(null);
     (async () => {
-      const { data } = await supabase
-        .from("books")
-        .select("pages, ai_summary, preview_pages")
-        .eq("id", book.id)
-        .maybeSingle();
+      const [{ data }, { data: cs }] = await Promise.all([
+        supabase.from("books").select("pages, ai_summary, preview_pages").eq("id", book.id).maybeSingle(),
+        supabase.from("book_comments").select("rating").eq("book_id", book.id).not("rating", "is", null),
+      ]);
       const all = (data?.pages as unknown as PageRow[]) ?? [];
       setPages(all);
       setSummary((data?.ai_summary as string | null) ?? null);
       const pi = (data?.preview_pages as number[] | null) ?? [0];
-      // Always allow at least the first 2 pages as preview
       const preview = pi && pi.length ? pi : [0, 1];
       setPreviewIdx(preview.filter((i) => i < all.length));
+      const ratings = ((cs as Array<{ rating: number | null }>) || []).map((r) => r.rating).filter((r): r is number => !!r);
+      setRatingCount(ratings.length);
+      setRatingAvg(ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null);
       setLoading(false);
     })();
     return () => { stopSpeak(); setSpeaking(false); };
@@ -100,10 +101,7 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
       if (data?.error) throw new Error(data.error);
       const txt: string = data?.content ?? "";
       setSummary(txt);
-      // Persist if owner — RLS allows owner update
-      if (isOwner) {
-        await supabase.from("books").update({ ai_summary: txt }).eq("id", book.id);
-      }
+      if (isOwner) await supabase.from("books").update({ ai_summary: txt }).eq("id", book.id);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "AI failed");
     } finally {
@@ -114,12 +112,18 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
   const speak = async () => {
     const text = summary || previewText;
     if (!text) return;
+    setTtsError(null);
     setSpeaking(true);
     await speakSmart({
       text,
       fallbackLang: fa ? "fa" : "en",
       onEnd: () => setSpeaking(false),
-      onError: () => setSpeaking(false),
+      onError: () => {
+        setSpeaking(false);
+        setTtsError(fa
+          ? "متأسفانه پخش صوتی فارسی در این مرورگر در دسترس نیست."
+          : "Speech playback failed for this language.");
+      },
     });
   };
 
@@ -127,30 +131,70 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
 
   if (!book) return null;
 
+  const cover = book.cover_url ? resolveBookCover(book.cover_url, { width: 600, quality: 80 }) : null;
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) stop(); onOpenChange(o); }}>
-      <DialogContent className="max-w-3xl h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
-        <div className="px-6 pt-6 pb-4 border-b shrink-0">
-          <DialogHeader>
-            <div className="flex items-start gap-4">
-              {book.cover_url && (
+      <DialogContent className="max-w-4xl h-[92vh] p-0 gap-0 flex flex-col overflow-hidden">
+        {/* HERO */}
+        <div className="relative shrink-0 overflow-hidden">
+          {cover && (
+            <div
+              className="absolute inset-0 bg-cover bg-center scale-110 blur-2xl opacity-40"
+              style={{ backgroundImage: `url(${cover})` }}
+              aria-hidden
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/80 to-background" aria-hidden />
+          <DialogHeader className="relative px-6 pt-6 pb-5">
+            <div className="flex items-start gap-5">
+              {cover ? (
                 <img
-                  src={resolveBookCover(book.cover_url, { width: 200, quality: 75 })}
+                  src={cover}
                   alt={book.title}
                   loading="lazy"
                   decoding="async"
-                  className="w-20 h-28 object-cover rounded-lg shadow-md flex-shrink-0"
+                  className="w-28 h-40 md:w-32 md:h-44 object-cover rounded-xl shadow-2xl ring-1 ring-border flex-shrink-0"
                 />
+              ) : (
+                <div className="w-28 h-40 md:w-32 md:h-44 rounded-xl bg-secondary flex items-center justify-center text-muted-foreground flex-shrink-0">
+                  <BookOpen className="w-10 h-10" />
+                </div>
               )}
               <div className="flex-1 min-w-0">
-                <DialogTitle className="font-display text-2xl">{book.title}</DialogTitle>
-                <DialogDescription className="mt-1">
-                  {book.author}
-                  {book.category && <Badge variant="secondary" className="ms-2">{book.category}</Badge>}
-                </DialogDescription>
-                <p className="text-xs text-primary font-semibold mt-2">
-                  {book.price === 0 ? (fa ? "رایگان" : "Free") : `${book.price.toLocaleString()} ${fa ? "تومان" : "Toman"}`}
-                </p>
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                  {book.category && <Badge variant="secondary" className="text-[10px]">{book.category}</Badge>}
+                  {ratingAvg !== null && (
+                    <Badge variant="outline" className="text-[10px] gap-1">
+                      <Star className="w-3 h-3 fill-accent text-accent" />
+                      {ratingAvg.toFixed(1)} ({ratingCount.toLocaleString(fa ? "fa-IR" : undefined)})
+                    </Badge>
+                  )}
+                </div>
+                <DialogTitle className="font-display text-2xl md:text-3xl leading-tight">{book.title}</DialogTitle>
+                <DialogDescription className="mt-1 text-base">{book.author}</DialogDescription>
+                {book.description && (
+                  <p className="mt-3 text-sm text-foreground/80 line-clamp-2 leading-relaxed">{book.description}</p>
+                )}
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <span className="text-base font-bold text-primary">
+                    {book.price === 0 ? (fa ? "رایگان" : "Free") : `${book.price.toLocaleString()} ${fa ? "تومان" : "Toman"}`}
+                  </span>
+                  {isOwned ? (
+                    <Link to={`/read/${book.id}`}>
+                      <Button size="sm" className="gap-1.5"><Check className="w-3.5 h-3.5" /> {fa ? "مطالعه" : "Read"}</Button>
+                    </Link>
+                  ) : isOwner ? (
+                    <Link to={`/edit/${book.id}`}>
+                      <Button size="sm" variant="outline">{fa ? "ویرایش" : "Edit"}</Button>
+                    </Link>
+                  ) : canBuy ? (
+                    <Button size="sm" onClick={onBuy} className="gap-1.5 bg-gradient-warm hover:opacity-90">
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                      {book.price === 0 ? (fa ? "افزودن به کتابخانه" : "Add to library") : (fa ? "خرید" : "Buy")}
+                    </Button>
+                  ) : null}
+                </div>
               </div>
             </div>
           </DialogHeader>
@@ -161,104 +205,98 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
-            {/* AI summary */}
-            <section className="mb-5">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-accent" />
-                  {fa ? "خلاصه هوش مصنوعی" : "AI Summary"}
-                </h3>
-                <div className="flex gap-2">
+          <Tabs defaultValue="summary" className="flex-1 min-h-0 flex flex-col" dir={fa ? "rtl" : "ltr"}>
+            <div className="px-6 border-b shrink-0">
+              <TabsList className="h-10">
+                <TabsTrigger value="summary" className="gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> {fa ? "خلاصه" : "Summary"}
+                </TabsTrigger>
+                <TabsTrigger value="preview" className="gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5" /> {fa ? "پیش‌نمایش" : "Preview"}
+                  <Badge variant="outline" className="ms-1 text-[10px] h-4 px-1">{previewIdx.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="comments" className="gap-1.5">
+                  <MessageCircle className="w-3.5 h-3.5" /> {fa ? "نظرات" : "Comments"}
+                  {ratingCount > 0 && (
+                    <Badge variant="outline" className="ms-1 text-[10px] h-4 px-1">{ratingCount}</Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5 min-h-0">
+              <TabsContent value="summary" className="mt-0 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
                   {!summary && (
-                    <Button size="sm" variant="outline" onClick={generateSummary} disabled={summarizing}>
-                      {summarizing ? <Loader2 className="w-3.5 h-3.5 animate-spin me-1.5" /> : <Sparkles className="w-3.5 h-3.5 me-1.5" />}
-                      {fa ? "تولید" : "Generate"}
+                    <Button size="sm" variant="outline" onClick={generateSummary} disabled={summarizing} className="gap-1.5">
+                      {summarizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      {fa ? "تولید خلاصه" : "Generate summary"}
                     </Button>
                   )}
                   {speaking ? (
-                    <Button size="sm" variant="outline" onClick={stop}>
-                      <Square className="w-3.5 h-3.5 me-1.5" />
-                      {fa ? "توقف" : "Stop"}
+                    <Button size="sm" variant="outline" onClick={stop} className="gap-1.5">
+                      <Square className="w-3.5 h-3.5" /> {fa ? "توقف" : "Stop"}
                     </Button>
                   ) : (
-                    <Button size="sm" variant="outline" onClick={speak} disabled={!summary && !previewText}>
-                      <Play className="w-3.5 h-3.5 me-1.5" />
-                      {fa ? "خلاصه صوتی" : "Listen"}
+                    <Button size="sm" variant="outline" onClick={speak} disabled={!summary && !previewText} className="gap-1.5">
+                      <Volume2 className="w-3.5 h-3.5" /> {fa ? "خلاصه صوتی" : "Listen"}
                     </Button>
                   )}
                 </div>
-              </div>
-              {summary ? (
-                <p className="text-sm leading-relaxed text-foreground/90 bg-secondary/40 rounded-xl p-4">{summary}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">
-                  {fa
-                    ? "هنوز خلاصه‌ای ساخته نشده. روی «تولید» بزنید تا هوش مصنوعی یک خلاصه کوتاه از کتاب بسازد."
-                    : "No summary yet. Click Generate to let AI write a short summary."}
-                </p>
-              )}
-            </section>
-
-            <Separator className="my-4" />
-
-            {/* Preview pages */}
-            <section>
-              <h3 className="font-semibold flex items-center gap-2 mb-3">
-                <BookOpen className="w-4 h-4 text-accent" />
-                {fa ? "پیش‌نمایش کتاب" : "Book Preview"}
-                <Badge variant="outline" className="text-xs ms-auto">
-                  {previewIdx.length} {fa ? "صفحه" : "pages"}
-                </Badge>
-              </h3>
-              <div className="space-y-5">
-                {previewIdx.map((i) => {
-                  const p = pages[i];
-                  if (!p) return null;
-                  return (
-                    <article key={i} className="paper-card rounded-xl p-4">
-                      {p.title && <h4 className="font-display font-bold text-lg mb-2">{p.title}</h4>}
-                      <div className="space-y-2 text-sm leading-relaxed">
-                        {(p.blocks ?? []).slice(0, 8).map((b, j) => (
-                          <BlockRenderer key={j} block={b as Block} fontSize={14} index={j} pageIndex={i} />
-                        ))}
-                        {(p.blocks?.length ?? 0) > 8 && (
-                          <p className="text-xs text-muted-foreground italic">…</p>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
-                {previewIdx.length === 0 && (
+                {ttsError && (
+                  <div className="flex items-start gap-2 text-xs text-destructive bg-destructive/10 border border-destructive/30 rounded-lg p-2">
+                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    <span>{ttsError}</span>
+                  </div>
+                )}
+                {summary ? (
+                  <div className="rounded-2xl border bg-gradient-to-br from-secondary/40 to-secondary/10 p-5">
+                    <p className="text-sm leading-loose text-foreground/90 whitespace-pre-wrap">{summary}</p>
+                  </div>
+                ) : (
                   <p className="text-sm text-muted-foreground italic">
-                    {fa ? "صفحه‌ای برای پیش‌نمایش وجود ندارد." : "No pages available for preview."}
+                    {fa
+                      ? "هنوز خلاصه‌ای ساخته نشده. روی «تولید خلاصه» بزنید تا هوش مصنوعی خلاصه کوتاهی از کتاب آماده کند."
+                      : "No summary yet. Click Generate to create one."}
                   </p>
                 )}
-              </div>
-            </section>
+              </TabsContent>
 
-            <Separator className="my-4" />
-            <BookComments bookId={book.id} />
-          </div>
+              <TabsContent value="preview" className="mt-0 space-y-4">
+                {previewIdx.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic text-center py-8">
+                    {fa ? "صفحه‌ای برای پیش‌نمایش وجود ندارد." : "No preview pages."}
+                  </p>
+                ) : (
+                  previewIdx.map((i) => {
+                    const p = pages[i];
+                    if (!p) return null;
+                    return (
+                      <article key={i} className="paper-card rounded-xl p-5">
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+                          {fa ? `صفحه ${(i + 1).toLocaleString("fa-IR")}` : `Page ${i + 1}`}
+                        </div>
+                        {p.title && <h4 className="font-display font-bold text-lg mb-3">{p.title}</h4>}
+                        <div className="space-y-2 text-sm leading-relaxed">
+                          {(p.blocks ?? []).slice(0, 10).map((b, j) => (
+                            <BlockRenderer key={j} block={b as Block} fontSize={14} index={j} pageIndex={i} />
+                          ))}
+                          {(p.blocks?.length ?? 0) > 10 && (
+                            <p className="text-xs text-muted-foreground italic">…</p>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })
+                )}
+              </TabsContent>
+
+              <TabsContent value="comments" className="mt-0">
+                <BookComments bookId={book.id} />
+              </TabsContent>
+            </div>
+          </Tabs>
         )}
-
-        {/* Footer actions */}
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t shrink-0">
-          {isOwned ? (
-            <Link to={`/read/${book.id}`}>
-              <Button className="gap-1.5"><Check className="w-3.5 h-3.5" /> {fa ? "مطالعه" : "Read"}</Button>
-            </Link>
-          ) : isOwner ? (
-            <Link to={`/edit/${book.id}`}>
-              <Button variant="outline">{fa ? "ویرایش" : "Edit"}</Button>
-            </Link>
-          ) : canBuy ? (
-            <Button onClick={onBuy} className="gap-1.5 bg-gradient-warm hover:opacity-90">
-              <ShoppingBag className="w-3.5 h-3.5" />
-              {book.price === 0 ? (fa ? "افزودن به کتابخانه" : "Add to library") : (fa ? "خرید" : "Buy")}
-            </Button>
-          ) : null}
-        </div>
       </DialogContent>
     </Dialog>
   );
