@@ -7,7 +7,7 @@ const dict: Dict = {
   brand: { fa: "کتاب‌خانه", en: "Bookhane" },
   tagline: { fa: "تجربه‌ای نو از خواندن", en: "A new way to read" },
   hero_title: { fa: "کتاب‌ها زنده می‌شوند", en: "Where books come alive" },
-  hero_sub: { fa: "سامانه کتاب دیجیتال تعاملی با هوش مصنوعی، صدای محیطی و تجربه ورق زدن سه‌بعدی", en: "Interactive digital books with AI, ambient sound and 3D page-turning" },
+  hero_sub: { fa: "سامانه کتابهای تعاملی دیجیتالی تجربه ای تازه، لذت بخش و هیجان انگیز از دنیای کتابها", en: "A fresh, delightful, and exciting experience of the world of books" },
   cta_start: { fa: "شروع کنید", en: "Get Started" },
   cta_explore: { fa: "کاوش کتاب‌ها", en: "Explore Books" },
   nav_home: { fa: "خانه", en: "Home" },
