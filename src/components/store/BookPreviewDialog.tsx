@@ -130,10 +130,11 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
 
   const stop = () => { stopSpeak(); setSpeaking(false); };
 
-  if (!book) return null;
-
-  const autoCover = useAutoCover(book.id, book.cover_url);
+  // Hooks must run unconditionally — call before any early return.
+  const autoCover = useAutoCover(book?.id ?? "", book?.cover_url ?? null);
   const cover = autoCover ? resolveBookCover(autoCover, { width: 600, quality: 80 }) : null;
+
+  if (!book) return null;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) stop(); onOpenChange(o); }}>
