@@ -461,6 +461,13 @@ const Publisher = () => {
         onBuy={() => {}}
       />
 
+      <PublisherCommentsDialog
+        bookId={commentsBook?.id ?? null}
+        bookTitle={commentsBook?.title ?? ""}
+        open={!!commentsBook}
+        onOpenChange={(o) => !o && setCommentsBook(null)}
+      />
+
       {/* Sales detail dialog */}
       <Dialog open={!!salesDetailFor} onOpenChange={(o) => !o && setSalesDetailFor(null)}>
         <DialogContent className="max-w-lg glass-strong">
