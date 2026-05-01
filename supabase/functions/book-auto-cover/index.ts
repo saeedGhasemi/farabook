@@ -1,12 +1,10 @@
 // Generates a book cover image automatically based on the first few pages
-// of content (title + extracted text). Uses Lovable AI image model.
-// Saves to `book-media` bucket via service role and updates books.cover_url.
-//
-// Idempotent: if the book already has a cover_url, returns it without
-// regenerating. Designed to be called publicly (anyone viewing the store
-// can trigger generation for a book missing a cover) — but rate limited
-// per book via the cover_url itself (set immediately after gen).
+// of content (title + extracted text). Uses Lovable AI image model when
+// available, otherwise falls back to a deterministic SVG cover so the
+// endpoint NEVER returns a 5xx error.
+// Build version: v4 (force redeploy — SVG fallback when AI is 402/5xx)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
