@@ -4,12 +4,13 @@ import { motion } from "framer-motion";
 import {
   Briefcase, Plus, Pencil, Trash2, Eye, BookOpen, Users, FileEdit,
   CheckCircle2, ExternalLink, Loader2, Settings, BarChart3,
-  Rocket,
+  Rocket, MessageCircle,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
+import { PublisherCommentsDialog } from "@/components/publisher/PublisherCommentsDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/lib/i18n";
@@ -71,6 +72,7 @@ const Publisher = () => {
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<Book | null>(null);
   const [previewBook, setPreviewBook] = useState<Book | null>(null);
+  const [commentsBook, setCommentsBook] = useState<Book | null>(null);
   const [salesDetailFor, setSalesDetailFor] = useState<Book | null>(null);
 
   useEffect(() => {
@@ -388,6 +390,16 @@ const Publisher = () => {
                           {lang === "fa" ? "پیش‌نمایش" : "Preview"}
                         </Button>
                         <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() => setCommentsBook(book)}
+                          title={lang === "fa" ? "مدیریت نظرات" : "Manage comments"}
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          {lang === "fa" ? "نظرات" : "Comments"}
+                        </Button>
+                        <Button
                           size="icon"
                           variant="ghost"
                           className="h-8 w-8 text-destructive"
@@ -447,6 +459,13 @@ const Publisher = () => {
         isOwner={true}
         canBuy={false}
         onBuy={() => {}}
+      />
+
+      <PublisherCommentsDialog
+        bookId={commentsBook?.id ?? null}
+        bookTitle={commentsBook?.title ?? ""}
+        open={!!commentsBook}
+        onOpenChange={(o) => !o && setCommentsBook(null)}
       />
 
       {/* Sales detail dialog */}
