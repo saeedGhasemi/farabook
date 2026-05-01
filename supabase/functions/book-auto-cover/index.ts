@@ -77,26 +77,93 @@ Deno.serve(async (req) => {
     ].filter(Boolean);
     const prompt = promptParts.join("\n");
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // Helpers for SVG fallback (deterministic, no AI required)
+    const escapeXml = (s: string) => s.replace(/[<>&"']/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" }[c]!));
+    const hashStr = (s: string) => { let h = 0; for (let i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; } return Math.abs(h); };
+    const buildSvgCover = (): { bin: Uint8Array; mime: string; ext: string } => {
+      const palettes = [
+        ["#1e3a8a", "#3b82f6", "#fbbf24"],
+        ["#0f766e", "#14b8a6", "#fef3c7"],
+        ["#7c2d12", "#ea580c", "#fde68a"],
+        ["#581c87", "#a855f7", "#fbcfe8"],
+        ["#064e3b", "#10b981", "#fef9c3"],
+        ["#831843", "#ec4899", "#fde68a"],
+        ["#1e293b", "#475569", "#f1f5f9"],
+        ["#7c1d6f", "#c026d3", "#fef3c7"],
+      ];
+      const h = hashStr(`${title}|${book.author || ""}|${book.category || ""}`);
+      const [c1, c2, c3] = palettes[h % palettes.length];
+      const initial = (title.trim().charAt(0) || "?").toUpperCase();
+      const cat = book.category ? escapeXml(book.category) : "";
+      const author = book.author ? escapeXml(book.author) : "";
+      const titleEsc = escapeXml(title.slice(0, 40));
+      const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="${c1}"/>
+      <stop offset="60%" stop-color="${c2}"/>
+      <stop offset="100%" stop-color="${c3}"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#g)"/>
+  <rect width="600" height="800" fill="url(#glow)"/>
+  <g opacity="0.18" stroke="#ffffff" stroke-width="1.5" fill="none">
+    <circle cx="500" cy="120" r="80"/>
+    <circle cx="500" cy="120" r="140"/>
+    <circle cx="100" cy="700" r="100"/>
+    <circle cx="100" cy="700" r="160"/>
+  </g>
+  <text x="300" y="430" text-anchor="middle" font-family="Georgia, serif" font-size="320" font-weight="700" fill="#ffffff" fill-opacity="0.9">${escapeXml(initial)}</text>
+  ${cat ? `<text x="300" y="560" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="22" letter-spacing="4" fill="#ffffff" fill-opacity="0.85">${cat.toUpperCase()}</text>` : ""}
+  <text x="300" y="650" text-anchor="middle" font-family="Georgia, serif" font-size="34" font-weight="600" fill="#ffffff">${titleEsc}</text>
+  ${author ? `<text x="300" y="700" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="20" fill="#ffffff" fill-opacity="0.8">${author}</text>` : ""}
+  <rect x="20" y="20" width="560" height="760" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="2" rx="8"/>
+</svg>`;
+      return { bin: new TextEncoder().encode(svg), mime: "image/svg+xml", ext: "svg" };
+    };
 
-    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, messages: [{ role: "user", content: prompt }], modalities: ["image", "text"] }),
-    });
-    if (!r.ok) {
-      const txt = await r.text();
-      console.error("auto-cover ai", r.status, txt);
-      return new Response(JSON.stringify({ error: fa ? "خطای تولید کاور" : "cover gen failed", status: r.status }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    let bin: Uint8Array | null = null;
+    let mime = "image/jpeg";
+    let ext = "jpg";
+    let usedFallback = false;
+
+    if (LOVABLE_API_KEY) {
+      try {
+        const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: MODEL, messages: [{ role: "user", content: prompt }], modalities: ["image", "text"] }),
+        });
+        if (r.ok) {
+          const data = await r.json();
+          const imgUrl: string | undefined = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+          const m = imgUrl?.match(/^data:([^;]+);base64,(.+)$/);
+          if (m) {
+            mime = m[1];
+            bin = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
+            ext = mime === "image/png" ? "png" : "jpg";
+          }
+        } else {
+          const txt = await r.text();
+          console.warn("auto-cover ai", r.status, txt);
+        }
+      } catch (e) {
+        console.warn("auto-cover ai exception", e);
+      }
     }
-    const data = await r.json();
-    const imgUrl: string | undefined = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    const m = imgUrl?.match(/^data:([^;]+);base64,(.+)$/);
-    if (!m) return new Response(JSON.stringify({ error: "no image" }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    const mime = m[1];
-    const bin = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
-    const ext = mime === "image/png" ? "png" : "jpg";
+
+    if (!bin) {
+      const fb = buildSvgCover();
+      bin = fb.bin; mime = fb.mime; ext = fb.ext;
+      usedFallback = true;
+    }
+
     const owner = book.publisher_id || "system";
     const key = `${owner}/auto-cover/${bookId}-${Date.now()}.${ext}`;
     const up = await sbAdmin.storage.from("book-media").upload(key, bin, { contentType: mime, upsert: true });
@@ -109,7 +176,7 @@ Deno.serve(async (req) => {
 
     await sbAdmin.from("books").update({ cover_url: url }).eq("id", bookId);
 
-    return new Response(JSON.stringify({ url, cached: false }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ url, cached: false, fallback: usedFallback }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("book-auto-cover", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "unknown" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
