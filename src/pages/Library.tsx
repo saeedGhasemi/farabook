@@ -65,7 +65,7 @@ const Library = () => {
         .select("id, title, title_en, author, cover_url, category, publisher_id, status, price")
         .eq("publisher_id", user.id)
         .eq("status", "published");
-      const virtualRows: Row[] = ((pub as any[]) ?? [])
+      const virtualRows: Row[] = ((pub as NonNullable<Row["books"]>[]) ?? [])
         .filter((b) => !ownedBookIds.has(b.id))
         .map((b) => ({
           id: `pub-${b.id}`,
