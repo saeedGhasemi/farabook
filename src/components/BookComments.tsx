@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import { attachCommentProfiles } from "@/lib/comment-profiles";
 
 interface CommentRow {
   id: string;
@@ -51,13 +52,13 @@ export const BookComments = ({ bookId }: Props) => {
       supabase.from("books").select("publisher_id, comments_enabled").eq("id", bookId).maybeSingle(),
       supabase
         .from("book_comments")
-        .select("id, user_id, body, rating, edited, is_hidden, created_at, profiles:user_id(display_name, avatar_url)")
+        .select("id, user_id, body, rating, edited, is_hidden, created_at")
         .eq("book_id", bookId)
         .order("created_at", { ascending: false }),
     ]);
     setPublisherId((bk as { publisher_id?: string | null } | null)?.publisher_id ?? null);
     setCommentsEnabled((bk as { comments_enabled?: boolean } | null)?.comments_enabled !== false);
-    setComments((data as unknown as CommentRow[]) || []);
+    setComments(await attachCommentProfiles((data as unknown as CommentRow[]) || []));
     setLoading(false);
   };
 
