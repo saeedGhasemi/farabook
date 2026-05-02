@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { BookEditor, draftsFromDbPages } from "@/components/builder/BookEditor";
 import { BookPreviewDialog } from "@/components/store/BookPreviewDialog";
+import { BookComments } from "@/components/BookComments";
 
 const Edit = () => {
   const { id } = useParams();
@@ -145,6 +146,12 @@ const Edit = () => {
       </motion.div>
 
       <BookEditor initial={initial} />
+
+      <section className="container max-w-4xl py-8">
+        <div className="paper-card rounded-2xl p-4 md:p-6">
+          <BookComments bookId={initial.id!} />
+        </div>
+      </section>
 
       <BookPreviewDialog
         book={previewBook}

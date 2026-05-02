@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BookOpen, Pencil, Trash2 } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,7 +13,6 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 import { BookCover } from "@/components/store/BookCover";
 import { bookCreditCost } from "@/lib/purchase";
 
@@ -66,7 +65,7 @@ const Library = () => {
         .select("id, title, title_en, author, cover_url, category, publisher_id, status, price")
         .eq("publisher_id", user.id)
         .eq("status", "published");
-      const virtualRows: Row[] = ((pub as any[]) ?? [])
+      const virtualRows: Row[] = ((pub as NonNullable<Row["books"]>[]) ?? [])
         .filter((b) => !ownedBookIds.has(b.id))
         .map((b) => ({
           id: `pub-${b.id}`,
@@ -112,7 +111,7 @@ const Library = () => {
           </Link>
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {rows.map((r, i) => {
             if (!r.books) return null;
             const title = lang === "en" && r.books.title_en ? r.books.title_en : r.books.title;
@@ -124,29 +123,29 @@ const Library = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
                 whileHover={{ y: -6 }}
-                className="paper-card rounded-2xl overflow-hidden flex group relative"
+                className="paper-card rounded-2xl overflow-hidden flex flex-col group relative"
               >
-                <Link to={`/read/${r.books.id}`} className="flex w-full">
-                  <div className="w-32 flex-shrink-0 aspect-[3/4] overflow-hidden bg-secondary relative">
+                <Link to={`/read/${r.books.id}`} className="flex flex-col w-full h-full">
+                  <div className="relative aspect-[3/4] overflow-hidden bg-secondary book-shadow">
                     <BookCover
                       bookId={r.books.id}
                       cover={r.books.cover_url}
                       title={title}
-                      width={256}
-                      quality={65}
-                      sizes="128px"
-                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700"
+                      width={480}
+                      quality={70}
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
                     {isDraft && (
-                      <Badge className="absolute top-1 start-1 bg-accent text-accent-foreground border-0 text-[10px] px-1.5 py-0">
+                      <Badge className="absolute top-3 end-3 bg-accent text-accent-foreground border-0">
                         {lang === "fa" ? "پیش‌نویس" : "Draft"}
                       </Badge>
                     )}
                   </div>
-                  <div className="p-4 flex-1 flex flex-col gap-2">
+                  <div className="p-5 flex-1 flex flex-col gap-3">
                     <div>
-                      <h3 className="font-display font-bold leading-tight line-clamp-2">{title}</h3>
-                      <p className="text-xs text-muted-foreground mt-1">{r.books.author}</p>
+                      <h3 className="font-display font-bold text-lg leading-tight line-clamp-2">{title}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">{r.books.author}</p>
                     </div>
                     <div className="flex items-center justify-between gap-2">
                       <Badge variant="outline" className="text-xs">{statusLabel(r.status)}</Badge>

@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { attachCommentProfiles } from "@/lib/comment-profiles";
 
 interface CommentRow {
   id: string;
@@ -45,12 +46,12 @@ export const PublisherCommentsDialog = ({ bookId, bookTitle, open, onOpenChange 
         supabase.from("books").select("comments_enabled").eq("id", bookId).maybeSingle(),
         supabase
           .from("book_comments")
-          .select("id, user_id, body, rating, is_hidden, auto_flagged, flag_reason, created_at, profiles:user_id(display_name, avatar_url)")
+          .select("id, user_id, body, rating, is_hidden, auto_flagged, flag_reason, created_at")
           .eq("book_id", bookId)
           .order("created_at", { ascending: false }),
       ]);
       setEnabled((bk as { comments_enabled?: boolean } | null)?.comments_enabled !== false);
-      setComments((data as unknown as CommentRow[]) || []);
+      setComments(await attachCommentProfiles((data as unknown as CommentRow[]) || []));
       setLoading(false);
     })();
   }, [open, bookId]);
