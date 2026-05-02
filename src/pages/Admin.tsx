@@ -500,11 +500,18 @@ const AdminInner = () => {
             <TabsTrigger value="moderation" className="gap-2 whitespace-nowrap shrink-0">
               <ShieldAlert className="w-4 h-4" /> ناظر کامنت
             </TabsTrigger>
+            <TabsTrigger value="sms" className="gap-2 whitespace-nowrap shrink-0">
+              <MessageSquare className="w-4 h-4" /> پیامک
+            </TabsTrigger>
           </TabsList>
         </div>
 
         <TabsContent value="moderation" className="mt-4">
           <CommentModerationPanel />
+        </TabsContent>
+
+        <TabsContent value="sms" className="mt-4">
+          <SmsSettingsPanel />
         </TabsContent>
 
         <TabsContent value="treasury" className="mt-4">
