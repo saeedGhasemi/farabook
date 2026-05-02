@@ -48,6 +48,7 @@ const Library = () => {
   const [rows, setRows] = useState<Row[]>([]);
   const [rowsLoading, setRowsLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<Row["books"] | null>(null);
+  const [commentsBook, setCommentsBook] = useState<{ id: string; title: string } | null>(null);
 
   useEffect(() => {
     if (!loading && !user) nav("/auth");
