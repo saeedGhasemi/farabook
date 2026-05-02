@@ -18,6 +18,7 @@ import { HighlightsPanel, type HighlightItem } from "@/components/reader/Highlig
 import { resolveBookMedia } from "@/lib/book-media";
 import { speakSmart, stopSpeak as stopSpeakSmart } from "@/lib/tts";
 import { docToLegacyBlocks } from "@/lib/tiptap-doc";
+import { BookComments } from "@/components/BookComments";
 
 interface Page {
   title: string;
@@ -632,6 +633,13 @@ const Reader = () => {
                 {t("next")} <Next className="w-4 h-4" />
               </Button>
             </div>
+            {id && (
+              <section className="pb-32">
+                <div className="paper-card rounded-2xl p-4 md:p-6">
+                  <BookComments bookId={id} />
+                </div>
+              </section>
+            )}
           </div>
         </div>
       </div>
