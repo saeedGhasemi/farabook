@@ -201,6 +201,15 @@ const Library = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!commentsBook} onOpenChange={(o) => !o && setCommentsBook(null)}>
+        <DialogContent className="max-w-2xl max-h-[88vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="truncate">{commentsBook?.title}</DialogTitle>
+          </DialogHeader>
+          {commentsBook && <BookComments bookId={commentsBook.id} />}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 };
