@@ -1,0 +1,8 @@
+ALTER TABLE public.sms_settings
+  ADD COLUMN IF NOT EXISTS provider TEXT NOT NULL DEFAULT 'kavenegar',
+  ADD COLUMN IF NOT EXISTS api_key TEXT,
+  ADD COLUMN IF NOT EXISTS api_username TEXT,
+  ADD COLUMN IF NOT EXISTS api_password TEXT,
+  ADD COLUMN IF NOT EXISTS custom_endpoint TEXT,
+  ADD COLUMN IF NOT EXISTS custom_payload_template TEXT,
+  ADD COLUMN IF NOT EXISTS extra JSONB NOT NULL DEFAULT '{}'::jsonb;
