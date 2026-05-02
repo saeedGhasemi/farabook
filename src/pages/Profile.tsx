@@ -55,9 +55,35 @@ const profileSchema = z.object({
   bio: z.string().trim().max(500).optional().or(z.literal("")),
   avatar_url: z.string().trim().url("آدرس نامعتبر").max(500).optional().or(z.literal("")),
   contact_email: z.string().trim().email("ایمیل نامعتبر").max(255).optional().or(z.literal("")),
-  contact_phone: z.string().trim().max(40).optional().or(z.literal("")),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^09\d{9}$/, "شماره موبایل باید با 09 شروع شده و ۱۱ رقم باشد")
+    .optional()
+    .or(z.literal("")),
   website: z.string().trim().url("آدرس نامعتبر").max(255).optional().or(z.literal("")),
 });
+
+const COUNTRY_CODES = [
+  { code: "+98", label: "ایران (+98)", iso: "IR" },
+  { code: "+1", label: "آمریکا/کانادا (+1)", iso: "US" },
+  { code: "+44", label: "بریتانیا (+44)", iso: "GB" },
+  { code: "+49", label: "آلمان (+49)", iso: "DE" },
+  { code: "+33", label: "فرانسه (+33)", iso: "FR" },
+  { code: "+971", label: "امارات (+971)", iso: "AE" },
+  { code: "+90", label: "ترکیه (+90)", iso: "TR" },
+];
+
+// Convert any input + selected country to canonical 09xxxxxxxxx for Iran
+const toIranLocal = (raw: string): string => {
+  const digits = (raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  let s = digits;
+  if (s.startsWith("0098")) s = s.slice(4);
+  else if (s.startsWith("98")) s = s.slice(2);
+  if (s.startsWith("9") && s.length === 10) s = "0" + s;
+  return s;
+};
 
 const Profile = () => {
   const { user, loading: authLoading } = useAuth();
