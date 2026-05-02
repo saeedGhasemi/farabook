@@ -627,6 +627,12 @@ export type Database = {
           id: string
           is_active: boolean
           national_id: string | null
+          phone: string | null
+          phone_verified: boolean
+          sms_notify_approvals: boolean
+          sms_notify_credit: boolean
+          sms_notify_purchase: boolean
+          sms_notify_revenue: boolean
           updated_at: string
           username: string | null
           website: string | null
@@ -642,6 +648,12 @@ export type Database = {
           id: string
           is_active?: boolean
           national_id?: string | null
+          phone?: string | null
+          phone_verified?: boolean
+          sms_notify_approvals?: boolean
+          sms_notify_credit?: boolean
+          sms_notify_purchase?: boolean
+          sms_notify_revenue?: boolean
           updated_at?: string
           username?: string | null
           website?: string | null
@@ -657,6 +669,12 @@ export type Database = {
           id?: string
           is_active?: boolean
           national_id?: string | null
+          phone?: string | null
+          phone_verified?: boolean
+          sms_notify_approvals?: boolean
+          sms_notify_credit?: boolean
+          sms_notify_purchase?: boolean
+          sms_notify_revenue?: boolean
           updated_at?: string
           username?: string | null
           website?: string | null
@@ -750,6 +768,78 @@ export type Database = {
           status?: string
           user_id?: string
           website?: string | null
+        }
+        Relationships: []
+      }
+      sms_log: {
+        Row: {
+          body: string
+          created_at: string
+          error: string | null
+          event: string
+          id: string
+          phone: string
+          provider_message_id: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          error?: string | null
+          event: string
+          id?: string
+          phone: string
+          provider_message_id?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          error?: string | null
+          event?: string
+          id?: string
+          phone?: string
+          provider_message_id?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      sms_settings: {
+        Row: {
+          enabled: boolean
+          id: number
+          sender: string | null
+          tpl_approval: string
+          tpl_credit: string
+          tpl_purchase: string
+          tpl_revenue: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          id?: number
+          sender?: string | null
+          tpl_approval?: string
+          tpl_credit?: string
+          tpl_purchase?: string
+          tpl_revenue?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          id?: number
+          sender?: string | null
+          tpl_approval?: string
+          tpl_credit?: string
+          tpl_purchase?: string
+          tpl_revenue?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -1034,6 +1124,7 @@ export type Database = {
       is_publisher: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       is_valid_iran_national_id: { Args: { _code: string }; Returns: boolean }
+      normalize_iran_mobile: { Args: { _p: string }; Returns: string }
       publish_book_paid: {
         Args: { _book_id: string; _complexity?: number }
         Returns: Json
