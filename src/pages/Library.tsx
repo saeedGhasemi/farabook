@@ -169,7 +169,14 @@ const Library = () => {
                     </div>
                   </div>
                 </Link>
-                {/* Edit/Delete moved to Publisher page only — kept off the Library cards. */}
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCommentsBook({ id: r.books!.id, title: title }); }}
+                  className="absolute top-3 start-3 h-8 w-8 rounded-full bg-background/90 backdrop-blur border flex items-center justify-center hover:bg-background transition"
+                  title={lang === "fa" ? "نظرات" : "Comments"}
+                >
+                  <MessageCircle className="w-4 h-4 text-accent" />
+                </button>
               </motion.div>
             );
           })}
