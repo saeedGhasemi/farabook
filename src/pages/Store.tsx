@@ -157,7 +157,7 @@ const Store = () => {
         )}
       </motion.div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
         {filtered.map((book, i) => {
           const isOwned = owned.has(book.id);
           const isOwner = !!user && book.publisher_id === user.id;
@@ -183,23 +183,22 @@ const Store = () => {
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
                 {book.category && (
-                  <Badge className="absolute top-3 start-3 bg-primary text-primary-foreground border-0 shadow-md font-medium">{book.category}</Badge>
+                  <Badge className="absolute top-2 start-2 bg-primary text-primary-foreground border-0 shadow-md font-medium text-[10px] px-1.5 py-0.5">{book.category}</Badge>
                 )}
                 {isDraft && (
-                  <Badge className="absolute top-3 end-3 bg-accent text-accent-foreground border-0">
+                  <Badge className="absolute top-2 end-2 bg-accent text-accent-foreground border-0 text-[10px] px-1.5 py-0.5">
                     {lang === "fa" ? "پیش‌نویس" : "Draft"}
                   </Badge>
                 )}
-                {/* Edit/Delete actions are only available in the Publisher page. */}
               </div>
-              <div className="p-5 flex-1 flex flex-col gap-3">
+              <div className="p-3 flex-1 flex flex-col gap-2">
                 <div>
-                  <h3 className="font-display font-bold text-lg leading-tight line-clamp-2">{title}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">{book.author}</p>
+                  <h3 className="font-display font-semibold text-sm leading-tight line-clamp-2">{title}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{book.author}</p>
                 </div>
                 {ratings[book.id] && (
-                  <div className="flex items-center gap-1 text-xs">
-                    <Star className="w-3.5 h-3.5 fill-accent text-accent" />
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <Star className="w-3 h-3 fill-accent text-accent" />
                     <span className="font-semibold text-foreground">
                       {ratings[book.id].avg.toFixed(1)}
                     </span>
@@ -208,45 +207,29 @@ const Store = () => {
                     </span>
                   </div>
                 )}
-                <p className="text-sm text-muted-foreground line-clamp-2 flex-1">{book.description}</p>
-                <div className="flex items-center justify-between gap-2 pt-2">
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-primary">
-                      {book.price === 0 ? t("free") : `${book.price.toLocaleString()} ${t("toman")}`}
-                    </span>
-                    {book.price > 0 && (
-                      <span className="text-[11px] text-muted-foreground">
-                        {lang === "fa"
-                          ? `${bookCreditCost(book.price).toLocaleString("fa-IR")} اعتبار`
-                          : `${bookCreditCost(book.price).toLocaleString()} credits`}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex gap-1.5">
+                <div className="flex items-center justify-between gap-1 mt-auto pt-1">
+                  <span className="font-semibold text-primary text-xs">
+                    {book.price === 0 ? t("free") : `${book.price.toLocaleString()} ${t("toman")}`}
+                  </span>
+                  <div className="flex gap-1">
                     <Button
-                      size="sm"
+                      size="icon"
                       variant="ghost"
                       onClick={() => setPreviewBook(book)}
-                      className="gap-1.5"
+                      className="h-7 w-7"
                       title={lang === "fa" ? "پیش‌نمایش" : "Preview"}
                     >
                       <Eye className="w-3.5 h-3.5" />
                     </Button>
-                    {isOwner ? (
+                    {isOwner || isOwned ? (
                       <Link to={`/read/${book.id}`}>
-                        <Button size="sm" variant="outline" className="gap-1.5">
-                          <Check className="w-3.5 h-3.5" /> {t("read")}
-                        </Button>
-                      </Link>
-                    ) : isOwned ? (
-                      <Link to={`/read/${book.id}`}>
-                        <Button size="sm" variant="outline" className="gap-1.5">
-                          <Check className="w-3.5 h-3.5" /> {t("read")}
+                        <Button size="icon" variant="outline" className="h-7 w-7" title={t("read")}>
+                          <Check className="w-3.5 h-3.5" />
                         </Button>
                       </Link>
                     ) : (
-                      <Button size="sm" onClick={() => requestBuy(book)} className="gap-1.5 bg-gradient-warm hover:opacity-90">
-                        <ShoppingBag className="w-3.5 h-3.5" /> {t("buy")}
+                      <Button size="icon" onClick={() => requestBuy(book)} className="h-7 w-7 bg-gradient-warm hover:opacity-90" title={t("buy")}>
+                        <ShoppingBag className="w-3.5 h-3.5" />
                       </Button>
                     )}
                   </div>
