@@ -809,8 +809,15 @@ export type Database = {
       }
       sms_settings: {
         Row: {
+          api_key: string | null
+          api_password: string | null
+          api_username: string | null
+          custom_endpoint: string | null
+          custom_payload_template: string | null
           enabled: boolean
+          extra: Json
           id: number
+          provider: string
           sender: string | null
           tpl_approval: string
           tpl_credit: string
@@ -820,8 +827,15 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          api_key?: string | null
+          api_password?: string | null
+          api_username?: string | null
+          custom_endpoint?: string | null
+          custom_payload_template?: string | null
           enabled?: boolean
+          extra?: Json
           id?: number
+          provider?: string
           sender?: string | null
           tpl_approval?: string
           tpl_credit?: string
@@ -831,8 +845,15 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          api_key?: string | null
+          api_password?: string | null
+          api_username?: string | null
+          custom_endpoint?: string | null
+          custom_payload_template?: string | null
           enabled?: boolean
+          extra?: Json
           id?: number
+          provider?: string
           sender?: string | null
           tpl_approval?: string
           tpl_credit?: string

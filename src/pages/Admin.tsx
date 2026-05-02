@@ -3,9 +3,10 @@ import { motion } from "framer-motion";
 import {
   Shield, Users, CreditCard, BookCheck, UserPlus, Trash2, Loader2, Check, X,
   AlertCircle, Power, PowerOff, Plus, Minus, ArrowUpDown, ArrowUp, ArrowDown, Save, Pencil,
-  Banknote, ShieldAlert,
+  Banknote, ShieldAlert, MessageSquare,
 } from "lucide-react";
 import { CommentModerationPanel } from "@/components/admin/CommentModerationPanel";
+import { SmsSettingsPanel } from "@/components/admin/SmsSettingsPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -500,11 +501,18 @@ const AdminInner = () => {
             <TabsTrigger value="moderation" className="gap-2 whitespace-nowrap shrink-0">
               <ShieldAlert className="w-4 h-4" /> ناظر کامنت
             </TabsTrigger>
+            <TabsTrigger value="sms" className="gap-2 whitespace-nowrap shrink-0">
+              <MessageSquare className="w-4 h-4" /> پیامک
+            </TabsTrigger>
           </TabsList>
         </div>
 
         <TabsContent value="moderation" className="mt-4">
           <CommentModerationPanel />
+        </TabsContent>
+
+        <TabsContent value="sms" className="mt-4">
+          <SmsSettingsPanel />
         </TabsContent>
 
         <TabsContent value="treasury" className="mt-4">
