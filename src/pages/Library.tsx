@@ -15,6 +15,11 @@ import {
 import { toast } from "sonner";
 import { BookCover } from "@/components/store/BookCover";
 import { bookCreditCost } from "@/lib/purchase";
+import { MessageCircle } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { BookComments } from "@/components/BookComments";
 
 
 interface Row {
@@ -43,6 +48,7 @@ const Library = () => {
   const [rows, setRows] = useState<Row[]>([]);
   const [rowsLoading, setRowsLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<Row["books"] | null>(null);
+  const [commentsBook, setCommentsBook] = useState<{ id: string; title: string } | null>(null);
 
   useEffect(() => {
     if (!loading && !user) nav("/auth");
@@ -163,7 +169,14 @@ const Library = () => {
                     </div>
                   </div>
                 </Link>
-                {/* Edit/Delete moved to Publisher page only — kept off the Library cards. */}
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCommentsBook({ id: r.books!.id, title: title }); }}
+                  className="absolute top-3 start-3 h-8 w-8 rounded-full bg-background/90 backdrop-blur border flex items-center justify-center hover:bg-background transition"
+                  title={lang === "fa" ? "نظرات" : "Comments"}
+                >
+                  <MessageCircle className="w-4 h-4 text-accent" />
+                </button>
               </motion.div>
             );
           })}
@@ -188,6 +201,15 @@ const Library = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!commentsBook} onOpenChange={(o) => !o && setCommentsBook(null)}>
+        <DialogContent className="max-w-2xl max-h-[88vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="truncate">{commentsBook?.title}</DialogTitle>
+          </DialogHeader>
+          {commentsBook && <BookComments bookId={commentsBook.id} />}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 };

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { MessageCircle, Send, Loader2, Trash2, Star, Eye, EyeOff, Lock } from "lucide-react";
+import { MessageCircle, Send, Loader2, Trash2, Star, Eye, EyeOff, Lock, Pencil, X, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useRoles } from "@/hooks/useRoles";
@@ -34,29 +34,26 @@ interface Props {
 
 export const BookComments = ({ bookId }: Props) => {
   const { user } = useAuth();
-  const { isAdmin, has } = useRoles();
+  const { isAdmin } = useRoles();
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [body, setBody] = useState("");
   const [rating, setRating] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [commentsEnabled, setCommentsEnabled] = useState(true);
-  const [publisherId, setPublisherId] = useState<string | null>(null);
-
-  const isPublisher = !!user && publisherId === user.id;
-  const canModerate = isAdmin || has("moderator") || isPublisher;
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editBody, setEditBody] = useState("");
 
   const load = async () => {
     setLoading(true);
     const [{ data: bk }, { data }] = await Promise.all([
-      supabase.from("books").select("publisher_id, comments_enabled").eq("id", bookId).maybeSingle(),
+      supabase.from("books").select("comments_enabled").eq("id", bookId).maybeSingle(),
       supabase
         .from("book_comments")
         .select("id, user_id, body, rating, edited, is_hidden, created_at")
         .eq("book_id", bookId)
         .order("created_at", { ascending: false }),
     ]);
-    setPublisherId((bk as { publisher_id?: string | null } | null)?.publisher_id ?? null);
     setCommentsEnabled((bk as { comments_enabled?: boolean } | null)?.comments_enabled !== false);
     setComments(await attachCommentProfiles((data as unknown as CommentRow[]) || []));
     setLoading(false);
@@ -90,6 +87,7 @@ export const BookComments = ({ bookId }: Props) => {
   };
 
   const remove = async (id: string) => {
+    if (!confirm("این نظر حذف شود؟")) return;
     const { error } = await supabase.from("book_comments").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("حذف شد");
@@ -103,7 +101,30 @@ export const BookComments = ({ bookId }: Props) => {
     }).update({ is_hidden: next }).eq("id", c.id);
     if (error) return toast.error(error.message);
     setComments((arr) => arr.map((x) => (x.id === c.id ? { ...x, is_hidden: next } : x)));
-    toast.success(next ? "کامنت مخفی شد" : "کامنت نمایش داده شد");
+    toast.success(next ? "نظر مخفی شد" : "نظر نمایش داده شد");
+  };
+
+  const startEdit = (c: CommentRow) => {
+    setEditingId(c.id);
+    setEditBody(c.body);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditBody("");
+  };
+
+  const saveEdit = async (c: CommentRow) => {
+    const trimmed = editBody.trim();
+    if (!trimmed) return toast.error("متن نظر لازم است");
+    if (trimmed.length > 4000) return toast.error("حداکثر ۴۰۰۰ کاراکتر");
+    const { error } = await (supabase.from("book_comments") as unknown as {
+      update: (v: { body: string }) => { eq: (k: string, v: string) => Promise<{ error: { message: string } | null }> };
+    }).update({ body: trimmed }).eq("id", c.id);
+    if (error) return toast.error(error.message);
+    setComments((arr) => arr.map((x) => (x.id === c.id ? { ...x, body: trimmed, edited: true } : x)));
+    cancelEdit();
+    toast.success("ویرایش شد");
   };
 
   return (
@@ -170,7 +191,9 @@ export const BookComments = ({ bookId }: Props) => {
         <div className="space-y-3">
           {comments.map((c) => {
             const isMine = user?.id === c.user_id;
-            const canDelete = isMine || canModerate;
+            // Each user can manage only their own comment. Admin overrides.
+            const canManage = isMine || isAdmin;
+            const isEditing = editingId === c.id;
             return (
               <div
                 key={c.id}
@@ -203,19 +226,28 @@ export const BookComments = ({ bookId }: Props) => {
                           ))}
                         </span>
                       )}
-                      <div className="ms-auto flex items-center gap-0.5">
-                        {canModerate && !isMine && (
+                      {canManage && !isEditing && (
+                        <div className="ms-auto flex items-center gap-0.5">
+                          {isMine && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
+                              onClick={() => startEdit(c)}
+                              title="ویرایش"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="ghost"
                             className="h-6 w-6 p-0"
                             onClick={() => toggleHidden(c)}
-                            title={c.is_hidden ? "نمایش کامنت" : "مخفی‌سازی کامنت"}
+                            title={c.is_hidden ? "نمایش" : "مخفی‌سازی"}
                           >
                             {c.is_hidden ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                           </Button>
-                        )}
-                        {canDelete && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -225,10 +257,29 @@ export const BookComments = ({ bookId }: Props) => {
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm mt-1 whitespace-pre-wrap leading-relaxed">{c.body}</p>
+                    {isEditing ? (
+                      <div className="mt-2 space-y-2">
+                        <Textarea
+                          rows={3}
+                          maxLength={4000}
+                          value={editBody}
+                          onChange={(e) => setEditBody(e.target.value)}
+                        />
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button size="sm" variant="ghost" className="h-7 gap-1" onClick={cancelEdit}>
+                            <X className="w-3.5 h-3.5" /> انصراف
+                          </Button>
+                          <Button size="sm" className="h-7 gap-1 bg-gradient-warm" onClick={() => saveEdit(c)}>
+                            <Check className="w-3.5 h-3.5" /> ذخیره
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm mt-1 whitespace-pre-wrap leading-relaxed">{c.body}</p>
+                    )}
                   </div>
                 </div>
               </div>
