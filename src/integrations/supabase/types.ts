@@ -52,10 +52,13 @@ export type Database = {
       }
       book_comments: {
         Row: {
+          auto_flagged: boolean
           body: string
           book_id: string
           created_at: string
           edited: boolean
+          flag_reason: string | null
+          flag_rule: string | null
           id: string
           is_hidden: boolean
           parent_id: string | null
@@ -64,10 +67,13 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          auto_flagged?: boolean
           body: string
           book_id: string
           created_at?: string
           edited?: boolean
+          flag_reason?: string | null
+          flag_rule?: string | null
           id?: string
           is_hidden?: boolean
           parent_id?: string | null
@@ -76,10 +82,13 @@ export type Database = {
           user_id: string
         }
         Update: {
+          auto_flagged?: boolean
           body?: string
           book_id?: string
           created_at?: string
           edited?: boolean
+          flag_reason?: string | null
+          flag_rule?: string | null
           id?: string
           is_hidden?: boolean
           parent_id?: string | null
@@ -320,6 +329,36 @@ export type Database = {
           title_en?: string | null
           typography_preset?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      comment_moderation_settings: {
+        Row: {
+          auto_hide: boolean
+          block_links: boolean
+          block_mentions: boolean
+          id: number
+          sensitive_words: string[]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          auto_hide?: boolean
+          block_links?: boolean
+          block_mentions?: boolean
+          id?: number
+          sensitive_words?: string[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          auto_hide?: boolean
+          block_links?: boolean
+          block_mentions?: boolean
+          id?: number
+          sensitive_words?: string[]
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }

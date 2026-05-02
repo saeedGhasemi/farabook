@@ -20,6 +20,8 @@ interface CommentRow {
   rating: number | null;
   is_hidden: boolean;
   created_at: string;
+  auto_flagged?: boolean;
+  flag_reason?: string | null;
   profiles?: { display_name: string | null; avatar_url: string | null } | null;
 }
 
@@ -43,7 +45,7 @@ export const PublisherCommentsDialog = ({ bookId, bookTitle, open, onOpenChange 
         supabase.from("books").select("comments_enabled").eq("id", bookId).maybeSingle(),
         supabase
           .from("book_comments")
-          .select("id, user_id, body, rating, is_hidden, created_at, profiles:user_id(display_name, avatar_url)")
+          .select("id, user_id, body, rating, is_hidden, auto_flagged, flag_reason, created_at, profiles:user_id(display_name, avatar_url)")
           .eq("book_id", bookId)
           .order("created_at", { ascending: false }),
       ]);
@@ -147,6 +149,15 @@ export const PublisherCommentsDialog = ({ bookId, bookTitle, open, onOpenChange 
                         {c.is_hidden && (
                           <Badge variant="outline" className="text-[10px] gap-1">
                             <EyeOff className="w-3 h-3" /> پنهان
+                          </Badge>
+                        )}
+                        {c.auto_flagged && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] border-amber-500/60 text-amber-600 dark:text-amber-400"
+                            title={c.flag_reason || "علامت‌گذاری‌شده توسط سیستم"}
+                          >
+                            ⚠ {c.flag_reason || "نیاز به بررسی"}
                           </Badge>
                         )}
                         {c.rating && (
