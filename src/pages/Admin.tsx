@@ -497,8 +497,15 @@ const AdminInner = () => {
             <TabsTrigger value="treasury" className="gap-2 whitespace-nowrap shrink-0">
               <Banknote className="w-4 h-4" /> صندوق درآمد
             </TabsTrigger>
+            <TabsTrigger value="moderation" className="gap-2 whitespace-nowrap shrink-0">
+              <ShieldAlert className="w-4 h-4" /> ناظر کامنت
+            </TabsTrigger>
           </TabsList>
         </div>
+
+        <TabsContent value="moderation" className="mt-4">
+          <CommentModerationPanel />
+        </TabsContent>
 
         <TabsContent value="treasury" className="mt-4">
           <AdminTreasuryPanel />
