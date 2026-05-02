@@ -306,19 +306,30 @@ const Profile = () => {
               />
             </div>
             <div>
-              <label className="text-sm">شماره تماس</label>
-              <Input
-                type="email"
-                value={form.contact_email}
-                onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-sm">شماره تماس</label>
-              <Input
-                value={form.contact_phone}
-                onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
-              />
+              <label className="text-sm">شماره موبایل (برای پیامک)</label>
+              <div className="flex gap-2" dir="ltr">
+                <select
+                  className="h-10 rounded-md border border-input bg-background px-2 text-sm"
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                >
+                  {COUNTRY_CODES.map((c) => (
+                    <option key={c.iso} value={c.code}>
+                      {c.code} {c.iso}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder={countryCode === "+98" ? "9123456789 یا 09123456789" : "شماره بدون کد کشور"}
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                فرمت معتبر ایران: ۱۱ رقم با شروع 09 (مثلاً 09123456789).
+              </p>
             </div>
           </div>
 
