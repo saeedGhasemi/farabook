@@ -143,29 +143,28 @@ const Library = () => {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
                     {isDraft && (
-                      <Badge className="absolute top-3 end-3 bg-accent text-accent-foreground border-0">
+                      <Badge className="absolute top-2 end-2 bg-accent text-accent-foreground border-0 text-[10px] px-1.5 py-0.5">
                         {lang === "fa" ? "پیش‌نویس" : "Draft"}
                       </Badge>
                     )}
                   </div>
-                  <div className="p-5 flex-1 flex flex-col gap-3">
+                  <div className="p-3 flex-1 flex flex-col gap-1.5">
                     <div>
-                      <h3 className="font-display font-bold text-lg leading-tight line-clamp-2">{title}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">{r.books.author}</p>
+                      <h3 className="font-display font-semibold text-sm leading-tight line-clamp-2">{title}</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{r.books.author}</p>
                     </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="text-xs">{statusLabel(r.status)}</Badge>
-                      <span className="text-xs font-semibold text-primary">
+                    <div className="flex items-center justify-between gap-1">
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">{statusLabel(r.status)}</Badge>
+                      <span className="text-[11px] font-semibold text-primary">
                         {r.books.price === 0
                           ? (lang === "fa" ? "رایگان" : "Free")
                           : (lang === "fa"
-                              ? `${bookCreditCost(r.books.price).toLocaleString("fa-IR")} اعتبار`
+                              ? `${bookCreditCost(r.books.price).toLocaleString("fa-IR")} ا`
                               : `${bookCreditCost(r.books.price).toLocaleString()} cr`)}
                       </span>
                     </div>
                     <div className="mt-auto">
-                      <Progress value={r.progress} className="h-1.5" />
-                      <p className="text-xs text-muted-foreground mt-1">{Math.round(r.progress)}%</p>
+                      <Progress value={r.progress} className="h-1" />
                     </div>
                   </div>
                 </Link>
