@@ -55,9 +55,35 @@ const profileSchema = z.object({
   bio: z.string().trim().max(500).optional().or(z.literal("")),
   avatar_url: z.string().trim().url("آدرس نامعتبر").max(500).optional().or(z.literal("")),
   contact_email: z.string().trim().email("ایمیل نامعتبر").max(255).optional().or(z.literal("")),
-  contact_phone: z.string().trim().max(40).optional().or(z.literal("")),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^09\d{9}$/, "شماره موبایل باید با 09 شروع شده و ۱۱ رقم باشد")
+    .optional()
+    .or(z.literal("")),
   website: z.string().trim().url("آدرس نامعتبر").max(255).optional().or(z.literal("")),
 });
+
+const COUNTRY_CODES = [
+  { code: "+98", label: "ایران (+98)", iso: "IR" },
+  { code: "+1", label: "آمریکا/کانادا (+1)", iso: "US" },
+  { code: "+44", label: "بریتانیا (+44)", iso: "GB" },
+  { code: "+49", label: "آلمان (+49)", iso: "DE" },
+  { code: "+33", label: "فرانسه (+33)", iso: "FR" },
+  { code: "+971", label: "امارات (+971)", iso: "AE" },
+  { code: "+90", label: "ترکیه (+90)", iso: "TR" },
+];
+
+// Convert any input + selected country to canonical 09xxxxxxxxx for Iran
+const toIranLocal = (raw: string): string => {
+  const digits = (raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  let s = digits;
+  if (s.startsWith("0098")) s = s.slice(4);
+  else if (s.startsWith("98")) s = s.slice(2);
+  if (s.startsWith("9") && s.length === 10) s = "0" + s;
+  return s;
+};
 
 const Profile = () => {
   const { user, loading: authLoading } = useAuth();
@@ -71,9 +97,10 @@ const Profile = () => {
     bio: "",
     avatar_url: "",
     contact_email: "",
-    contact_phone: "",
+    phone: "",
     website: "",
   });
+  const [countryCode, setCountryCode] = useState<string>("+98");
   const [credits, setCredits] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -99,9 +126,13 @@ const Profile = () => {
           bio: (p as any).bio || "",
           avatar_url: p.avatar_url || "",
           contact_email: (p as any).contact_email || "",
-          contact_phone: (p as any).contact_phone || "",
+          phone: (p as any).phone || "",
           website: (p as any).website || "",
         });
+        // If stored phone is Iran local, default the picker to +98
+        if ((p as any).phone && /^09\d{9}$/.test((p as any).phone)) {
+          setCountryCode("+98");
+        }
       }
       setCredits(((tx as any[]) || []).reduce((s, r) => s + Number(r.amount || 0), 0));
       setLoading(false);
@@ -110,7 +141,16 @@ const Profile = () => {
 
   const save = async () => {
     if (!user) return;
-    const parsed = profileSchema.safeParse(form);
+    // Normalize phone according to selected country (only Iran fully supported by backend)
+    let normalizedPhone = form.phone.trim();
+    if (normalizedPhone) {
+      if (countryCode === "+98") {
+        normalizedPhone = toIranLocal(normalizedPhone);
+      } else {
+        return toast.error("در حال حاضر فقط شماره‌های موبایل ایران (+98) پشتیبانی می‌شود");
+      }
+    }
+    const parsed = profileSchema.safeParse({ ...form, phone: normalizedPhone });
     if (!parsed.success) {
       const first = Object.values(parsed.error.flatten().fieldErrors).flat()[0];
       return toast.error(first || "ورودی نامعتبر");
@@ -124,12 +164,13 @@ const Profile = () => {
       bio: parsed.data.bio || null,
       avatar_url: parsed.data.avatar_url || null,
       contact_email: parsed.data.contact_email || null,
-      contact_phone: parsed.data.contact_phone || null,
+      phone: parsed.data.phone || null,
       website: parsed.data.website || null,
     };
     const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
     setSaving(false);
     if (error) return toast.error(error.message);
+    setForm((f) => ({ ...f, phone: normalizedPhone }));
     toast.success("پروفایل ذخیره شد");
   };
 
@@ -265,19 +306,30 @@ const Profile = () => {
               />
             </div>
             <div>
-              <label className="text-sm">شماره تماس</label>
-              <Input
-                type="email"
-                value={form.contact_email}
-                onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-sm">شماره تماس</label>
-              <Input
-                value={form.contact_phone}
-                onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
-              />
+              <label className="text-sm">شماره موبایل (برای پیامک)</label>
+              <div className="flex gap-2" dir="ltr">
+                <select
+                  className="h-10 rounded-md border border-input bg-background px-2 text-sm"
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                >
+                  {COUNTRY_CODES.map((c) => (
+                    <option key={c.iso} value={c.code}>
+                      {c.code} {c.iso}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder={countryCode === "+98" ? "9123456789 یا 09123456789" : "شماره بدون کد کشور"}
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                فرمت معتبر ایران: ۱۱ رقم با شروع 09 (مثلاً 09123456789).
+              </p>
             </div>
           </div>
 
