@@ -20,6 +20,8 @@ interface CommentRow {
   rating: number | null;
   is_hidden: boolean;
   created_at: string;
+  auto_flagged?: boolean;
+  flag_reason?: string | null;
   profiles?: { display_name: string | null; avatar_url: string | null } | null;
 }
 
