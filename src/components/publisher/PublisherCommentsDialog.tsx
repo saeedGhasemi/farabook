@@ -151,6 +151,15 @@ export const PublisherCommentsDialog = ({ bookId, bookTitle, open, onOpenChange 
                             <EyeOff className="w-3 h-3" /> پنهان
                           </Badge>
                         )}
+                        {c.auto_flagged && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] border-amber-500/60 text-amber-600 dark:text-amber-400"
+                            title={c.flag_reason || "علامت‌گذاری‌شده توسط سیستم"}
+                          >
+                            ⚠ {c.flag_reason || "نیاز به بررسی"}
+                          </Badge>
+                        )}
                         {c.rating && (
                           <span className="flex items-center gap-0.5">
                             {Array.from({ length: c.rating }).map((_, i) => (
