@@ -15,6 +15,11 @@ import {
 import { toast } from "sonner";
 import { BookCover } from "@/components/store/BookCover";
 import { bookCreditCost } from "@/lib/purchase";
+import { MessageCircle } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { BookComments } from "@/components/BookComments";
 
 
 interface Row {
