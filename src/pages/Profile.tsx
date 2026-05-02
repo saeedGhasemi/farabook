@@ -97,9 +97,10 @@ const Profile = () => {
     bio: "",
     avatar_url: "",
     contact_email: "",
-    contact_phone: "",
+    phone: "",
     website: "",
   });
+  const [countryCode, setCountryCode] = useState<string>("+98");
   const [credits, setCredits] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -125,9 +126,13 @@ const Profile = () => {
           bio: (p as any).bio || "",
           avatar_url: p.avatar_url || "",
           contact_email: (p as any).contact_email || "",
-          contact_phone: (p as any).contact_phone || "",
+          phone: (p as any).phone || "",
           website: (p as any).website || "",
         });
+        // If stored phone is Iran local, default the picker to +98
+        if ((p as any).phone && /^09\d{9}$/.test((p as any).phone)) {
+          setCountryCode("+98");
+        }
       }
       setCredits(((tx as any[]) || []).reduce((s, r) => s + Number(r.amount || 0), 0));
       setLoading(false);
@@ -136,7 +141,16 @@ const Profile = () => {
 
   const save = async () => {
     if (!user) return;
-    const parsed = profileSchema.safeParse(form);
+    // Normalize phone according to selected country (only Iran fully supported by backend)
+    let normalizedPhone = form.phone.trim();
+    if (normalizedPhone) {
+      if (countryCode === "+98") {
+        normalizedPhone = toIranLocal(normalizedPhone);
+      } else {
+        return toast.error("در حال حاضر فقط شماره‌های موبایل ایران (+98) پشتیبانی می‌شود");
+      }
+    }
+    const parsed = profileSchema.safeParse({ ...form, phone: normalizedPhone });
     if (!parsed.success) {
       const first = Object.values(parsed.error.flatten().fieldErrors).flat()[0];
       return toast.error(first || "ورودی نامعتبر");
@@ -150,12 +164,13 @@ const Profile = () => {
       bio: parsed.data.bio || null,
       avatar_url: parsed.data.avatar_url || null,
       contact_email: parsed.data.contact_email || null,
-      contact_phone: parsed.data.contact_phone || null,
+      phone: parsed.data.phone || null,
       website: parsed.data.website || null,
     };
     const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
     setSaving(false);
     if (error) return toast.error(error.message);
+    setForm((f) => ({ ...f, phone: normalizedPhone }));
     toast.success("پروفایل ذخیره شد");
   };
 
