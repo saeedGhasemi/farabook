@@ -45,7 +45,7 @@ export const PublisherCommentsDialog = ({ bookId, bookTitle, open, onOpenChange 
         supabase.from("books").select("comments_enabled").eq("id", bookId).maybeSingle(),
         supabase
           .from("book_comments")
-          .select("id, user_id, body, rating, is_hidden, created_at, profiles:user_id(display_name, avatar_url)")
+          .select("id, user_id, body, rating, is_hidden, auto_flagged, flag_reason, created_at, profiles:user_id(display_name, avatar_url)")
           .eq("book_id", bookId)
           .order("created_at", { ascending: false }),
       ]);
