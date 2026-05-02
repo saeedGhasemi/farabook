@@ -183,14 +183,13 @@ const Store = () => {
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
                 {book.category && (
-                  <Badge className="absolute top-3 start-3 bg-primary text-primary-foreground border-0 shadow-md font-medium">{book.category}</Badge>
+                  <Badge className="absolute top-2 start-2 bg-primary text-primary-foreground border-0 shadow-md font-medium text-[10px] px-1.5 py-0.5">{book.category}</Badge>
                 )}
                 {isDraft && (
-                  <Badge className="absolute top-3 end-3 bg-accent text-accent-foreground border-0">
+                  <Badge className="absolute top-2 end-2 bg-accent text-accent-foreground border-0 text-[10px] px-1.5 py-0.5">
                     {lang === "fa" ? "پیش‌نویس" : "Draft"}
                   </Badge>
                 )}
-                {/* Edit/Delete actions are only available in the Publisher page. */}
               </div>
               <div className="p-5 flex-1 flex flex-col gap-3">
                 <div>
