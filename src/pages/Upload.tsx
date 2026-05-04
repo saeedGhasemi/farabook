@@ -300,7 +300,7 @@ const Upload = () => {
           <TabsContent value="word" className="space-y-6">
             <div className="glass-strong rounded-3xl p-6 md:p-8 space-y-5">
               <div>
-                <Label>{fa ? "فایل ورد" : "Word file"}</Label>
+                <div className="text-sm font-medium mb-1.5">{fa ? "فایل ورد" : "Word file"}</div>
                 <label className="mt-2 flex flex-col items-center justify-center gap-2 p-8 rounded-2xl border-2 border-dashed border-border hover:border-accent/60 cursor-pointer transition-colors bg-background/40">
                   {file ? (
                     <>
