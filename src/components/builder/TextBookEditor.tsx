@@ -962,6 +962,27 @@ export const TextBookEditor = ({ initial }: Props) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Book metadata dialog */}
+      <Dialog open={showMeta} onOpenChange={setShowMeta}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" dir={fa ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle>{fa ? "شناسنامه و مشخصات کتاب" : "Book identity & metadata"}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <BookMetadataForm value={meta} onChange={setMeta} fa={fa} />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowMeta(false)} disabled={metaSaving}>
+              {fa ? "انصراف" : "Cancel"}
+            </Button>
+            <Button onClick={saveMetadata} disabled={metaSaving || !meta.title.trim()}>
+              {metaSaving && <Loader2 className="w-3.5 h-3.5 me-1 animate-spin" />}
+              {fa ? "ذخیره مشخصات" : "Save metadata"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
