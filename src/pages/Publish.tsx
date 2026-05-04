@@ -627,7 +627,7 @@ const Publish = () => {
                       {lang === "fa" ? opt.fa : opt.en}
                     </button>
                   ))}
-                  {ttsProvider === "browser" && (description || title) && (
+                  {ttsProvider === "browser" && (meta.description || meta.title) && (
                     <Button
                       type="button"
                       size="sm"
