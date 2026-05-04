@@ -38,12 +38,40 @@ const MEMORY_HINTS = [
   "out of memory",
   "killed",
   "non-2xx",
+  "non 2xx",
   "boot_error",
+  "boot error",
+  "shutdown",
+  "terminated",
+  "timeout",
+  "timed out",
+  "504",
+  "546",
+  "failed to send",
+  "failed to fetch",
+  "network error",
+  "connection",
+  "worker",
+  "edge function returned",
+];
+
+// Fallback decision: only skip fallback when the error is clearly a
+// validation / not-found problem we cannot fix by splitting the work.
+const NON_RECOVERABLE = [
+  "missing importid",
+  "import_not_found",
+  "book_not_found",
+  "forbidden",
+  "unauthorized",
+  "no_source_docx",
+  "invalid",
 ];
 
 const looksLikeOverload = (msg: string) => {
-  const m = msg.toLowerCase();
-  return MEMORY_HINTS.some((h) => m.includes(h));
+  const m = (msg || "").toLowerCase();
+  if (NON_RECOVERABLE.some((h) => m.includes(h))) return false;
+  // Anything else on the first attempt — assume size/memory and try fallback.
+  return MEMORY_HINTS.some((h) => m.includes(h)) || true;
 };
 
 const readErr = async (error: unknown): Promise<string> => {
