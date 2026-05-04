@@ -9,6 +9,8 @@
 // status (e.g. "تبدیل متن انجام شد، در حال جایگذاری تصاویر…").
 
 import { supabase } from "@/integrations/supabase/client";
+import { unzipSync } from "fflate";
+import { convertEmfToDataUrl, convertWmfToDataUrl } from "emf-converter";
 
 export interface ConvertOptions {
   importId: string;
@@ -101,6 +103,79 @@ const callImport = async (body: Record<string, unknown>) => {
   }
   if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
   return data as { book: { id: string }; chapters?: number };
+};
+
+const dataUrlToBlob = (dataUrl: string): Blob => {
+  const [head, payload] = dataUrl.split(",");
+  const mime = /data:([^;]+)/.exec(head)?.[1] || "image/png";
+  const bin = atob(payload || "");
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+};
+
+const updateDocNode = (page: any, blockIdx: number, mut: (node: any) => void) => {
+  const content = page?.doc?.content;
+  if (!Array.isArray(content)) return;
+  const slot = Number(page.blocks?.[blockIdx]?.slot || 0);
+  let seen = -1;
+  for (const node of content) {
+    if (node?.type !== "image_placeholder") continue;
+    seen += 1;
+    if (seen === blockIdx || Number(node.attrs?.slot || 0) === slot) {
+      mut(node);
+      return;
+    }
+  }
+};
+
+const fillVectorImagesInBrowser = async (bookId: string, importId: string) => {
+  const [{ data: imp }, { data: book }] = await Promise.all([
+    supabase.from("word_imports").select("file_path").eq("id", importId).maybeSingle(),
+    supabase.from("books").select("pages").eq("id", bookId).maybeSingle(),
+  ]);
+  const filePath = (imp as any)?.file_path;
+  const pages = (book as any)?.pages;
+  if (!filePath || !Array.isArray(pages)) return { filled: 0, total: 0 };
+
+  const targets: Array<{ pageIdx: number; blockIdx: number; slot: number; originalPath: string }> = [];
+  pages.forEach((page: any, pageIdx: number) => (page.blocks || []).forEach((b: any, blockIdx: number) => {
+    const ext = String(b?.originalPath || "").split(".").pop()?.toLowerCase();
+    if (b?.type === "image_placeholder" && !b.pendingSrc && (ext === "emf" || ext === "wmf")) {
+      targets.push({ pageIdx, blockIdx, slot: Number(b.slot || targets.length + 1), originalPath: b.originalPath });
+    }
+  }));
+  if (!targets.length) return { filled: 0, total: 0 };
+
+  const { data: blob, error } = await supabase.storage.from("book-uploads").download(filePath);
+  if (error || !blob) return { filled: 0, total: targets.length };
+  const files = unzipSync(new Uint8Array(await blob.arrayBuffer()), {
+    filter: (f) => targets.some((t) => t.originalPath.toLowerCase() === f.name.toLowerCase()),
+  });
+
+  let filled = 0;
+  for (const t of targets) {
+    const key = Object.keys(files).find((k) => k.toLowerCase() === t.originalPath.toLowerCase());
+    if (!key) continue;
+    const ext = key.split(".").pop()?.toLowerCase();
+    const bytes = files[key];
+    const png = ext === "wmf"
+      ? await convertWmfToDataUrl(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), 1400, 1400, 1)
+      : await convertEmfToDataUrl(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), 1400, 1400, 1);
+    if (!png) continue;
+    const mediaKey = `${filePath.split("/")[0]}/${bookId}/vector-fill/slot-${String(t.slot).padStart(4, "0")}.png`;
+    const up = await supabase.storage.from("book-media").upload(mediaKey, dataUrlToBlob(png), { contentType: "image/png", upsert: true });
+    if (up.error) continue;
+    const url = supabase.storage.from("book-media").getPublicUrl(mediaKey).data.publicUrl;
+    const block = pages[t.pageIdx]?.blocks?.[t.blockIdx];
+    if (block) Object.assign(block, { pendingSrc: url, contentType: "image/png", reason: "vector_converted", unsupported: false });
+    updateDocNode(pages[t.pageIdx], t.blockIdx, (node) => {
+      node.attrs = { ...(node.attrs || {}), pendingSrc: url, contentType: "image/png", reason: "vector_converted", unsupported: false };
+    });
+    filled += 1;
+  }
+  if (filled) await supabase.from("books").update({ pages }).eq("id", bookId);
+  return { filled, total: targets.length };
 };
 
 const fillImages = async (
