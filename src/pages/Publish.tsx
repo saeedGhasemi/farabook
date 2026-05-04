@@ -252,17 +252,32 @@ const Publish = () => {
 
       // 2) Push metadata + AI generation through the edge function
       const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
+      const primaryAuthor = (meta.contributors?.find((c) => c.role === "author")?.name) || meta.contributors?.[0]?.name || "";
       const { data, error } = await supabase.functions.invoke("book-publish", {
         body: {
           bookId: book.id,
           metadata: {
-            title, title_en: titleEn || null, author,
-            publisher: publisher || null,
-            description: description || null,
-            category: category || null,
+            title: meta.title,
+            title_en: titleEn || null,
+            author: primaryAuthor,
+            subtitle: meta.subtitle || null,
+            book_type: meta.book_type,
+            contributors: meta.contributors,
+            publisher: meta.publisher || null,
+            description: meta.description || null,
+            category: category || (meta.categories?.[0] ?? null),
+            categories: meta.categories,
+            subjects: meta.subjects,
             audience: audience || null,
-            isbn: isbn || null,
-            language,
+            isbn: meta.isbn || null,
+            publication_year: meta.publication_year ?? null,
+            edition: meta.edition || null,
+            page_count: meta.page_count ?? null,
+            series_name: meta.series_name || null,
+            series_index: meta.series_index ?? null,
+            original_title: meta.original_title || null,
+            original_language: meta.original_language || null,
+            language: meta.language || "fa",
             tags,
             price,
             preview_pages: previewPages,
