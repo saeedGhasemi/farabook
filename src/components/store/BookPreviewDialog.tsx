@@ -96,13 +96,14 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
   const [ratingAvg, setRatingAvg] = useState<number | null>(null);
   const [ratingCount, setRatingCount] = useState(0);
   const [ttsError, setTtsError] = useState<string | null>(null);
+  const [identity, setIdentity] = useState<BookIdentity | null>(null);
 
   useEffect(() => {
     if (!open || !book) return;
-    setSummary(null); setPages([]); setLoading(true); setTtsError(null);
+    setSummary(null); setPages([]); setLoading(true); setTtsError(null); setIdentity(null);
     (async () => {
       const [{ data }, { data: cs }] = await Promise.all([
-        supabase.from("books").select("pages, ai_summary, preview_pages").eq("id", book.id).maybeSingle(),
+        supabase.from("books").select("pages, ai_summary, preview_pages, subtitle, book_type, contributors, publisher, publication_year, edition, isbn, page_count, language, original_title, original_language, series_name, series_index, categories, subjects").eq("id", book.id).maybeSingle(),
         supabase.from("book_comments").select("rating").eq("book_id", book.id).not("rating", "is", null),
       ]);
       const all = (data?.pages as unknown as PageRow[]) ?? [];
@@ -114,6 +115,25 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
       const ratings = ((cs as Array<{ rating: number | null }>) || []).map((r) => r.rating).filter((r): r is number => !!r);
       setRatingCount(ratings.length);
       setRatingAvg(ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null);
+      if (data) {
+        setIdentity({
+          subtitle: (data as any).subtitle ?? null,
+          book_type: (data as any).book_type ?? null,
+          contributors: (data as any).contributors ?? null,
+          publisher: (data as any).publisher ?? null,
+          publication_year: (data as any).publication_year ?? null,
+          edition: (data as any).edition ?? null,
+          isbn: (data as any).isbn ?? null,
+          page_count: (data as any).page_count ?? null,
+          language: (data as any).language ?? null,
+          original_title: (data as any).original_title ?? null,
+          original_language: (data as any).original_language ?? null,
+          series_name: (data as any).series_name ?? null,
+          series_index: (data as any).series_index ?? null,
+          categories: (data as any).categories ?? null,
+          subjects: (data as any).subjects ?? null,
+        });
+      }
       setLoading(false);
     })();
     return () => { stopSpeak(); setSpeaking(false); };
