@@ -408,36 +408,17 @@ const Publish = () => {
       </motion.div>
 
       <div className="space-y-6">
-        {/* Core metadata */}
+        {/* Core metadata — rich form */}
         <section className="glass-strong rounded-2xl p-5 space-y-4">
           <h2 className="font-display font-bold text-lg">
-            {lang === "fa" ? "مشخصات اصلی" : "Core metadata"}
+            {lang === "fa" ? "شناسنامه کتاب" : "Book identity"}
           </h2>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <Label>{lang === "fa" ? "عنوان *" : "Title *"}</Label>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1" />
-            </div>
+          <BookMetadataForm value={meta} onChange={setMeta} fa={lang === "fa"} />
+
+          <div className="grid sm:grid-cols-2 gap-3 pt-2 border-t">
             <div>
               <Label>{lang === "fa" ? "عنوان انگلیسی" : "English title"}</Label>
               <Input value={titleEn} onChange={(e) => setTitleEn(e.target.value)} className="mt-1" />
-            </div>
-            <div>
-              <Label>{lang === "fa" ? "نویسنده" : "Author"}</Label>
-              <Input value={author} onChange={(e) => setAuthor(e.target.value)} className="mt-1" />
-            </div>
-            <div>
-              <Label>{lang === "fa" ? "ناشر" : "Publisher"}</Label>
-              <Input value={publisher} onChange={(e) => setPublisher(e.target.value)} className="mt-1" />
-            </div>
-            <div>
-              <Label>{lang === "fa" ? "دسته‌بندی" : "Category"}</Label>
-              <Input
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder={lang === "fa" ? "مثلاً پاتولوژی، ادبیات…" : "e.g. Pathology, Fiction…"}
-                className="mt-1"
-              />
             </div>
             <div>
               <Label>{lang === "fa" ? "مخاطب" : "Audience"}</Label>
@@ -449,38 +430,23 @@ const Publish = () => {
               />
             </div>
             <div>
-              <Label>ISBN</Label>
-              <Input value={isbn} onChange={(e) => setIsbn(e.target.value)} className="mt-1" />
+              <Label>{lang === "fa" ? "دسته‌بندی اصلی (نمایشی)" : "Primary category (display)"}</Label>
+              <Input
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder={lang === "fa" ? "مثلاً پاتولوژی" : "e.g. Pathology"}
+                className="mt-1"
+              />
             </div>
             <div>
-              <Label>{lang === "fa" ? "زبان" : "Language"}</Label>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as any)}
-                className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="fa">فارسی</option>
-                <option value="en">English</option>
-              </select>
+              <Label>{lang === "fa" ? "برچسب‌ها (با کاما)" : "Tags (comma-separated)"}</Label>
+              <Input
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                placeholder={lang === "fa" ? "خون‌شناسی، آناتومی" : "hematology, anatomy"}
+                className="mt-1"
+              />
             </div>
-          </div>
-          <div>
-            <Label>{lang === "fa" ? "توضیحات کوتاه" : "Short description"}</Label>
-            <Textarea
-              value={description}
-              rows={3}
-              onChange={(e) => setDescription(e.target.value)}
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label>{lang === "fa" ? "برچسب‌ها (با کاما جدا کنید)" : "Tags (comma-separated)"}</Label>
-            <Input
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder={lang === "fa" ? "مثال: خون‌شناسی، آناتومی" : "e.g. hematology, anatomy"}
-              className="mt-1"
-            />
           </div>
         </section>
 
