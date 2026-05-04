@@ -227,8 +227,13 @@ const Upload = () => {
   const retryImport = async (row: ImportRow, skipImages: boolean) => {
     setRetryingId({ id: row.id, mode: skipImages ? "without" : "with" });
     try {
+      // If a book was previously created from this import, update it in place
+      // instead of creating a duplicate. This lets users re-run conversion
+      // after we improve the importer (e.g. EMF handling, chapter detection).
+      const body: Record<string, unknown> = { importId: row.id, skipImages };
+      if (row.book_id) body.replaceBookId = row.book_id;
       const { data, error } = await supabase.functions.invoke("word-import", {
-        body: { importId: row.id, skipImages },
+        body,
       });
       if (error) {
         let detail = "";
@@ -471,10 +476,24 @@ const Upload = () => {
                             </>
                           )}
                           {isDone && row.book_id && (
-                            <Button size="sm" variant="default" onClick={() => nav(`/edit/${row.book_id}`)}>
-                              <ArrowRight className="w-3.5 h-3.5 me-1" />
-                              {fa ? "باز کردن کتاب" : "Open book"}
-                            </Button>
+                            <>
+                              <Button size="sm" variant="default" onClick={() => nav(`/edit/${row.book_id}`)}>
+                                <ArrowRight className="w-3.5 h-3.5 me-1" />
+                                {fa ? "باز کردن کتاب" : "Open book"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={isRetrying}
+                                onClick={() => retryImport(row, false)}
+                                title={fa ? "تبدیل دوباره با موتور به‌روزشده (مثلاً برای رفع تصاویر EMF یا تشخیص بهتر فصل‌ها)" : "Re-run conversion with the latest importer"}
+                              >
+                                {isRetrying
+                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin me-1" />
+                                  : <RefreshCw className="w-3.5 h-3.5 me-1" />}
+                                {fa ? "تبدیل مجدد" : "Re-convert"}
+                              </Button>
+                            </>
                           )}
                           <Button
                             size="sm"

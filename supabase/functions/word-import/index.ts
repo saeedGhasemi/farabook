@@ -148,6 +148,76 @@ const convertAnchors = (s: string): string => {
 const stripTags = (s: string) =>
   normalizeImportedLinks(htmlText(convertAnchors(s)));
 
+// Word stores EMF/WMF vector images inside <mc:AlternateContent>:
+//   <mc:Choice>  → modern path with EMF (browsers can't render)
+//   <mc:Fallback>→ legacy path with a raster PNG/JPEG that Word generated
+// mammoth defaults to mc:Choice, so the editor ends up with broken EMF
+// `<img>`s. We rewrite each AlternateContent to keep only the Fallback so
+// mammoth emits the raster image instead. We also try to delete the now
+// unused EMF/WMF media entries so they don't bloat memory.
+function preferRasterFallback(input: Buffer): { buffer: Buffer; replaced: number; droppedVector: number } {
+  let replaced = 0;
+  const files = unzipSync(new Uint8Array(input));
+
+  // 1. Rewrite XML: replace <mc:AlternateContent>…</mc:AlternateContent> with
+  //    just the inner <mc:Fallback> body when a Fallback exists; otherwise
+  //    leave it (mammoth will at least try the EMF and we'll mark it later).
+  for (const key of Object.keys(files)) {
+    if (!/^word\/.*\.xml$/i.test(key)) continue;
+    const xml = strFromU8(files[key]);
+    const next = xml.replace(
+      /<mc:AlternateContent\b[^>]*>([\s\S]*?)<\/mc:AlternateContent>/gi,
+      (whole, inner) => {
+        const fb = /<mc:Fallback\b[^>]*>([\s\S]*?)<\/mc:Fallback>/i.exec(inner);
+        if (fb && fb[1]) {
+          replaced += 1;
+          return fb[1];
+        }
+        return whole;
+      },
+    );
+    if (next !== xml) files[key] = strToU8(next);
+  }
+
+  // 2. Inspect remaining drawings to know which media paths are still
+  //    referenced. Drop EMF/WMF media + their relationship entries that no
+  //    XML still points at.
+  const referencedRelIds = new Set<string>();
+  for (const key of Object.keys(files)) {
+    if (!/^word\/.*\.xml$/i.test(key)) continue;
+    const xml = strFromU8(files[key]);
+    for (const m of xml.matchAll(/(?:r:embed|r:id|r:link)=["']([^"']+)["']/gi)) {
+      referencedRelIds.add(m[1]);
+    }
+  }
+  let droppedVector = 0;
+  for (const key of Object.keys(files)) {
+    if (!/\.rels$/i.test(key)) continue;
+    const xml = strFromU8(files[key]);
+    const next = xml.replace(/<Relationship\b[^>]*\/>/gi, (tag) => {
+      if (!/Type=["'][^"']*\/image["']/i.test(tag)) return tag;
+      const id = extractAttr(tag, "Id") || "";
+      const target = extractAttr(tag, "Target") || "";
+      const isVector = /\.(emf|wmf)$/i.test(target);
+      if (isVector && !referencedRelIds.has(id)) {
+        // also drop the actual binary
+        const norm = target.startsWith("../")
+          ? target.replace(/^\.\.\//, "word/")
+          : `word/${target.replace(/^\//, "")}`;
+        if (files[norm]) {
+          delete files[norm];
+          droppedVector += 1;
+        }
+        return "";
+      }
+      return tag;
+    });
+    if (next !== xml) files[key] = strToU8(next);
+  }
+
+  return { buffer: Buffer.from(zipSync(files, { level: 0 })), replaced, droppedVector };
+}
+
 function stripDocxImages(input: Buffer): { buffer: Buffer; removedImages: number } {
   let removedImages = 0;
   const files = unzipSync(new Uint8Array(input), {
@@ -316,7 +386,8 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
       const part = parts[i];
       const text = textFromWordXml(part);
       if (text) {
-        if (level === 1 || level === 2) {
+        const looksLikeChapter = level === 0 && text.length <= 160 && /^\s*(فصل|بخش|گفتار|chapter|part|section)\s+/i.test(text);
+        if (level === 1 || level === 2 || looksLikeChapter) {
           pushPage();
           cur = { title: text.slice(0, 120), blocks: [] };
         } else {
@@ -337,6 +408,10 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
 // Find Persian/English figure or table label like "شکل ۹–۱" / "Figure 9.1" / "جدول ۲-۱"
 const FIG_RE = /^(شکل|تصویر|نگاره|figure|fig\.?)\s*[\d\u06F0-\u06F9۰-۹]+([.\-\u2013\u2014][\d\u06F0-\u06F9۰-۹]+)?/i;
 const TBL_RE = /^(جدول|table)\s*[\d\u06F0-\u06F9۰-۹]+([.\-\u2013\u2014][\d\u06F0-\u06F9۰-۹]+)?/i;
+// Recognize chapter / section headings written as plain paragraphs (the
+// author didn't apply Word's Heading style). Persian "فصل اول" / "فصل ۱" /
+// "بخش دوم" and English "Chapter 1" / "Part II" all qualify.
+const CHAPTER_RE = /^\s*(فصل|بخش|گفتار|chapter|part|section)\s+(?:[\d\u06F0-\u06F9۰-۹IVXLC]+|اول|دوم|سوم|چهارم|پنجم|ششم|هفتم|هشتم|نهم|دهم|یازدهم|دوازدهم|سیزدهم|چهاردهم|پانزدهم|شانزدهم|هفدهم|هجدهم|نوزدهم|بیستم)\b/i;
 
 function splitLabel(text: string, re: RegExp): { label?: string; rest: string } {
   const m = text.match(re);
@@ -442,6 +517,14 @@ function htmlToPages(html: string): Page[] {
     if (TBL_RE.test(tail)) {
       const { label, rest } = splitLabel(tail, TBL_RE);
       pendingTableCaption = { tbl: label, text: rest };
+      return;
+    }
+
+    // Promote chapter-style paragraphs (e.g. "فصل اول", "Chapter 3") to a
+    // new chapter page even when no Word heading style was applied.
+    if (CHAPTER_RE.test(tail) && tail.length <= 160) {
+      pushPage();
+      cur = { title: tail.slice(0, 120), blocks: [] };
       return;
     }
 
@@ -658,6 +741,8 @@ Deno.serve(async (req) => {
     let buffer = originalBuffer;
     let textOnlyPages: Page[] | null = null;
     let strippedImageCount = 0;
+    let rasterReplaced = 0;
+    let droppedVector = 0;
     if (skipImages) {
       try {
         const textOnly = docxToPagesTextOnly(originalBuffer);
@@ -668,6 +753,18 @@ Deno.serve(async (req) => {
         const stripped = stripDocxImages(originalBuffer);
         buffer = stripped.buffer;
         strippedImageCount = stripped.removedImages;
+      }
+    } else {
+      // Replace EMF/WMF AlternateContent branches with their raster Fallback
+      // so the editor receives PNG/JPEG instead of unrenderable vector files.
+      try {
+        const swap = preferRasterFallback(originalBuffer);
+        buffer = swap.buffer;
+        rasterReplaced = swap.replaced;
+        droppedVector = swap.droppedVector;
+        console.log(`emf→raster swaps: ${rasterReplaced}, dropped vector media: ${droppedVector}`);
+      } catch (e) {
+        console.warn("emf fallback rewrite failed; continuing with original docx", e);
       }
     }
 
@@ -687,12 +784,37 @@ Deno.serve(async (req) => {
       return await mammoth.convertToHtml(
         { buffer },
         {
+          // Detect Persian/English chapter & section headings even when the
+          // author used custom paragraph styles instead of Word's built-in
+          // Heading 1/2 styles.
+          styleMap: [
+            "p[style-name='Title'] => h1:fresh",
+            "p[style-name='Subtitle'] => h2:fresh",
+            "p[style-name^='Heading 1'] => h1:fresh",
+            "p[style-name^='Heading 2'] => h2:fresh",
+            "p[style-name^='Heading 3'] => h3:fresh",
+            "p[style-name^='Heading 4'] => h4:fresh",
+            "p[style-name^='عنوان 1'] => h1:fresh",
+            "p[style-name^='عنوان 2'] => h2:fresh",
+            "p[style-name^='عنوان 3'] => h3:fresh",
+            "p[style-name*='Chapter'] => h1:fresh",
+            "p[style-name*='فصل'] => h1:fresh",
+            "p[style-name*='بخش'] => h2:fresh",
+          ],
           convertImage: mammoth.images.imgElement(async (image: any) => {
             if (!includeImages) return { src: "" };
             try {
               const ct: string = image.contentType || "image/png";
               const ext = (ct.split("/")[1] || "png").replace("jpeg", "jpg");
               const buf: Buffer = await image.read();
+              // EMF/WMF files that survived the fallback rewrite — drop them
+              // out of the running text and record a placeholder so the
+              // editor can prompt the user to replace them.
+              if (/emf|wmf|x-emf|x-wmf/i.test(ct) || /\.(emf|wmf)$/i.test(image?.altText || "")) {
+                skippedImages += 1;
+                const token = `__WI_PLACEHOLDER__|${buf.length}|${ct}|vector_unsupported|`;
+                return { src: token };
+              }
               const isOversize = buf.length > PER_IMAGE_LIMIT;
               if (buf.length > HARD_IMAGE_LIMIT) {
                 // Don't even try to upload – just leave a metadata-only slot.
