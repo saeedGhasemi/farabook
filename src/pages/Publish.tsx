@@ -202,7 +202,7 @@ const Publish = () => {
       toast.error(lang === "fa" ? "ابتدا قیمت، سهم‌بندی و پیش‌نمایش را کامل کنید" : "Complete pricing, shares, and preview first");
       return;
     }
-    if (!title.trim()) { toast.error(lang === "fa" ? "عنوان لازم است" : "Title required"); return; }
+    if (!meta.title.trim()) { toast.error(lang === "fa" ? "عنوان لازم است" : "Title required"); return; }
     // Already paid → skip confirm (no fee)
     if (book.first_published_paid) { setEstimatedFee(0); setEstimatedFactor(1); setConfirmOpen(true); return; }
     const factor = estimateComplexity(book.pages || []);
