@@ -43,6 +43,13 @@ import {
 } from "@/lib/tiptap-doc";
 import { AiSuggestPanel } from "./AiSuggestPanel";
 import { ImageAutoPlacementPanel } from "./ImageAutoPlacementPanel";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  BookMetadataForm,
+  DEFAULT_METADATA,
+  normalizeMetadata,
+  type BookMetadata,
+} from "@/components/book-metadata/BookMetadataForm";
 
 const TYPOGRAPHY_PRESETS = [
   { value: "editorial", label_fa: "روزنامه‌ای", label_en: "Editorial" },
