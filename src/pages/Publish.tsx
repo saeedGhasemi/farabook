@@ -82,16 +82,11 @@ const Publish = () => {
   const [estimatedFactor, setEstimatedFactor] = useState(1);
   const { credits } = useCredits();
 
-  // Form
-  const [title, setTitle] = useState("");
+  // Rich book metadata
+  const [meta, setMeta] = useState<BookMetadata>(DEFAULT_METADATA);
   const [titleEn, setTitleEn] = useState("");
-  const [author, setAuthor] = useState("");
-  const [publisher, setPublisher] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
   const [audience, setAudience] = useState("");
-  const [isbn, setIsbn] = useState("");
-  const [language, setLanguage] = useState<"fa" | "en">("fa");
+  const [category, setCategory] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [price, setPrice] = useState<number>(0);
   const [previewPages, setPreviewPages] = useState<number[]>([0]);
@@ -106,11 +101,11 @@ const Publish = () => {
   // Browser TTS preview
   const [speaking, setSpeaking] = useState(false);
 
-  // Step completion (the in-page wizard guide)
+  // Step completion
   const priceStepDone = saleMode === "free" || (saleMode === "paid" && price > 0);
   const sharesStepDone = saleMode === "free" || (saleMode === "paid" && sharesSaved);
   const previewStepDone = (previewPages?.length ?? 0) > 0;
-  const allStepsDone = priceStepDone && sharesStepDone && previewStepDone && !!title.trim();
+  const allStepsDone = priceStepDone && sharesStepDone && previewStepDone && !!meta.title.trim();
 
   const Step = ({
     n, done, icon: Icon, title: t, hint, anchor,
