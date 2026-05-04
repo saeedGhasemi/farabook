@@ -273,6 +273,9 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
                   <BookOpen className="w-3.5 h-3.5" /> {fa ? "پیش‌نمایش" : "Preview"}
                   <Badge variant="outline" className="ms-1 text-[10px] h-4 px-1">{previewIdx.length}</Badge>
                 </TabsTrigger>
+                <TabsTrigger value="identity" className="gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5" /> {fa ? "شناسنامه" : "Identity"}
+                </TabsTrigger>
                 <TabsTrigger value="comments" className="gap-1.5">
                   <MessageCircle className="w-3.5 h-3.5" /> {fa ? "نظرات" : "Comments"}
                   {ratingCount > 0 && (
