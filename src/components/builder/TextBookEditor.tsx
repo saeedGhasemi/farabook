@@ -244,6 +244,85 @@ export const TextBookEditor = ({ initial }: Props) => {
     return () => { cancelled = true; };
   }, [isEdit, initial?.id]);
 
+  // Load rich book metadata when editing an existing book
+  useEffect(() => {
+    if (!isEdit || !initial?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("books")
+        .select("title, subtitle, description, book_type, contributors, publisher, publication_year, edition, isbn, page_count, language, original_title, original_language, categories, subjects, series_name, series_index, author, category")
+        .eq("id", initial.id)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      setMeta(normalizeMetadata({
+        title: data.title || initial.title,
+        subtitle: (data as any).subtitle || "",
+        description: data.description || "",
+        book_type: ((data as any).book_type as any) || "authored",
+        contributors: Array.isArray((data as any).contributors) && (data as any).contributors.length
+          ? (data as any).contributors
+          : (data.author ? [{ name: data.author, role: "author" }] : [{ name: "", role: "author" }]),
+        publisher: data.publisher || "",
+        publication_year: (data as any).publication_year ?? null,
+        edition: (data as any).edition || "",
+        isbn: (data as any).isbn || "",
+        page_count: (data as any).page_count ?? null,
+        language: data.language || "fa",
+        original_title: (data as any).original_title || "",
+        original_language: (data as any).original_language || "",
+        categories: ((data as any).categories?.length ? (data as any).categories : (data.category ? [data.category] : [])) as string[],
+        subjects: ((data as any).subjects || []) as string[],
+        series_name: (data as any).series_name || "",
+        series_index: (data as any).series_index ?? null,
+      }));
+    })();
+    return () => { cancelled = true; };
+  }, [isEdit, initial?.id, initial?.title]);
+
+  const saveMetadata = async () => {
+    if (!isEdit || !initial?.id) return;
+    setMetaSaving(true);
+    try {
+      const primaryAuthor = meta.contributors?.find((c) => c.role === "author")?.name
+        || meta.contributors?.[0]?.name || "";
+      const { error } = await supabase
+        .from("books")
+        .update({
+          title: meta.title || initial.title,
+          subtitle: meta.subtitle || null,
+          description: meta.description || null,
+          book_type: meta.book_type,
+          contributors: meta.contributors as any,
+          author: primaryAuthor,
+          publisher: meta.publisher || null,
+          publication_year: meta.publication_year ?? null,
+          edition: meta.edition || null,
+          isbn: meta.isbn || null,
+          page_count: meta.page_count ?? null,
+          language: meta.language || "fa",
+          original_title: meta.original_title || null,
+          original_language: meta.original_language || null,
+          categories: meta.categories,
+          subjects: meta.subjects,
+          category: meta.categories?.[0] || null,
+          series_name: meta.series_name || null,
+          series_index: meta.series_index ?? null,
+        })
+        .eq("id", initial.id);
+      if (error) throw error;
+      // Sync local title input
+      setTitle(meta.title || title);
+      setAuthor(primaryAuthor || author);
+      toast.success(fa ? "مشخصات کتاب ذخیره شد" : "Book metadata saved");
+      setShowMeta(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setMetaSaving(false);
+    }
+  };
+
   const persist = useCallback(async (showToast = false) => {
     if (!isEdit || !initial?.id || !user) return;
     setSaving(true);
