@@ -18,16 +18,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { BookEditor } from "@/components/builder/BookEditor";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+import {
+  BookMetadataForm,
+  DEFAULT_METADATA,
+  formatContributorsLine,
+  type BookMetadata,
+} from "@/components/book-metadata/BookMetadataForm";
+import { startResumableUpload } from "@/lib/resumable-upload";
 
 type ImportRow = {
   id: string;
@@ -51,42 +53,6 @@ type ImportRow = {
 
 const STALE_CONVERSION_MS = 3 * 60 * 1000;
 
-/** XHR-based upload to Supabase Storage so we get a real progress event.
- *  Returns the storage path on success. */
-const uploadDocxWithProgress = (
-  file: File,
-  path: string,
-  accessToken: string,
-  onProgress: (pct: number) => void,
-): Promise<void> =>
-  new Promise((resolve, reject) => {
-    const url = `${SUPABASE_URL}/storage/v1/object/book-uploads/${encodeURIComponent(path)}`;
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", url, true);
-    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
-    xhr.setRequestHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    );
-    xhr.setRequestHeader("x-upsert", "true");
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-    };
-    xhr.onerror = () => reject(new Error("network error"));
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else {
-        let msg = `upload failed (${xhr.status})`;
-        try {
-          const j = JSON.parse(xhr.responseText);
-          if (j?.message) msg = j.message;
-        } catch { /* ignore */ }
-        reject(new Error(msg));
-      }
-    };
-    xhr.send(file);
-  });
-
 const Upload = () => {
   const { user } = useAuth();
   const { lang } = useI18n();
@@ -94,9 +60,7 @@ const Upload = () => {
   const fa = lang === "fa";
 
   const [file, setFile] = useState<File | null>(null);
-  const [title, setTitle] = useState("");
-  const [author, setAuthor] = useState("");
-  const [description, setDescription] = useState("");
+  const [meta, setMeta] = useState<BookMetadata>({ ...DEFAULT_METADATA });
   const [busy, setBusy] = useState(false);
 
   // 0 idle · 1 uploading · 2 processing · 3 done
@@ -136,11 +100,18 @@ const Upload = () => {
 
   useEffect(() => { loadImports(); }, [user?.id]);
 
-  /** Stage 1: upload only — saves file to storage and creates a word_imports row. */
+  /** Build a display name for the legacy `author` column from contributors. */
+  const primaryAuthorName = (): string => {
+    const names = meta.contributors.filter((c) => c.role === "author" || c.role === "coauthor")
+      .map((c) => c.name.trim()).filter(Boolean);
+    return names.join("، ") || (fa ? "ناشناس" : "Unknown");
+  };
+
+  /** Stage 1: resumable upload — saves file to storage and creates a word_imports row. */
   const uploadOnly = async (): Promise<{ importId: string; path: string } | null> => {
     if (!user) { nav("/auth"); return null; }
     if (!file) { toast.error(fa ? "یک فایل ورد انتخاب کنید" : "Pick a .docx file"); return null; }
-    if (!title.trim()) { toast.error(fa ? "عنوان لازم است" : "Title required"); return null; }
+    if (!meta.title.trim()) { toast.error(fa ? "عنوان لازم است" : "Title required"); return null; }
 
     const dot = file.name.lastIndexOf(".");
     const ext = (dot >= 0 ? file.name.slice(dot + 1) : "docx").toLowerCase().replace(/[^a-z0-9]/g, "") || "docx";
@@ -153,7 +124,17 @@ const Upload = () => {
 
     setStage(1);
     setUploadPct(0);
-    await uploadDocxWithProgress(file, path, token, (pct) => setUploadPct(pct));
+    const handle = startResumableUpload({
+      bucket: "book-uploads",
+      objectName: path,
+      file,
+      accessToken: token,
+      contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      onProgress: (loaded, total) => {
+        if (total > 0) setUploadPct(Math.round((loaded / total) * 100));
+      },
+    });
+    await handle.done;
 
     const { data: imp, error: impErr } = await supabase
       .from("word_imports")
@@ -162,11 +143,14 @@ const Upload = () => {
         file_path: path,
         file_name: file.name,
         file_size: file.size,
-        title: title.trim(),
-        author: author.trim() || (fa ? "ناشناس" : "Unknown"),
-        description: description.trim() || null,
+        title: meta.title.trim(),
+        author: primaryAuthorName(),
+        description: meta.description?.trim() || null,
         status: "uploaded",
-      })
+        // Carry the full metadata payload through to the conversion step
+        // so the created book inherits all the bibliographic fields.
+        metadata: meta as any,
+      } as any)
       .select("*")
       .single();
     if (impErr || !imp) throw impErr || new Error("could not record import");
@@ -316,7 +300,7 @@ const Upload = () => {
           <TabsContent value="word" className="space-y-6">
             <div className="glass-strong rounded-3xl p-6 md:p-8 space-y-5">
               <div>
-                <Label>{fa ? "فایل ورد" : "Word file"}</Label>
+                <div className="text-sm font-medium mb-1.5">{fa ? "فایل ورد" : "Word file"}</div>
                 <label className="mt-2 flex flex-col items-center justify-center gap-2 p-8 rounded-2xl border-2 border-dashed border-border hover:border-accent/60 cursor-pointer transition-colors bg-background/40">
                   {file ? (
                     <>
@@ -334,17 +318,13 @@ const Upload = () => {
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
                 </label>
               </div>
-              <div>
-                <Label>{fa ? "عنوان کتاب" : "Title"}</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-2" />
-              </div>
-              <div>
-                <Label>{fa ? "نویسنده" : "Author"}</Label>
-                <Input value={author} onChange={(e) => setAuthor(e.target.value)} className="mt-2" />
-              </div>
-              <div>
-                <Label>{fa ? "توضیحات" : "Description"}</Label>
-                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="mt-2" />
+              <div className="rounded-2xl border bg-background/40 p-4">
+                <div className="text-xs text-muted-foreground mb-3">
+                  {fa
+                    ? "مشخصات کتاب — هرچه کامل‌تر پر شود، کتاب در فروشگاه و فهرست‌ها بهتر دیده می‌شود. می‌توانید هرکدام را بعداً در ویرایشگر هم تغییر دهید."
+                    : "Book metadata — the more complete, the better the storefront listing. Everything is editable later in the editor."}
+                </div>
+                <BookMetadataForm value={meta} onChange={setMeta} fa={fa} />
               </div>
               <Button onClick={submitWord} disabled={busy} className="w-full bg-gradient-warm hover:opacity-90">
                 {stage === 1 ? <><Loader2 className="w-4 h-4 animate-spin me-2" /> {fa ? `در حال بارگذاری فایل (${uploadPct}٪)…` : `Uploading (${uploadPct}%)…`}</>

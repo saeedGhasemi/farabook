@@ -571,10 +571,11 @@ Deno.serve(async (req) => {
 
     // If an importId is provided, hydrate path/title/author/description from
     // the saved row so the user does not have to re-upload or retype.
+    let importMetadata: Record<string, unknown> | null = null;
     if (importId) {
       const { data: imp, error: impErr } = await admin
         .from("word_imports")
-        .select("user_id, file_path, title, author, description, attempt_count")
+        .select("user_id, file_path, title, author, description, attempt_count, metadata")
         .eq("id", importId)
         .maybeSingle();
       if (impErr || !imp) {
@@ -593,6 +594,7 @@ Deno.serve(async (req) => {
       title = body.title || imp.title || title;
       author = body.author || imp.author || author;
       description = body.description ?? imp.description ?? description;
+      importMetadata = (imp.metadata as Record<string, unknown> | null) ?? null;
 
       await admin.from("word_imports").update({
         status: "converting",
@@ -796,6 +798,25 @@ Deno.serve(async (req) => {
       bookId = upd.id;
       bookTitle = upd.title;
     } else {
+      // Pull rich bibliographic metadata from the import payload, if any.
+      const m = (importMetadata || {}) as any;
+      const extra: Record<string, unknown> = {};
+      if (m.subtitle) extra.subtitle = m.subtitle;
+      if (m.book_type) extra.book_type = m.book_type;
+      if (m.original_title) extra.original_title = m.original_title;
+      if (m.original_language) extra.original_language = m.original_language;
+      if (m.publication_year) extra.publication_year = Number(m.publication_year) || null;
+      if (m.edition) extra.edition = m.edition;
+      if (m.isbn) extra.isbn = m.isbn;
+      if (m.page_count) extra.page_count = Number(m.page_count) || null;
+      if (Array.isArray(m.categories) && m.categories.length) extra.categories = m.categories;
+      if (Array.isArray(m.subjects) && m.subjects.length) extra.subjects = m.subjects;
+      if (m.series_name) extra.series_name = m.series_name;
+      if (m.series_index) extra.series_index = Number(m.series_index) || null;
+      if (Array.isArray(m.contributors) && m.contributors.length) extra.contributors = m.contributors;
+      if (m.publisher) extra.publisher = m.publisher;
+      if (m.language) extra.language = m.language;
+
       const { data: book, error: insErr } = await admin
         .from("books")
         .insert({
@@ -803,12 +824,13 @@ Deno.serve(async (req) => {
           author,
           description,
           ambient_theme: "paper",
-          category: "کتاب کاربر",
+          category: m.categories?.[0] || "کتاب کاربر",
           cover_url,
           price: 0,
           pages,
           publisher_id: u.user.id,
           status: "draft",
+          ...extra,
         })
         .select("id, title")
         .single();
