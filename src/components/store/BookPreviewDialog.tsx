@@ -366,3 +366,104 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
     </Dialog>
   );
 };
+
+/* ---------- Book identity block ---------- */
+const IdentityBlock = ({
+  identity, bookTitle, fa,
+}: { identity: BookIdentity | null; bookTitle: string; fa: boolean }) => {
+  if (!identity) {
+    return (
+      <p className="text-sm text-muted-foreground italic">
+        {fa ? "اطلاعاتی برای نمایش نیست." : "No identity data."}
+      </p>
+    );
+  }
+  const grouped = new Map<string, string[]>();
+  for (const c of identity.contributors ?? []) {
+    if (!c?.name?.trim()) continue;
+    const key = c.role || "author";
+    const arr = grouped.get(key) ?? [];
+    arr.push(c.name.trim());
+    grouped.set(key, arr);
+  }
+  const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div className="flex items-baseline gap-2 py-1.5 border-b border-border/50 last:border-0">
+      <dt className="text-xs text-muted-foreground min-w-[110px]">{label}</dt>
+      <dd className="text-sm font-medium text-foreground/90 flex-1">{value}</dd>
+    </div>
+  );
+  const fmtNum = (n: number) => n.toLocaleString(fa ? "fa-IR" : undefined);
+  const bookTypeLabel = identity.book_type
+    ? (fa ? BOOK_TYPE_FA[identity.book_type] : BOOK_TYPE_EN[identity.book_type]) || identity.book_type
+    : null;
+
+  return (
+    <div className="rounded-2xl border bg-gradient-to-br from-secondary/30 to-secondary/5 p-5">
+      <h3 className="font-display font-bold text-base mb-1">{fa ? "شناسنامه کتاب" : "Book identity"}</h3>
+      {identity.subtitle && (
+        <p className="text-sm text-muted-foreground italic mb-3">{identity.subtitle}</p>
+      )}
+      <dl className="space-y-0.5">
+        {bookTypeLabel && <Row label={fa ? "نوع کتاب" : "Type"} value={bookTypeLabel} />}
+        {[...grouped.entries()].map(([role, names]) => (
+          <Row
+            key={role}
+            label={fa ? (ROLE_FA[role] ?? role) : (ROLE_EN[role] ?? role)}
+            value={names.join("، ")}
+          />
+        ))}
+        {identity.publisher && <Row label={fa ? "ناشر" : "Publisher"} value={identity.publisher} />}
+        {identity.publication_year != null && (
+          <Row label={fa ? "سال انتشار" : "Year"} value={fmtNum(identity.publication_year)} />
+        )}
+        {identity.edition && <Row label={fa ? "نوبت چاپ" : "Edition"} value={identity.edition} />}
+        {identity.isbn && <Row label="ISBN" value={identity.isbn} />}
+        {identity.page_count != null && (
+          <Row label={fa ? "تعداد صفحات" : "Pages"} value={fmtNum(identity.page_count)} />
+        )}
+        {identity.language && <Row label={fa ? "زبان" : "Language"} value={identity.language} />}
+        {(identity.original_title || identity.original_language) && (
+          <Row
+            label={fa ? "اثر اصلی" : "Original"}
+            value={[identity.original_title, identity.original_language && `(${identity.original_language})`].filter(Boolean).join(" ")}
+          />
+        )}
+        {identity.series_name && (
+          <Row
+            label={fa ? "مجموعه" : "Series"}
+            value={`${identity.series_name}${identity.series_index != null ? ` — ${fa ? "جلد" : "vol."} ${fmtNum(identity.series_index)}` : ""}`}
+          />
+        )}
+        {identity.categories?.length ? (
+          <Row
+            label={fa ? "دسته‌بندی" : "Categories"}
+            value={
+              <div className="flex flex-wrap gap-1">
+                {identity.categories.map((c) => (
+                  <Badge key={c} variant="secondary" className="text-[10px]">{c}</Badge>
+                ))}
+              </div>
+            }
+          />
+        ) : null}
+        {identity.subjects?.length ? (
+          <Row
+            label={fa ? "موضوعات" : "Subjects"}
+            value={
+              <div className="flex flex-wrap gap-1">
+                {identity.subjects.map((s) => (
+                  <Badge key={s} variant="outline" className="text-[10px]">{s}</Badge>
+                ))}
+              </div>
+            }
+          />
+        ) : null}
+      </dl>
+      {grouped.size === 0 && !identity.publisher && !identity.isbn && (
+        <p className="text-xs text-muted-foreground mt-2">
+          {fa ? `هنوز شناسنامه‌ای برای «${bookTitle}» ثبت نشده است.` : `No identity recorded yet for "${bookTitle}".`}
+        </p>
+      )}
+    </div>
+  );
+};
