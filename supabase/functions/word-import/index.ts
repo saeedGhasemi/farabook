@@ -148,6 +148,76 @@ const convertAnchors = (s: string): string => {
 const stripTags = (s: string) =>
   normalizeImportedLinks(htmlText(convertAnchors(s)));
 
+// Word stores EMF/WMF vector images inside <mc:AlternateContent>:
+//   <mc:Choice>  → modern path with EMF (browsers can't render)
+//   <mc:Fallback>→ legacy path with a raster PNG/JPEG that Word generated
+// mammoth defaults to mc:Choice, so the editor ends up with broken EMF
+// `<img>`s. We rewrite each AlternateContent to keep only the Fallback so
+// mammoth emits the raster image instead. We also try to delete the now
+// unused EMF/WMF media entries so they don't bloat memory.
+function preferRasterFallback(input: Buffer): { buffer: Buffer; replaced: number; droppedVector: number } {
+  let replaced = 0;
+  const files = unzipSync(new Uint8Array(input));
+
+  // 1. Rewrite XML: replace <mc:AlternateContent>…</mc:AlternateContent> with
+  //    just the inner <mc:Fallback> body when a Fallback exists; otherwise
+  //    leave it (mammoth will at least try the EMF and we'll mark it later).
+  for (const key of Object.keys(files)) {
+    if (!/^word\/.*\.xml$/i.test(key)) continue;
+    const xml = strFromU8(files[key]);
+    const next = xml.replace(
+      /<mc:AlternateContent\b[^>]*>([\s\S]*?)<\/mc:AlternateContent>/gi,
+      (whole, inner) => {
+        const fb = /<mc:Fallback\b[^>]*>([\s\S]*?)<\/mc:Fallback>/i.exec(inner);
+        if (fb && fb[1]) {
+          replaced += 1;
+          return fb[1];
+        }
+        return whole;
+      },
+    );
+    if (next !== xml) files[key] = strToU8(next);
+  }
+
+  // 2. Inspect remaining drawings to know which media paths are still
+  //    referenced. Drop EMF/WMF media + their relationship entries that no
+  //    XML still points at.
+  const referencedRelIds = new Set<string>();
+  for (const key of Object.keys(files)) {
+    if (!/^word\/.*\.xml$/i.test(key)) continue;
+    const xml = strFromU8(files[key]);
+    for (const m of xml.matchAll(/(?:r:embed|r:id|r:link)=["']([^"']+)["']/gi)) {
+      referencedRelIds.add(m[1]);
+    }
+  }
+  let droppedVector = 0;
+  for (const key of Object.keys(files)) {
+    if (!/\.rels$/i.test(key)) continue;
+    const xml = strFromU8(files[key]);
+    const next = xml.replace(/<Relationship\b[^>]*\/>/gi, (tag) => {
+      if (!/Type=["'][^"']*\/image["']/i.test(tag)) return tag;
+      const id = extractAttr(tag, "Id") || "";
+      const target = extractAttr(tag, "Target") || "";
+      const isVector = /\.(emf|wmf)$/i.test(target);
+      if (isVector && !referencedRelIds.has(id)) {
+        // also drop the actual binary
+        const norm = target.startsWith("../")
+          ? target.replace(/^\.\.\//, "word/")
+          : `word/${target.replace(/^\//, "")}`;
+        if (files[norm]) {
+          delete files[norm];
+          droppedVector += 1;
+        }
+        return "";
+      }
+      return tag;
+    });
+    if (next !== xml) files[key] = strToU8(next);
+  }
+
+  return { buffer: Buffer.from(zipSync(files, { level: 0 })), replaced, droppedVector };
+}
+
 function stripDocxImages(input: Buffer): { buffer: Buffer; removedImages: number } {
   let removedImages = 0;
   const files = unzipSync(new Uint8Array(input), {
