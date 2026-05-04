@@ -646,6 +646,7 @@ Deno.serve(async (req) => {
     // Caller can opt out of image extraction (faster + lower-memory) — useful
     // as a fallback after a previous failed attempt with images.
     const skipImages: boolean = body.skipImages === true;
+    const textMode: string = (body.textMode || "direct").toString();
 
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -743,7 +744,7 @@ Deno.serve(async (req) => {
     let strippedImageCount = 0;
     let rasterReplaced = 0;
     let droppedVector = 0;
-    if (skipImages) {
+    if (skipImages && textMode !== "mammoth") {
       try {
         const textOnly = docxToPagesTextOnly(originalBuffer);
         textOnlyPages = textOnly.pages;
