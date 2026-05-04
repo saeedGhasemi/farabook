@@ -28,6 +28,41 @@ interface PreviewBook {
   publisher_id: string | null;
 }
 
+interface BookIdentity {
+  subtitle: string | null;
+  book_type: string | null;
+  contributors: Array<{ name: string; role: string }> | null;
+  publisher: string | null;
+  publication_year: number | null;
+  edition: string | null;
+  isbn: string | null;
+  page_count: number | null;
+  language: string | null;
+  original_title: string | null;
+  original_language: string | null;
+  series_name: string | null;
+  series_index: number | null;
+  categories: string[] | null;
+  subjects: string[] | null;
+}
+
+const BOOK_TYPE_FA: Record<string, string> = {
+  authored: "تألیف", translation: "ترجمه", compilation: "گردآوری",
+  edited: "ویراستاری", adaptation: "اقتباس", anthology: "مجموعه", textbook: "درسی",
+};
+const BOOK_TYPE_EN: Record<string, string> = {
+  authored: "Authored", translation: "Translation", compilation: "Compilation",
+  edited: "Edited", adaptation: "Adaptation", anthology: "Anthology", textbook: "Textbook",
+};
+const ROLE_FA: Record<string, string> = {
+  author: "نویسنده", coauthor: "هم‌نویسنده", translator: "مترجم", editor: "ویراستار",
+  compiler: "گردآورنده", illustrator: "تصویرگر", foreword: "مقدمه‌نویس", narrator: "گوینده",
+};
+const ROLE_EN: Record<string, string> = {
+  author: "Author", coauthor: "Co-author", translator: "Translator", editor: "Editor",
+  compiler: "Compiler", illustrator: "Illustrator", foreword: "Foreword by", narrator: "Narrator",
+};
+
 interface Props {
   book: PreviewBook | null;
   open: boolean;
@@ -61,13 +96,14 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
   const [ratingAvg, setRatingAvg] = useState<number | null>(null);
   const [ratingCount, setRatingCount] = useState(0);
   const [ttsError, setTtsError] = useState<string | null>(null);
+  const [identity, setIdentity] = useState<BookIdentity | null>(null);
 
   useEffect(() => {
     if (!open || !book) return;
-    setSummary(null); setPages([]); setLoading(true); setTtsError(null);
+    setSummary(null); setPages([]); setLoading(true); setTtsError(null); setIdentity(null);
     (async () => {
       const [{ data }, { data: cs }] = await Promise.all([
-        supabase.from("books").select("pages, ai_summary, preview_pages").eq("id", book.id).maybeSingle(),
+        supabase.from("books").select("pages, ai_summary, preview_pages, subtitle, book_type, contributors, publisher, publication_year, edition, isbn, page_count, language, original_title, original_language, series_name, series_index, categories, subjects").eq("id", book.id).maybeSingle(),
         supabase.from("book_comments").select("rating").eq("book_id", book.id).not("rating", "is", null),
       ]);
       const all = (data?.pages as unknown as PageRow[]) ?? [];
@@ -79,6 +115,25 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
       const ratings = ((cs as Array<{ rating: number | null }>) || []).map((r) => r.rating).filter((r): r is number => !!r);
       setRatingCount(ratings.length);
       setRatingAvg(ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null);
+      if (data) {
+        setIdentity({
+          subtitle: (data as any).subtitle ?? null,
+          book_type: (data as any).book_type ?? null,
+          contributors: (data as any).contributors ?? null,
+          publisher: (data as any).publisher ?? null,
+          publication_year: (data as any).publication_year ?? null,
+          edition: (data as any).edition ?? null,
+          isbn: (data as any).isbn ?? null,
+          page_count: (data as any).page_count ?? null,
+          language: (data as any).language ?? null,
+          original_title: (data as any).original_title ?? null,
+          original_language: (data as any).original_language ?? null,
+          series_name: (data as any).series_name ?? null,
+          series_index: (data as any).series_index ?? null,
+          categories: (data as any).categories ?? null,
+          subjects: (data as any).subjects ?? null,
+        });
+      }
       setLoading(false);
     })();
     return () => { stopSpeak(); setSpeaking(false); };
@@ -218,6 +273,9 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
                   <BookOpen className="w-3.5 h-3.5" /> {fa ? "پیش‌نمایش" : "Preview"}
                   <Badge variant="outline" className="ms-1 text-[10px] h-4 px-1">{previewIdx.length}</Badge>
                 </TabsTrigger>
+                <TabsTrigger value="identity" className="gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5" /> {fa ? "شناسنامه" : "Identity"}
+                </TabsTrigger>
                 <TabsTrigger value="comments" className="gap-1.5">
                   <MessageCircle className="w-3.5 h-3.5" /> {fa ? "نظرات" : "Comments"}
                   {ratingCount > 0 && (
@@ -294,6 +352,10 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
                 )}
               </TabsContent>
 
+              <TabsContent value="identity" className="mt-0">
+                <IdentityBlock identity={identity} bookTitle={book.title} fa={fa} />
+              </TabsContent>
+
               <TabsContent value="comments" className="mt-0">
                 <BookComments bookId={book.id} />
               </TabsContent>
@@ -302,5 +364,106 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
         )}
       </DialogContent>
     </Dialog>
+  );
+};
+
+/* ---------- Book identity block ---------- */
+const IdentityBlock = ({
+  identity, bookTitle, fa,
+}: { identity: BookIdentity | null; bookTitle: string; fa: boolean }) => {
+  if (!identity) {
+    return (
+      <p className="text-sm text-muted-foreground italic">
+        {fa ? "اطلاعاتی برای نمایش نیست." : "No identity data."}
+      </p>
+    );
+  }
+  const grouped = new Map<string, string[]>();
+  for (const c of identity.contributors ?? []) {
+    if (!c?.name?.trim()) continue;
+    const key = c.role || "author";
+    const arr = grouped.get(key) ?? [];
+    arr.push(c.name.trim());
+    grouped.set(key, arr);
+  }
+  const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div className="flex items-baseline gap-2 py-1.5 border-b border-border/50 last:border-0">
+      <dt className="text-xs text-muted-foreground min-w-[110px]">{label}</dt>
+      <dd className="text-sm font-medium text-foreground/90 flex-1">{value}</dd>
+    </div>
+  );
+  const fmtNum = (n: number) => n.toLocaleString(fa ? "fa-IR" : undefined);
+  const bookTypeLabel = identity.book_type
+    ? (fa ? BOOK_TYPE_FA[identity.book_type] : BOOK_TYPE_EN[identity.book_type]) || identity.book_type
+    : null;
+
+  return (
+    <div className="rounded-2xl border bg-gradient-to-br from-secondary/30 to-secondary/5 p-5">
+      <h3 className="font-display font-bold text-base mb-1">{fa ? "شناسنامه کتاب" : "Book identity"}</h3>
+      {identity.subtitle && (
+        <p className="text-sm text-muted-foreground italic mb-3">{identity.subtitle}</p>
+      )}
+      <dl className="space-y-0.5">
+        {bookTypeLabel && <Row label={fa ? "نوع کتاب" : "Type"} value={bookTypeLabel} />}
+        {[...grouped.entries()].map(([role, names]) => (
+          <Row
+            key={role}
+            label={fa ? (ROLE_FA[role] ?? role) : (ROLE_EN[role] ?? role)}
+            value={names.join("، ")}
+          />
+        ))}
+        {identity.publisher && <Row label={fa ? "ناشر" : "Publisher"} value={identity.publisher} />}
+        {identity.publication_year != null && (
+          <Row label={fa ? "سال انتشار" : "Year"} value={fmtNum(identity.publication_year)} />
+        )}
+        {identity.edition && <Row label={fa ? "نوبت چاپ" : "Edition"} value={identity.edition} />}
+        {identity.isbn && <Row label="ISBN" value={identity.isbn} />}
+        {identity.page_count != null && (
+          <Row label={fa ? "تعداد صفحات" : "Pages"} value={fmtNum(identity.page_count)} />
+        )}
+        {identity.language && <Row label={fa ? "زبان" : "Language"} value={identity.language} />}
+        {(identity.original_title || identity.original_language) && (
+          <Row
+            label={fa ? "اثر اصلی" : "Original"}
+            value={[identity.original_title, identity.original_language && `(${identity.original_language})`].filter(Boolean).join(" ")}
+          />
+        )}
+        {identity.series_name && (
+          <Row
+            label={fa ? "مجموعه" : "Series"}
+            value={`${identity.series_name}${identity.series_index != null ? ` — ${fa ? "جلد" : "vol."} ${fmtNum(identity.series_index)}` : ""}`}
+          />
+        )}
+        {identity.categories?.length ? (
+          <Row
+            label={fa ? "دسته‌بندی" : "Categories"}
+            value={
+              <div className="flex flex-wrap gap-1">
+                {identity.categories.map((c) => (
+                  <Badge key={c} variant="secondary" className="text-[10px]">{c}</Badge>
+                ))}
+              </div>
+            }
+          />
+        ) : null}
+        {identity.subjects?.length ? (
+          <Row
+            label={fa ? "موضوعات" : "Subjects"}
+            value={
+              <div className="flex flex-wrap gap-1">
+                {identity.subjects.map((s) => (
+                  <Badge key={s} variant="outline" className="text-[10px]">{s}</Badge>
+                ))}
+              </div>
+            }
+          />
+        ) : null}
+      </dl>
+      {grouped.size === 0 && !identity.publisher && !identity.isbn && (
+        <p className="text-xs text-muted-foreground mt-2">
+          {fa ? `هنوز شناسنامه‌ای برای «${bookTitle}» ثبت نشده است.` : `No identity recorded yet for "${bookTitle}".`}
+        </p>
+      )}
+    </div>
   );
 };

@@ -18,10 +18,22 @@ interface PublishBody {
     title?: string;
     title_en?: string | null;
     author?: string;
+    subtitle?: string | null;
+    book_type?: string | null;
+    contributors?: unknown;
     publisher?: string | null;
     category?: string | null;
+    categories?: string[];
+    subjects?: string[];
     audience?: string | null;
     isbn?: string | null;
+    publication_year?: number | null;
+    edition?: string | null;
+    page_count?: number | null;
+    series_name?: string | null;
+    series_index?: number | null;
+    original_title?: string | null;
+    original_language?: string | null;
     language?: string | null;
     tags?: string[];
     price?: number;
@@ -30,7 +42,7 @@ interface PublishBody {
   };
   generateSummary?: boolean;
   generateAudio?: boolean;
-  ttsProvider?: "lovable" | "browser"; // browser handled client-side, we just persist preference
+  ttsProvider?: "lovable" | "browser";
 }
 
 const slugify = (s: string): string =>
@@ -221,10 +233,22 @@ Deno.serve(async (req) => {
     if (md.title !== undefined) update.title = md.title;
     if (md.title_en !== undefined) update.title_en = md.title_en;
     if (md.author !== undefined) update.author = md.author;
+    if (md.subtitle !== undefined) update.subtitle = md.subtitle;
+    if (md.book_type !== undefined) update.book_type = md.book_type;
+    if (md.contributors !== undefined) update.contributors = md.contributors;
     if (md.publisher !== undefined) update.publisher = md.publisher;
     if (md.category !== undefined) update.category = md.category;
+    if (md.categories !== undefined) update.categories = md.categories;
+    if (md.subjects !== undefined) update.subjects = md.subjects;
     if (md.audience !== undefined) update.audience = md.audience;
     if (md.isbn !== undefined) update.isbn = md.isbn;
+    if (md.publication_year !== undefined) update.publication_year = md.publication_year;
+    if (md.edition !== undefined) update.edition = md.edition;
+    if (md.page_count !== undefined) update.page_count = md.page_count;
+    if (md.series_name !== undefined) update.series_name = md.series_name;
+    if (md.series_index !== undefined) update.series_index = md.series_index;
+    if (md.original_title !== undefined) update.original_title = md.original_title;
+    if (md.original_language !== undefined) update.original_language = md.original_language;
     if (md.language !== undefined) update.language = md.language;
     if (md.tags !== undefined) update.tags = md.tags;
     if (md.price !== undefined) update.price = md.price;

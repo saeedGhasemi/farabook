@@ -23,6 +23,13 @@ import { estimateComplexity, showInsufficientCreditsToast } from "@/lib/credit-g
 import { pulseCredits, requestCreditsRefresh } from "@/lib/credits-bus";
 import { ConfirmTransactionDialog } from "@/components/ConfirmTransactionDialog";
 import { useCredits } from "@/hooks/useCredits";
+import {
+  BookMetadataForm,
+  DEFAULT_METADATA,
+  normalizeMetadata,
+  formatContributorsLine,
+  type BookMetadata,
+} from "@/components/book-metadata/BookMetadataForm";
 
 interface BookRow {
   id: string;
@@ -45,6 +52,19 @@ interface BookRow {
   ai_audio_url: string | null;
   author_user_id: string | null;
   first_published_paid: boolean;
+  // rich metadata (added)
+  subtitle: string | null;
+  book_type: string | null;
+  contributors: any;
+  publication_year: number | null;
+  edition: string | null;
+  page_count: number | null;
+  series_name: string | null;
+  series_index: number | null;
+  original_title: string | null;
+  original_language: string | null;
+  categories: string[] | null;
+  subjects: string[] | null;
 }
 
 const Publish = () => {
@@ -62,16 +82,11 @@ const Publish = () => {
   const [estimatedFactor, setEstimatedFactor] = useState(1);
   const { credits } = useCredits();
 
-  // Form
-  const [title, setTitle] = useState("");
+  // Rich book metadata
+  const [meta, setMeta] = useState<BookMetadata>(DEFAULT_METADATA);
   const [titleEn, setTitleEn] = useState("");
-  const [author, setAuthor] = useState("");
-  const [publisher, setPublisher] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
   const [audience, setAudience] = useState("");
-  const [isbn, setIsbn] = useState("");
-  const [language, setLanguage] = useState<"fa" | "en">("fa");
+  const [category, setCategory] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [price, setPrice] = useState<number>(0);
   const [previewPages, setPreviewPages] = useState<number[]>([0]);
@@ -86,11 +101,11 @@ const Publish = () => {
   // Browser TTS preview
   const [speaking, setSpeaking] = useState(false);
 
-  // Step completion (the in-page wizard guide)
+  // Step completion
   const priceStepDone = saleMode === "free" || (saleMode === "paid" && price > 0);
   const sharesStepDone = saleMode === "free" || (saleMode === "paid" && sharesSaved);
   const previewStepDone = (previewPages?.length ?? 0) > 0;
-  const allStepsDone = priceStepDone && sharesStepDone && previewStepDone && !!title.trim();
+  const allStepsDone = priceStepDone && sharesStepDone && previewStepDone && !!meta.title.trim();
 
   const Step = ({
     n, done, icon: Icon, title: t, hint, anchor,
@@ -140,15 +155,31 @@ const Publish = () => {
       }
       const b = data as unknown as BookRow;
       setBook(b);
-      setTitle(b.title || "");
+      // Hydrate the rich metadata form from the row
+      setMeta(normalizeMetadata({
+        title: b.title || "",
+        subtitle: b.subtitle || "",
+        description: b.description || "",
+        book_type: (b.book_type as any) || "authored",
+        contributors: Array.isArray(b.contributors) && b.contributors.length
+          ? (b.contributors as any)
+          : (b.author ? [{ name: b.author, role: "author" }] : [{ name: "", role: "author" }]),
+        publisher: b.publisher || "",
+        publication_year: b.publication_year ?? null,
+        edition: b.edition || "",
+        isbn: b.isbn || "",
+        page_count: b.page_count ?? null,
+        language: b.language || "fa",
+        original_title: b.original_title || "",
+        original_language: b.original_language || "",
+        categories: (b.categories?.length ? b.categories : (b.category ? [b.category] : [])) as string[],
+        subjects: (b.subjects || []) as string[],
+        series_name: b.series_name || "",
+        series_index: b.series_index ?? null,
+      }));
       setTitleEn(b.title_en || "");
-      setAuthor(b.author || "");
-      setPublisher(b.publisher || "");
-      setDescription(b.description || "");
       setCategory(b.category || "");
       setAudience(b.audience || "");
-      setIsbn(b.isbn || "");
-      setLanguage((b.language as any) || "fa");
       setTagsInput((b.tags || []).join(", "));
       const loadedPrice = Number(b.price) || 0;
       setPrice(loadedPrice);
@@ -171,7 +202,7 @@ const Publish = () => {
       toast.error(lang === "fa" ? "ابتدا قیمت، سهم‌بندی و پیش‌نمایش را کامل کنید" : "Complete pricing, shares, and preview first");
       return;
     }
-    if (!title.trim()) { toast.error(lang === "fa" ? "عنوان لازم است" : "Title required"); return; }
+    if (!meta.title.trim()) { toast.error(lang === "fa" ? "عنوان لازم است" : "Title required"); return; }
     // Already paid → skip confirm (no fee)
     if (book.first_published_paid) { setEstimatedFee(0); setEstimatedFactor(1); setConfirmOpen(true); return; }
     const factor = estimateComplexity(book.pages || []);
@@ -221,17 +252,32 @@ const Publish = () => {
 
       // 2) Push metadata + AI generation through the edge function
       const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
+      const primaryAuthor = (meta.contributors?.find((c) => c.role === "author")?.name) || meta.contributors?.[0]?.name || "";
       const { data, error } = await supabase.functions.invoke("book-publish", {
         body: {
           bookId: book.id,
           metadata: {
-            title, title_en: titleEn || null, author,
-            publisher: publisher || null,
-            description: description || null,
-            category: category || null,
+            title: meta.title,
+            title_en: titleEn || null,
+            author: primaryAuthor,
+            subtitle: meta.subtitle || null,
+            book_type: meta.book_type,
+            contributors: meta.contributors,
+            publisher: meta.publisher || null,
+            description: meta.description || null,
+            category: category || (meta.categories?.[0] ?? null),
+            categories: meta.categories,
+            subjects: meta.subjects,
             audience: audience || null,
-            isbn: isbn || null,
-            language,
+            isbn: meta.isbn || null,
+            publication_year: meta.publication_year ?? null,
+            edition: meta.edition || null,
+            page_count: meta.page_count ?? null,
+            series_name: meta.series_name || null,
+            series_index: meta.series_index ?? null,
+            original_title: meta.original_title || null,
+            original_language: meta.original_language || null,
+            language: meta.language || "fa",
             tags,
             price,
             preview_pages: previewPages,
@@ -253,12 +299,12 @@ const Publish = () => {
   };
 
   const previewSpeak = () => {
-    const sample = description || title;
+    const sample = meta.description || meta.title;
     if (!sample) return;
     setSpeaking(true);
     speakSmart({
       text: sample,
-      fallbackLang: language,
+      fallbackLang: (meta.language as any) || "fa",
       onEnd: () => setSpeaking(false),
       onError: () => setSpeaking(false),
     });
@@ -362,36 +408,17 @@ const Publish = () => {
       </motion.div>
 
       <div className="space-y-6">
-        {/* Core metadata */}
+        {/* Core metadata — rich form */}
         <section className="glass-strong rounded-2xl p-5 space-y-4">
           <h2 className="font-display font-bold text-lg">
-            {lang === "fa" ? "مشخصات اصلی" : "Core metadata"}
+            {lang === "fa" ? "شناسنامه کتاب" : "Book identity"}
           </h2>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <Label>{lang === "fa" ? "عنوان *" : "Title *"}</Label>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1" />
-            </div>
+          <BookMetadataForm value={meta} onChange={setMeta} fa={lang === "fa"} />
+
+          <div className="grid sm:grid-cols-2 gap-3 pt-2 border-t">
             <div>
               <Label>{lang === "fa" ? "عنوان انگلیسی" : "English title"}</Label>
               <Input value={titleEn} onChange={(e) => setTitleEn(e.target.value)} className="mt-1" />
-            </div>
-            <div>
-              <Label>{lang === "fa" ? "نویسنده" : "Author"}</Label>
-              <Input value={author} onChange={(e) => setAuthor(e.target.value)} className="mt-1" />
-            </div>
-            <div>
-              <Label>{lang === "fa" ? "ناشر" : "Publisher"}</Label>
-              <Input value={publisher} onChange={(e) => setPublisher(e.target.value)} className="mt-1" />
-            </div>
-            <div>
-              <Label>{lang === "fa" ? "دسته‌بندی" : "Category"}</Label>
-              <Input
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder={lang === "fa" ? "مثلاً پاتولوژی، ادبیات…" : "e.g. Pathology, Fiction…"}
-                className="mt-1"
-              />
             </div>
             <div>
               <Label>{lang === "fa" ? "مخاطب" : "Audience"}</Label>
@@ -403,38 +430,23 @@ const Publish = () => {
               />
             </div>
             <div>
-              <Label>ISBN</Label>
-              <Input value={isbn} onChange={(e) => setIsbn(e.target.value)} className="mt-1" />
+              <Label>{lang === "fa" ? "دسته‌بندی اصلی (نمایشی)" : "Primary category (display)"}</Label>
+              <Input
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder={lang === "fa" ? "مثلاً پاتولوژی" : "e.g. Pathology"}
+                className="mt-1"
+              />
             </div>
             <div>
-              <Label>{lang === "fa" ? "زبان" : "Language"}</Label>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as any)}
-                className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="fa">فارسی</option>
-                <option value="en">English</option>
-              </select>
+              <Label>{lang === "fa" ? "برچسب‌ها (با کاما)" : "Tags (comma-separated)"}</Label>
+              <Input
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                placeholder={lang === "fa" ? "خون‌شناسی، آناتومی" : "hematology, anatomy"}
+                className="mt-1"
+              />
             </div>
-          </div>
-          <div>
-            <Label>{lang === "fa" ? "توضیحات کوتاه" : "Short description"}</Label>
-            <Textarea
-              value={description}
-              rows={3}
-              onChange={(e) => setDescription(e.target.value)}
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label>{lang === "fa" ? "برچسب‌ها (با کاما جدا کنید)" : "Tags (comma-separated)"}</Label>
-            <Input
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder={lang === "fa" ? "مثال: خون‌شناسی، آناتومی" : "e.g. hematology, anatomy"}
-              className="mt-1"
-            />
           </div>
         </section>
 
@@ -615,7 +627,7 @@ const Publish = () => {
                       {lang === "fa" ? opt.fa : opt.en}
                     </button>
                   ))}
-                  {ttsProvider === "browser" && (description || title) && (
+                  {ttsProvider === "browser" && (meta.description || meta.title) && (
                     <Button
                       type="button"
                       size="sm"
