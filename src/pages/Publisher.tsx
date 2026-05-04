@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import {
   Briefcase, Plus, Pencil, Trash2, Eye, BookOpen, Users, FileEdit,
   CheckCircle2, ExternalLink, Loader2, Settings, BarChart3,
-  Rocket, MessageCircle,
+  Rocket, MessageCircle, RefreshCw,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
