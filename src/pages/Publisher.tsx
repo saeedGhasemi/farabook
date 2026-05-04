@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { resolveBookMedia } from "@/lib/book-media";
+import { convertWordImport } from "@/lib/word-convert";
 
 interface Book {
   id: string;
@@ -93,24 +94,21 @@ const Publisher = () => {
           : "Original Word file not found. Please re-upload from the Upload page.");
         return;
       }
-      const { data, error } = await supabase.functions.invoke("word-import", {
-        body: { importId: imp.id, replaceBookId: book.id, skipImages: false },
+      const result = await convertWordImport({
+        importId: imp.id,
+        replaceBookId: book.id,
+        onStatus: (msg) => toast.message(msg),
       });
-      if (error) {
-        let detail = "";
-        try {
-          const ctx = (error as any)?.context;
-          if (ctx instanceof Response) {
-            const j = await ctx.clone().json().catch(() => null);
-            detail = j?.error || (await ctx.clone().text().catch(() => "")) || "";
-          }
-        } catch { /* ignore */ }
-        throw new Error(detail || error.message || (lang === "fa" ? "تبدیل ناموفق بود" : "Conversion failed"));
+      if (result.usedFallback) {
+        toast.success(lang === "fa"
+          ? `«${book.title}» با تبدیل دومرحله‌ای بازسازی شد (${result.imagesFilled}/${result.imagesTotal} تصویر). در حال انتقال به ادیتور…`
+          : `"${book.title}" rebuilt via two-phase import (${result.imagesFilled}/${result.imagesTotal} images). Opening editor…`);
+      } else {
+        toast.success(lang === "fa"
+          ? `«${book.title}» با موفقیت دوباره تبدیل شد. در حال انتقال به ادیتور…`
+          : `"${book.title}" re-converted successfully. Opening editor…`);
       }
-      if (data?.error) throw new Error(data.error);
-      toast.success(lang === "fa"
-        ? `«${book.title}» با موفقیت دوباره تبدیل شد.`
-        : `"${book.title}" re-converted successfully.`);
+      setTimeout(() => nav(`/edit/${result.bookId}`), 700);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
     } finally {

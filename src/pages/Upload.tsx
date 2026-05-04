@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { convertWordImport } from "@/lib/word-convert";
 import { BookEditor } from "@/components/builder/BookEditor";
 import {
   BookMetadataForm,
@@ -167,42 +168,41 @@ const Upload = () => {
     return { importId: imp.id, path };
   };
 
-  /** Stage 2: convert by importId. Returns book id on success. */
-  const convertById = async (importId: string, opts?: { skipImages?: boolean }) => {
+  /** Stage 2: convert by importId — with auto fallback for heavy files. */
+  const convertById = async (importId: string, opts?: { replaceBookId?: string | null }) => {
     setStage(2);
     setProcessPct(5);
-    const { data, error } = await supabase.functions.invoke("word-import", {
-      body: { importId, skipImages: opts?.skipImages === true },
-    });
-    if (error) {
-      // FunctionsHttpError hides the JSON body — try to read it ourselves.
-      let detail = "";
-      try {
-        const ctx = (error as any)?.context;
-        if (ctx instanceof Response) {
-          const j = await ctx.clone().json().catch(() => null);
-          detail = j?.error || (await ctx.clone().text().catch(() => "")) || "";
+    const result = await convertWordImport({
+      importId,
+      replaceBookId: opts?.replaceBookId ?? null,
+      onStatus: (msg) => {
+        setProcessPct((p) => Math.max(p, 25));
+        toast.message(msg);
+      },
+      onImageProgress: (done, total) => {
+        if (total > 0) {
+          const pct = 50 + Math.round((done / total) * 45);
+          setProcessPct(Math.min(95, pct));
         }
-      } catch { /* ignore */ }
-      throw new Error(detail || error.message || (fa ? "تبدیل ناموفق بود" : "Conversion failed"));
-    }
-    if (data?.error) throw new Error(data.error);
+      },
+    });
     setStage(3);
     setProcessPct(100);
 
-    if (data?.skippedImages > 0) {
-      toast.warning(
+    if (result.usedFallback) {
+      toast.success(
         fa
-          ? `${data.skippedImages} تصویر بزرگ‌تر از ۴ مگابایت رد شد.`
-          : `${data.skippedImages} images >4MB were skipped.`,
+          ? `کتاب با تبدیل دومرحله‌ای ساخته شد (${result.imagesFilled} از ${result.imagesTotal} تصویر جایگذاری شد). در حال انتقال…`
+          : `Built via two-phase import (${result.imagesFilled}/${result.imagesTotal} images placed). Opening…`,
+      );
+    } else {
+      toast.success(
+        fa
+          ? `کتاب با ${result.chapters} فصل ساخته شد — در حال انتقال…`
+          : `Imported with ${result.chapters} chapters — opening editor…`,
       );
     }
-    toast.success(
-      fa
-        ? `کتاب با ${data?.chapters ?? 0} فصل ساخته شد — در حال انتقال…`
-        : `Imported with ${data?.chapters ?? 0} chapters — opening editor…`,
-    );
-    setTimeout(() => nav(`/edit/${data.book.id}`), 700);
+    setTimeout(() => nav(`/edit/${result.bookId}`), 700);
   };
 
   const submitWord = async () => {
@@ -210,7 +210,6 @@ const Upload = () => {
     try {
       const res = await uploadOnly();
       if (!res) return;
-      // Refresh list so the new "uploaded" row is visible while we convert.
       loadImports();
       await convertById(res.importId);
     } catch (e) {
@@ -224,35 +223,10 @@ const Upload = () => {
     }
   };
 
-  const retryImport = async (row: ImportRow, skipImages: boolean) => {
-    setRetryingId({ id: row.id, mode: skipImages ? "without" : "with" });
+  const retryImport = async (row: ImportRow, _skipImages: boolean) => {
+    setRetryingId({ id: row.id, mode: _skipImages ? "without" : "with" });
     try {
-      // If a book was previously created from this import, update it in place
-      // instead of creating a duplicate. This lets users re-run conversion
-      // after we improve the importer (e.g. EMF handling, chapter detection).
-      const body: Record<string, unknown> = { importId: row.id, skipImages };
-      if (row.book_id) body.replaceBookId = row.book_id;
-      const { data, error } = await supabase.functions.invoke("word-import", {
-        body,
-      });
-      if (error) {
-        let detail = "";
-        try {
-          const ctx = (error as any)?.context;
-          if (ctx instanceof Response) {
-            const j = await ctx.clone().json().catch(() => null);
-            detail = j?.error || (await ctx.clone().text().catch(() => "")) || "";
-          }
-        } catch { /* ignore */ }
-        throw new Error(detail || error.message || (fa ? "تبدیل ناموفق بود" : "Conversion failed"));
-      }
-      if (data?.error) throw new Error(data.error);
-      toast.success(
-        fa
-          ? `«${row.title}» با موفقیت تبدیل شد. در حال انتقال…`
-          : `“${row.title}” converted. Opening…`,
-      );
-      setTimeout(() => nav(`/edit/${data.book.id}`), 600);
+      await convertById(row.id, { replaceBookId: row.book_id ?? null });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
     } finally {
