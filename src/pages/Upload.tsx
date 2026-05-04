@@ -53,42 +53,6 @@ type ImportRow = {
 
 const STALE_CONVERSION_MS = 3 * 60 * 1000;
 
-/** XHR-based upload to Supabase Storage so we get a real progress event.
- *  Returns the storage path on success. */
-const uploadDocxWithProgress = (
-  file: File,
-  path: string,
-  accessToken: string,
-  onProgress: (pct: number) => void,
-): Promise<void> =>
-  new Promise((resolve, reject) => {
-    const url = `${SUPABASE_URL}/storage/v1/object/book-uploads/${encodeURIComponent(path)}`;
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", url, true);
-    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
-    xhr.setRequestHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    );
-    xhr.setRequestHeader("x-upsert", "true");
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-    };
-    xhr.onerror = () => reject(new Error("network error"));
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else {
-        let msg = `upload failed (${xhr.status})`;
-        try {
-          const j = JSON.parse(xhr.responseText);
-          if (j?.message) msg = j.message;
-        } catch { /* ignore */ }
-        reject(new Error(msg));
-      }
-    };
-    xhr.send(file);
-  });
-
 const Upload = () => {
   const { user } = useAuth();
   const { lang } = useI18n();
@@ -96,9 +60,7 @@ const Upload = () => {
   const fa = lang === "fa";
 
   const [file, setFile] = useState<File | null>(null);
-  const [title, setTitle] = useState("");
-  const [author, setAuthor] = useState("");
-  const [description, setDescription] = useState("");
+  const [meta, setMeta] = useState<BookMetadata>({ ...DEFAULT_METADATA });
   const [busy, setBusy] = useState(false);
 
   // 0 idle · 1 uploading · 2 processing · 3 done
@@ -138,11 +100,18 @@ const Upload = () => {
 
   useEffect(() => { loadImports(); }, [user?.id]);
 
-  /** Stage 1: upload only — saves file to storage and creates a word_imports row. */
+  /** Build a display name for the legacy `author` column from contributors. */
+  const primaryAuthorName = (): string => {
+    const names = meta.contributors.filter((c) => c.role === "author" || c.role === "coauthor")
+      .map((c) => c.name.trim()).filter(Boolean);
+    return names.join("، ") || (fa ? "ناشناس" : "Unknown");
+  };
+
+  /** Stage 1: resumable upload — saves file to storage and creates a word_imports row. */
   const uploadOnly = async (): Promise<{ importId: string; path: string } | null> => {
     if (!user) { nav("/auth"); return null; }
     if (!file) { toast.error(fa ? "یک فایل ورد انتخاب کنید" : "Pick a .docx file"); return null; }
-    if (!title.trim()) { toast.error(fa ? "عنوان لازم است" : "Title required"); return null; }
+    if (!meta.title.trim()) { toast.error(fa ? "عنوان لازم است" : "Title required"); return null; }
 
     const dot = file.name.lastIndexOf(".");
     const ext = (dot >= 0 ? file.name.slice(dot + 1) : "docx").toLowerCase().replace(/[^a-z0-9]/g, "") || "docx";
@@ -155,7 +124,17 @@ const Upload = () => {
 
     setStage(1);
     setUploadPct(0);
-    await uploadDocxWithProgress(file, path, token, (pct) => setUploadPct(pct));
+    const handle = startResumableUpload({
+      bucket: "book-uploads",
+      objectName: path,
+      file,
+      accessToken: token,
+      contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      onProgress: (loaded, total) => {
+        if (total > 0) setUploadPct(Math.round((loaded / total) * 100));
+      },
+    });
+    await handle.done;
 
     const { data: imp, error: impErr } = await supabase
       .from("word_imports")
@@ -164,10 +143,13 @@ const Upload = () => {
         file_path: path,
         file_name: file.name,
         file_size: file.size,
-        title: title.trim(),
-        author: author.trim() || (fa ? "ناشناس" : "Unknown"),
-        description: description.trim() || null,
+        title: meta.title.trim(),
+        author: primaryAuthorName(),
+        description: meta.description?.trim() || null,
         status: "uploaded",
+        // Carry the full metadata payload through to the conversion step
+        // so the created book inherits all the bibliographic fields.
+        metadata: meta as unknown as Record<string, unknown>,
       })
       .select("*")
       .single();
