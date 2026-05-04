@@ -28,6 +28,41 @@ interface PreviewBook {
   publisher_id: string | null;
 }
 
+interface BookIdentity {
+  subtitle: string | null;
+  book_type: string | null;
+  contributors: Array<{ name: string; role: string }> | null;
+  publisher: string | null;
+  publication_year: number | null;
+  edition: string | null;
+  isbn: string | null;
+  page_count: number | null;
+  language: string | null;
+  original_title: string | null;
+  original_language: string | null;
+  series_name: string | null;
+  series_index: number | null;
+  categories: string[] | null;
+  subjects: string[] | null;
+}
+
+const BOOK_TYPE_FA: Record<string, string> = {
+  authored: "تألیف", translation: "ترجمه", compilation: "گردآوری",
+  edited: "ویراستاری", adaptation: "اقتباس", anthology: "مجموعه", textbook: "درسی",
+};
+const BOOK_TYPE_EN: Record<string, string> = {
+  authored: "Authored", translation: "Translation", compilation: "Compilation",
+  edited: "Edited", adaptation: "Adaptation", anthology: "Anthology", textbook: "Textbook",
+};
+const ROLE_FA: Record<string, string> = {
+  author: "نویسنده", coauthor: "هم‌نویسنده", translator: "مترجم", editor: "ویراستار",
+  compiler: "گردآورنده", illustrator: "تصویرگر", foreword: "مقدمه‌نویس", narrator: "گوینده",
+};
+const ROLE_EN: Record<string, string> = {
+  author: "Author", coauthor: "Co-author", translator: "Translator", editor: "Editor",
+  compiler: "Compiler", illustrator: "Illustrator", foreword: "Foreword by", narrator: "Narrator",
+};
+
 interface Props {
   book: PreviewBook | null;
   open: boolean;
