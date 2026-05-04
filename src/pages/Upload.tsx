@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { convertWordImport } from "@/lib/word-convert";
 import { BookEditor } from "@/components/builder/BookEditor";
 import {
   BookMetadataForm,
