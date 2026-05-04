@@ -519,6 +519,14 @@ function htmlToPages(html: string): Page[] {
       return;
     }
 
+    // Promote chapter-style paragraphs (e.g. "فصل اول", "Chapter 3") to a
+    // new chapter page even when no Word heading style was applied.
+    if (CHAPTER_RE.test(tail) && tail.length <= 160) {
+      pushPage();
+      cur = { title: tail.slice(0, 120), blocks: [] };
+      return;
+    }
+
     cur.blocks.push({ type: "paragraph", text: tail });
   };
 
