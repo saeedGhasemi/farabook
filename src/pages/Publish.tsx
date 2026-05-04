@@ -155,15 +155,31 @@ const Publish = () => {
       }
       const b = data as unknown as BookRow;
       setBook(b);
-      setTitle(b.title || "");
+      // Hydrate the rich metadata form from the row
+      setMeta(normalizeMetadata({
+        title: b.title || "",
+        subtitle: b.subtitle || "",
+        description: b.description || "",
+        book_type: (b.book_type as any) || "authored",
+        contributors: Array.isArray(b.contributors) && b.contributors.length
+          ? (b.contributors as any)
+          : (b.author ? [{ name: b.author, role: "author" }] : [{ name: "", role: "author" }]),
+        publisher: b.publisher || "",
+        publication_year: b.publication_year ?? null,
+        edition: b.edition || "",
+        isbn: b.isbn || "",
+        page_count: b.page_count ?? null,
+        language: b.language || "fa",
+        original_title: b.original_title || "",
+        original_language: b.original_language || "",
+        categories: (b.categories?.length ? b.categories : (b.category ? [b.category] : [])) as string[],
+        subjects: (b.subjects || []) as string[],
+        series_name: b.series_name || "",
+        series_index: b.series_index ?? null,
+      }));
       setTitleEn(b.title_en || "");
-      setAuthor(b.author || "");
-      setPublisher(b.publisher || "");
-      setDescription(b.description || "");
       setCategory(b.category || "");
       setAudience(b.audience || "");
-      setIsbn(b.isbn || "");
-      setLanguage((b.language as any) || "fa");
       setTagsInput((b.tags || []).join(", "));
       const loadedPrice = Number(b.price) || 0;
       setPrice(loadedPrice);
