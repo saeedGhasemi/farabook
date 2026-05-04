@@ -352,6 +352,10 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
                 )}
               </TabsContent>
 
+              <TabsContent value="identity" className="mt-0">
+                <IdentityBlock identity={identity} bookTitle={book.title} fa={fa} />
+              </TabsContent>
+
               <TabsContent value="comments" className="mt-0">
                 <BookComments bookId={book.id} />
               </TabsContent>
