@@ -4,8 +4,6 @@
 //
 // Supabase Storage exposes a TUS-compatible endpoint at
 //   ${SUPABASE_URL}/storage/v1/upload/resumable
-// which accepts a chunked upload with the same auth headers as the
-// regular Storage API.
 
 import * as tus from "tus-js-client";
 
@@ -14,46 +12,59 @@ const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 export interface ResumableUploadOptions {
   bucket: string;
-  /** Object path inside the bucket (e.g. `userId/file.docx`). */
   objectName: string;
   file: File;
   /** Caller's session JWT. */
   accessToken: string;
-  /** Content type to store; defaults to file.type or `application/octet-stream`. */
   contentType?: string;
-  /** Allow overwriting an existing object. Defaults to true so retries succeed. */
   upsert?: boolean;
   onProgress?: (loaded: number, total: number) => void;
+  /** Called when the JWT might be stale; should return a fresh access token. */
+  refreshToken?: () => Promise<string | null>;
 }
 
 export interface ResumableUploadHandle {
-  /** Promise that resolves when the upload finishes successfully. */
   done: Promise<void>;
-  /** Pause the upload. The next call to start() resumes from the last byte. */
   abort: (shouldTerminate?: boolean) => Promise<void>;
 }
+
+/** Pull a useful description out of a tus-js-client error. */
+const describeTusError = (err: unknown): string => {
+  if (!err) return "آپلود ناموفق (خطای نامشخص)";
+  const anyErr = err as any;
+  const res = anyErr?.originalResponse;
+  let bodyText = "";
+  try { bodyText = res?.getBody?.() || ""; } catch { /* ignore */ }
+  const status = res?.getStatus?.();
+  const baseMsg = anyErr?.message || String(err);
+  // Common Supabase storage messages
+  if (status === 413) return `حجم فایل بیشتر از حد مجاز سرور است (${status}). ${bodyText}`.trim();
+  if (status === 401 || status === 403) return `دسترسی منقضی شده یا مجاز نیست (${status}). ${bodyText}`.trim();
+  if (status === 409) return `نسخه‌ی دیگری از این فایل از قبل وجود دارد (${status}).`;
+  if (status) return `خطای سرور ${status}: ${bodyText || baseMsg}`.trim();
+  return baseMsg || "آپلود ناموفق";
+};
 
 export const startResumableUpload = (opts: ResumableUploadOptions): ResumableUploadHandle => {
   const {
     bucket, objectName, file, accessToken,
     contentType = file.type || "application/octet-stream",
-    upsert = true, onProgress,
+    upsert = true, onProgress, refreshToken,
   } = opts;
 
   let upload: tus.Upload;
+  let currentToken = accessToken;
+
   const done = new Promise<void>((resolve, reject) => {
     upload = new tus.Upload(file, {
       endpoint: `${SUPABASE_URL}/storage/v1/upload/resumable`,
-      // Resume the same upload after page reloads or temporary failures.
-      // tus-js-client persists the upload URL keyed by file fingerprint.
       removeFingerprintOnSuccess: true,
       retryDelays: [0, 1500, 3000, 6000, 12000, 25000, 60000],
       headers: {
-        authorization: `Bearer ${accessToken}`,
+        authorization: `Bearer ${currentToken}`,
         "x-upsert": upsert ? "true" : "false",
         apikey: ANON_KEY,
       },
-      // Supabase TUS endpoint requires fixed 6 MiB chunks (except the final).
       chunkSize: 6 * 1024 * 1024,
       uploadDataDuringCreation: true,
       metadata: {
@@ -62,7 +73,43 @@ export const startResumableUpload = (opts: ResumableUploadOptions): ResumableUpl
         contentType,
         cacheControl: "3600",
       },
-      onError: (err) => reject(err),
+      // Try to refresh JWT on auth errors before tus retries the chunk.
+      onShouldRetry: (err: any, _retryAttempt, _options) => {
+        const status = err?.originalResponse?.getStatus?.();
+        if (status === 401 || status === 403) {
+          if (refreshToken) {
+            // fire-and-forget; updated header will be picked up on next attempt
+            refreshToken().then((tok) => {
+              if (tok && upload) {
+                currentToken = tok;
+                (upload as any).options.headers.authorization = `Bearer ${tok}`;
+              }
+            }).catch(() => {});
+          }
+          return true;
+        }
+        // Don't retry on 4xx other than 408/429
+        if (status && status >= 400 && status < 500 && status !== 408 && status !== 429) {
+          return false;
+        }
+        return true;
+      },
+      onError: (err: any) => {
+        // Surface full HTTP context so the UI toast is meaningful.
+        try {
+          const res = err?.originalResponse;
+          console.error("[resumable-upload] error", {
+            message: err?.message,
+            status: res?.getStatus?.(),
+            body: res?.getBody?.(),
+            headers: res?.getAllResponseHeaders?.(),
+          });
+        } catch { /* ignore */ }
+        const description = describeTusError(err);
+        const wrapped = new Error(description);
+        (wrapped as any).cause = err;
+        reject(wrapped);
+      },
       onProgress: (loaded, total) => onProgress?.(loaded, total),
       onSuccess: () => resolve(),
     });
@@ -71,7 +118,6 @@ export const startResumableUpload = (opts: ResumableUploadOptions): ResumableUpl
       if (prev.length > 0) upload.resumeFromPreviousUpload(prev[0]);
       upload.start();
     }).catch((err) => {
-      // Fingerprint lookup failed (e.g. blocked storage). Start fresh.
       console.warn("[resumable-upload] fingerprint lookup failed", err);
       upload.start();
     });
