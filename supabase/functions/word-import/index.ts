@@ -571,10 +571,11 @@ Deno.serve(async (req) => {
 
     // If an importId is provided, hydrate path/title/author/description from
     // the saved row so the user does not have to re-upload or retype.
+    let importMetadata: Record<string, unknown> | null = null;
     if (importId) {
       const { data: imp, error: impErr } = await admin
         .from("word_imports")
-        .select("user_id, file_path, title, author, description, attempt_count")
+        .select("user_id, file_path, title, author, description, attempt_count, metadata")
         .eq("id", importId)
         .maybeSingle();
       if (impErr || !imp) {
@@ -593,6 +594,7 @@ Deno.serve(async (req) => {
       title = body.title || imp.title || title;
       author = body.author || imp.author || author;
       description = body.description ?? imp.description ?? description;
+      importMetadata = (imp.metadata as Record<string, unknown> | null) ?? null;
 
       await admin.from("word_imports").update({
         status: "converting",
