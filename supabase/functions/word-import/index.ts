@@ -407,6 +407,10 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
 // Find Persian/English figure or table label like "شکل ۹–۱" / "Figure 9.1" / "جدول ۲-۱"
 const FIG_RE = /^(شکل|تصویر|نگاره|figure|fig\.?)\s*[\d\u06F0-\u06F9۰-۹]+([.\-\u2013\u2014][\d\u06F0-\u06F9۰-۹]+)?/i;
 const TBL_RE = /^(جدول|table)\s*[\d\u06F0-\u06F9۰-۹]+([.\-\u2013\u2014][\d\u06F0-\u06F9۰-۹]+)?/i;
+// Recognize chapter / section headings written as plain paragraphs (the
+// author didn't apply Word's Heading style). Persian "فصل اول" / "فصل ۱" /
+// "بخش دوم" and English "Chapter 1" / "Part II" all qualify.
+const CHAPTER_RE = /^\s*(فصل|بخش|گفتار|chapter|part|section)\s+(?:[\d\u06F0-\u06F9۰-۹IVXLC]+|اول|دوم|سوم|چهارم|پنجم|ششم|هفتم|هشتم|نهم|دهم|یازدهم|دوازدهم|سیزدهم|چهاردهم|پانزدهم|شانزدهم|هفدهم|هجدهم|نوزدهم|بیستم)\b/i;
 
 function splitLabel(text: string, re: RegExp): { label?: string; rest: string } {
   const m = text.match(re);
