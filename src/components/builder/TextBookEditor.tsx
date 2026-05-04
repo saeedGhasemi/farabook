@@ -633,6 +633,18 @@ export const TextBookEditor = ({ initial }: Props) => {
           <Button size="sm" variant="outline" className="h-8" onClick={() => persist(true)}>
             <Save className="w-3.5 h-3.5 me-1" /> {fa ? "ذخیره" : "Save"}
           </Button>
+          {isEdit && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1"
+              onClick={() => setShowMeta(true)}
+              title={fa ? "ویرایش شناسنامه و مشخصات کتاب" : "Edit book identity & metadata"}
+            >
+              <Info className="w-3.5 h-3.5" /> {fa ? "مشخصات کتاب" : "Metadata"}
+            </Button>
+          )}
           <Button
             type="button"
             size="sm"
