@@ -299,12 +299,12 @@ const Publish = () => {
   };
 
   const previewSpeak = () => {
-    const sample = description || title;
+    const sample = meta.description || meta.title;
     if (!sample) return;
     setSpeaking(true);
     speakSmart({
       text: sample,
-      fallbackLang: language,
+      fallbackLang: (meta.language as any) || "fa",
       onEnd: () => setSpeaking(false),
       onError: () => setSpeaking(false),
     });
