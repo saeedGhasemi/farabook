@@ -149,8 +149,8 @@ const Upload = () => {
         status: "uploaded",
         // Carry the full metadata payload through to the conversion step
         // so the created book inherits all the bibliographic fields.
-        metadata: meta as unknown as Record<string, unknown>,
-      })
+        metadata: meta as any,
+      } as any)
       .select("*")
       .single();
     if (impErr || !imp) throw impErr || new Error("could not record import");
