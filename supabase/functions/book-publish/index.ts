@@ -18,10 +18,22 @@ interface PublishBody {
     title?: string;
     title_en?: string | null;
     author?: string;
+    subtitle?: string | null;
+    book_type?: string | null;
+    contributors?: unknown;
     publisher?: string | null;
     category?: string | null;
+    categories?: string[];
+    subjects?: string[];
     audience?: string | null;
     isbn?: string | null;
+    publication_year?: number | null;
+    edition?: string | null;
+    page_count?: number | null;
+    series_name?: string | null;
+    series_index?: number | null;
+    original_title?: string | null;
+    original_language?: string | null;
     language?: string | null;
     tags?: string[];
     price?: number;
@@ -30,7 +42,7 @@ interface PublishBody {
   };
   generateSummary?: boolean;
   generateAudio?: boolean;
-  ttsProvider?: "lovable" | "browser"; // browser handled client-side, we just persist preference
+  ttsProvider?: "lovable" | "browser";
 }
 
 const slugify = (s: string): string =>
