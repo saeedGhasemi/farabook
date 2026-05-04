@@ -386,7 +386,8 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
       const part = parts[i];
       const text = textFromWordXml(part);
       if (text) {
-        if (level === 1 || level === 2) {
+        const looksLikeChapter = level === 0 && text.length <= 160 && /^\s*(فصل|بخش|گفتار|chapter|part|section)\s+/i.test(text);
+        if (level === 1 || level === 2 || looksLikeChapter) {
           pushPage();
           cur = { title: text.slice(0, 120), blocks: [] };
         } else {
