@@ -436,6 +436,19 @@ const Publisher = () => {
                           size="sm"
                           variant="outline"
                           className="gap-1.5"
+                          onClick={() => reconvertBook(book)}
+                          disabled={reconvertingId === book.id}
+                          title={lang === "fa" ? "تبدیل دوباره از فایل ورد اصلی" : "Re-run conversion from original Word file"}
+                        >
+                          {reconvertingId === book.id
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <RefreshCw className="w-3.5 h-3.5" />}
+                          {lang === "fa" ? "تبدیل مجدد" : "Re-convert"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
                           onClick={() => setCommentsBook(book)}
                           title={lang === "fa" ? "مدیریت نظرات" : "Manage comments"}
                         >
