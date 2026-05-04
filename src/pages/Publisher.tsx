@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { resolveBookMedia } from "@/lib/book-media";
+import { convertWordImport } from "@/lib/word-convert";
 
 interface Book {
   id: string;
