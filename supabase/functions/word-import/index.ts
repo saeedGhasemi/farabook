@@ -728,6 +728,8 @@ Deno.serve(async (req) => {
     let buffer = originalBuffer;
     let textOnlyPages: Page[] | null = null;
     let strippedImageCount = 0;
+    let rasterReplaced = 0;
+    let droppedVector = 0;
     if (skipImages) {
       try {
         const textOnly = docxToPagesTextOnly(originalBuffer);
@@ -738,6 +740,18 @@ Deno.serve(async (req) => {
         const stripped = stripDocxImages(originalBuffer);
         buffer = stripped.buffer;
         strippedImageCount = stripped.removedImages;
+      }
+    } else {
+      // Replace EMF/WMF AlternateContent branches with their raster Fallback
+      // so the editor receives PNG/JPEG instead of unrenderable vector files.
+      try {
+        const swap = preferRasterFallback(originalBuffer);
+        buffer = swap.buffer;
+        rasterReplaced = swap.replaced;
+        droppedVector = swap.droppedVector;
+        console.log(`emf→raster swaps: ${rasterReplaced}, dropped vector media: ${droppedVector}`);
+      } catch (e) {
+        console.warn("emf fallback rewrite failed; continuing with original docx", e);
       }
     }
 
@@ -757,12 +771,37 @@ Deno.serve(async (req) => {
       return await mammoth.convertToHtml(
         { buffer },
         {
+          // Detect Persian/English chapter & section headings even when the
+          // author used custom paragraph styles instead of Word's built-in
+          // Heading 1/2 styles.
+          styleMap: [
+            "p[style-name='Title'] => h1:fresh",
+            "p[style-name='Subtitle'] => h2:fresh",
+            "p[style-name^='Heading 1'] => h1:fresh",
+            "p[style-name^='Heading 2'] => h2:fresh",
+            "p[style-name^='Heading 3'] => h3:fresh",
+            "p[style-name^='Heading 4'] => h4:fresh",
+            "p[style-name^='عنوان 1'] => h1:fresh",
+            "p[style-name^='عنوان 2'] => h2:fresh",
+            "p[style-name^='عنوان 3'] => h3:fresh",
+            "p[style-name*='Chapter'] => h1:fresh",
+            "p[style-name*='فصل'] => h1:fresh",
+            "p[style-name*='بخش'] => h2:fresh",
+          ],
           convertImage: mammoth.images.imgElement(async (image: any) => {
             if (!includeImages) return { src: "" };
             try {
               const ct: string = image.contentType || "image/png";
               const ext = (ct.split("/")[1] || "png").replace("jpeg", "jpg");
               const buf: Buffer = await image.read();
+              // EMF/WMF files that survived the fallback rewrite — drop them
+              // out of the running text and record a placeholder so the
+              // editor can prompt the user to replace them.
+              if (/emf|wmf|x-emf|x-wmf/i.test(ct) || /\.(emf|wmf)$/i.test(image?.altText || "")) {
+                skippedImages += 1;
+                const token = `__WI_PLACEHOLDER__|${buf.length}|${ct}|vector_unsupported|`;
+                return { src: token };
+              }
               const isOversize = buf.length > PER_IMAGE_LIMIT;
               if (buf.length > HARD_IMAGE_LIMIT) {
                 // Don't even try to upload – just leave a metadata-only slot.
