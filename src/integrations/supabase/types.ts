@@ -232,18 +232,26 @@ export type Database = {
           audience: string | null
           author: string
           author_user_id: string | null
+          book_type: string | null
+          categories: string[] | null
           category: string | null
           comments_enabled: boolean
+          contributors: Json
           cover_url: string | null
           created_at: string
           description: string | null
+          edition: string | null
           first_published_paid: boolean
           id: string
           isbn: string | null
           language: string | null
+          original_language: string | null
+          original_title: string | null
+          page_count: number | null
           pages: Json
           preview_pages: number[] | null
           price: number
+          publication_year: number | null
           publish_complexity_factor: number | null
           published_at: string | null
           publisher: string | null
@@ -252,8 +260,12 @@ export type Database = {
           review_status: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          series_index: number | null
+          series_name: string | null
           slug: string | null
           status: string
+          subjects: string[] | null
+          subtitle: string | null
           tags: string[] | null
           title: string
           title_en: string | null
@@ -267,18 +279,26 @@ export type Database = {
           audience?: string | null
           author: string
           author_user_id?: string | null
+          book_type?: string | null
+          categories?: string[] | null
           category?: string | null
           comments_enabled?: boolean
+          contributors?: Json
           cover_url?: string | null
           created_at?: string
           description?: string | null
+          edition?: string | null
           first_published_paid?: boolean
           id?: string
           isbn?: string | null
           language?: string | null
+          original_language?: string | null
+          original_title?: string | null
+          page_count?: number | null
           pages?: Json
           preview_pages?: number[] | null
           price?: number
+          publication_year?: number | null
           publish_complexity_factor?: number | null
           published_at?: string | null
           publisher?: string | null
@@ -287,8 +307,12 @@ export type Database = {
           review_status?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          series_index?: number | null
+          series_name?: string | null
           slug?: string | null
           status?: string
+          subjects?: string[] | null
+          subtitle?: string | null
           tags?: string[] | null
           title: string
           title_en?: string | null
@@ -302,18 +326,26 @@ export type Database = {
           audience?: string | null
           author?: string
           author_user_id?: string | null
+          book_type?: string | null
+          categories?: string[] | null
           category?: string | null
           comments_enabled?: boolean
+          contributors?: Json
           cover_url?: string | null
           created_at?: string
           description?: string | null
+          edition?: string | null
           first_published_paid?: boolean
           id?: string
           isbn?: string | null
           language?: string | null
+          original_language?: string | null
+          original_title?: string | null
+          page_count?: number | null
           pages?: Json
           preview_pages?: number[] | null
           price?: number
+          publication_year?: number | null
           publish_complexity_factor?: number | null
           published_at?: string | null
           publisher?: string | null
@@ -322,8 +354,12 @@ export type Database = {
           review_status?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          series_index?: number | null
+          series_name?: string | null
           slug?: string | null
           status?: string
+          subjects?: string[] | null
+          subtitle?: string | null
           tags?: string[] | null
           title?: string
           title_en?: string | null
@@ -949,6 +985,7 @@ export type Database = {
           id: string
           images_count: number | null
           last_error: string | null
+          metadata: Json
           skipped_images_count: number | null
           status: string
           title: string
@@ -968,6 +1005,7 @@ export type Database = {
           id?: string
           images_count?: number | null
           last_error?: string | null
+          metadata?: Json
           skipped_images_count?: number | null
           status?: string
           title?: string
@@ -987,6 +1025,7 @@ export type Database = {
           id?: string
           images_count?: number | null
           last_error?: string | null
+          metadata?: Json
           skipped_images_count?: number | null
           status?: string
           title?: string
