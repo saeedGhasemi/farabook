@@ -79,8 +79,10 @@ const readErr = async (error: unknown): Promise<string> => {
   try {
     const ctx = (error as { context?: unknown })?.context;
     if (ctx instanceof Response) {
-      const j = await ctx.clone().json().catch(() => null);
-      detail = (j as { error?: string } | null)?.error
+      const j = await ctx.clone().json().catch(() => null) as
+        | { error?: string; message?: string; code?: string }
+        | null;
+      detail = j?.error || j?.message || j?.code
         || (await ctx.clone().text().catch(() => ""))
         || "";
     }
