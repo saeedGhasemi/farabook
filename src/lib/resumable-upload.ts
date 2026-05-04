@@ -73,6 +73,15 @@ export const startResumableUpload = (opts: ResumableUploadOptions): ResumableUpl
         contentType,
         cacheControl: "3600",
       },
+      // Bind the resume fingerprint to the exact destination object name.
+      // Without this, tus would resume a previous upload that targeted a
+      // *different* objectName (e.g. the previous timestamp) which leaves the
+      // bytes saved at the old path while the DB row points to the new one,
+      // and the conversion step then fails with "Object not found".
+      fingerprint: (file, options) =>
+        Promise.resolve(
+          `tus-${bucket}-${objectName}-${file.name}-${file.size}-${(file as any).lastModified ?? 0}`,
+        ),
       // Try to refresh JWT on auth errors before tus retries the chunk.
       onShouldRetry: (err: any, _retryAttempt, _options) => {
         const status = err?.originalResponse?.getStatus?.();

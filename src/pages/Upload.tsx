@@ -174,7 +174,18 @@ const Upload = () => {
     const { data, error } = await supabase.functions.invoke("word-import", {
       body: { importId, skipImages: opts?.skipImages === true },
     });
-    if (error) throw error;
+    if (error) {
+      // FunctionsHttpError hides the JSON body — try to read it ourselves.
+      let detail = "";
+      try {
+        const ctx = (error as any)?.context;
+        if (ctx instanceof Response) {
+          const j = await ctx.clone().json().catch(() => null);
+          detail = j?.error || (await ctx.clone().text().catch(() => "")) || "";
+        }
+      } catch { /* ignore */ }
+      throw new Error(detail || error.message || (fa ? "تبدیل ناموفق بود" : "Conversion failed"));
+    }
     if (data?.error) throw new Error(data.error);
     setStage(3);
     setProcessPct(100);
@@ -219,7 +230,17 @@ const Upload = () => {
       const { data, error } = await supabase.functions.invoke("word-import", {
         body: { importId: row.id, skipImages },
       });
-      if (error) throw error;
+      if (error) {
+        let detail = "";
+        try {
+          const ctx = (error as any)?.context;
+          if (ctx instanceof Response) {
+            const j = await ctx.clone().json().catch(() => null);
+            detail = j?.error || (await ctx.clone().text().catch(() => "")) || "";
+          }
+        } catch { /* ignore */ }
+        throw new Error(detail || error.message || (fa ? "تبدیل ناموفق بود" : "Conversion failed"));
+      }
       if (data?.error) throw new Error(data.error);
       toast.success(
         fa
