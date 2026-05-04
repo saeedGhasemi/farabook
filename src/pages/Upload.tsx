@@ -18,16 +18,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { BookEditor } from "@/components/builder/BookEditor";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+import {
+  BookMetadataForm,
+  DEFAULT_METADATA,
+  formatContributorsLine,
+  type BookMetadata,
+} from "@/components/book-metadata/BookMetadataForm";
+import { startResumableUpload } from "@/lib/resumable-upload";
 
 type ImportRow = {
   id: string;
