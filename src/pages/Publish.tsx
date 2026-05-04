@@ -23,6 +23,13 @@ import { estimateComplexity, showInsufficientCreditsToast } from "@/lib/credit-g
 import { pulseCredits, requestCreditsRefresh } from "@/lib/credits-bus";
 import { ConfirmTransactionDialog } from "@/components/ConfirmTransactionDialog";
 import { useCredits } from "@/hooks/useCredits";
+import {
+  BookMetadataForm,
+  DEFAULT_METADATA,
+  normalizeMetadata,
+  formatContributorsLine,
+  type BookMetadata,
+} from "@/components/book-metadata/BookMetadataForm";
 
 interface BookRow {
   id: string;
@@ -45,6 +52,19 @@ interface BookRow {
   ai_audio_url: string | null;
   author_user_id: string | null;
   first_published_paid: boolean;
+  // rich metadata (added)
+  subtitle: string | null;
+  book_type: string | null;
+  contributors: any;
+  publication_year: number | null;
+  edition: string | null;
+  page_count: number | null;
+  series_name: string | null;
+  series_index: number | null;
+  original_title: string | null;
+  original_language: string | null;
+  categories: string[] | null;
+  subjects: string[] | null;
 }
 
 const Publish = () => {
