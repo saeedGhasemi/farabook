@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import {
   Briefcase, Plus, Pencil, Trash2, Eye, BookOpen, Users, FileEdit,
   CheckCircle2, ExternalLink, Loader2, Settings, BarChart3,
-  Rocket, MessageCircle,
+  Rocket, MessageCircle, RefreshCw,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -74,6 +74,49 @@ const Publisher = () => {
   const [previewBook, setPreviewBook] = useState<Book | null>(null);
   const [commentsBook, setCommentsBook] = useState<Book | null>(null);
   const [salesDetailFor, setSalesDetailFor] = useState<Book | null>(null);
+  const [reconvertingId, setReconvertingId] = useState<string | null>(null);
+
+  const reconvertBook = async (book: Book) => {
+    setReconvertingId(book.id);
+    try {
+      const { data: imp, error: impErr } = await supabase
+        .from("word_imports")
+        .select("id, file_path")
+        .eq("book_id", book.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (impErr) throw impErr;
+      if (!imp) {
+        toast.error(lang === "fa"
+          ? "فایل ورد اصلی این کتاب یافت نشد. لطفاً از صفحه «آپلود» دوباره بارگذاری کنید."
+          : "Original Word file not found. Please re-upload from the Upload page.");
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke("word-import", {
+        body: { importId: imp.id, replaceBookId: book.id, skipImages: false },
+      });
+      if (error) {
+        let detail = "";
+        try {
+          const ctx = (error as any)?.context;
+          if (ctx instanceof Response) {
+            const j = await ctx.clone().json().catch(() => null);
+            detail = j?.error || (await ctx.clone().text().catch(() => "")) || "";
+          }
+        } catch { /* ignore */ }
+        throw new Error(detail || error.message || (lang === "fa" ? "تبدیل ناموفق بود" : "Conversion failed"));
+      }
+      if (data?.error) throw new Error(data.error);
+      toast.success(lang === "fa"
+        ? `«${book.title}» با موفقیت دوباره تبدیل شد.`
+        : `"${book.title}" re-converted successfully.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setReconvertingId(null);
+    }
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -388,6 +431,19 @@ const Publisher = () => {
                         >
                           <Eye className="w-3.5 h-3.5" />
                           {lang === "fa" ? "پیش‌نمایش" : "Preview"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() => reconvertBook(book)}
+                          disabled={reconvertingId === book.id}
+                          title={lang === "fa" ? "تبدیل دوباره از فایل ورد اصلی" : "Re-run conversion from original Word file"}
+                        >
+                          {reconvertingId === book.id
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <RefreshCw className="w-3.5 h-3.5" />}
+                          {lang === "fa" ? "تبدیل مجدد" : "Re-convert"}
                         </Button>
                         <Button
                           size="sm"
