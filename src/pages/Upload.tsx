@@ -318,17 +318,13 @@ const Upload = () => {
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
                 </label>
               </div>
-              <div>
-                <Label>{fa ? "عنوان کتاب" : "Title"}</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-2" />
-              </div>
-              <div>
-                <Label>{fa ? "نویسنده" : "Author"}</Label>
-                <Input value={author} onChange={(e) => setAuthor(e.target.value)} className="mt-2" />
-              </div>
-              <div>
-                <Label>{fa ? "توضیحات" : "Description"}</Label>
-                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="mt-2" />
+              <div className="rounded-2xl border bg-background/40 p-4">
+                <div className="text-xs text-muted-foreground mb-3">
+                  {fa
+                    ? "مشخصات کتاب — هرچه کامل‌تر پر شود، کتاب در فروشگاه و فهرست‌ها بهتر دیده می‌شود. می‌توانید هرکدام را بعداً در ویرایشگر هم تغییر دهید."
+                    : "Book metadata — the more complete, the better the storefront listing. Everything is editable later in the editor."}
+                </div>
+                <BookMetadataForm value={meta} onChange={setMeta} fa={fa} />
               </div>
               <Button onClick={submitWord} disabled={busy} className="w-full bg-gradient-warm hover:opacity-90">
                 {stage === 1 ? <><Loader2 className="w-4 h-4 animate-spin me-2" /> {fa ? `در حال بارگذاری فایل (${uploadPct}٪)…` : `Uploading (${uploadPct}%)…`}</>
