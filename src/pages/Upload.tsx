@@ -133,8 +133,18 @@ const Upload = () => {
       onProgress: (loaded, total) => {
         if (total > 0) setUploadPct(Math.round((loaded / total) * 100));
       },
+      refreshToken: async () => {
+        const { data } = await supabase.auth.refreshSession();
+        return data.session?.access_token ?? null;
+      },
     });
-    await handle.done;
+    try {
+      await handle.done;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[upload] resumable upload failed", e);
+      throw new Error((fa ? "بارگذاری فایل ناموفق بود: " : "Upload failed: ") + msg);
+    }
 
     const { data: imp, error: impErr } = await supabase
       .from("word_imports")
