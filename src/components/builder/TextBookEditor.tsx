@@ -156,6 +156,10 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [chaptersCollapsed, setChaptersCollapsed] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [typography, setTypography] = useState<string>(initial?.typography_preset || "editorial");
+  // Metadata dialog
+  const [showMeta, setShowMeta] = useState(false);
+  const [meta, setMeta] = useState<BookMetadata>(DEFAULT_METADATA);
+  const [metaSaving, setMetaSaving] = useState(false);
   // Force re-render of toolbar on selection change to reflect active states
   const [, forceTick] = useState(0);
 
