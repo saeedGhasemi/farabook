@@ -672,7 +672,7 @@ export const TextBookEditor = ({ initial }: Props) => {
              savedAt ? <span>✓ {savedAt.toLocaleTimeString()}</span> :
              <span>{fa ? "آماده" : "Ready"}</span>}
           </div>
-          <Button size="sm" variant="outline" className="h-8" onClick={() => persist(true)}>
+          <Button size="sm" variant="outline" className="h-8" onClick={() => persist({ showToast: true, full: true })}>
             <Save className="w-3.5 h-3.5 me-1" /> {fa ? "ذخیره" : "Save"}
           </Button>
           {isEdit && (
