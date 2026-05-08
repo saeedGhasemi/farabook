@@ -159,9 +159,11 @@ const fillVectorImagesInBrowser = async (bookId: string, importId: string) => {
     if (!key) continue;
     const ext = key.split(".").pop()?.toLowerCase();
     const bytes = files[key];
+    const ab = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(ab).set(bytes);
     const png = ext === "wmf"
-      ? await convertWmfToDataUrl(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), 1400, 1400, 1)
-      : await convertEmfToDataUrl(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), 1400, 1400, 1);
+      ? await convertWmfToDataUrl(ab, 1400, 1400, 1)
+      : await convertEmfToDataUrl(ab, 1400, 1400, 1);
     if (!png) continue;
     const mediaKey = `${filePath.split("/")[0]}/${bookId}/vector-fill/slot-${String(t.slot).padStart(4, "0")}.png`;
     const up = await supabase.storage.from("book-media").upload(mediaKey, dataUrlToBlob(png), { contentType: "image/png", upsert: true });
