@@ -485,7 +485,7 @@ export const TextBookEditor = ({ initial }: Props) => {
       next.splice(activeIdx + 1, 0, newPage);
       return next;
     });
-    setDirty(true);
+    markStructureDirty();
     setTimeout(() => setActiveIdx(activeIdx + 1), 0);
     toast.success(
       selectedTitle
