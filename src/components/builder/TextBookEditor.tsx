@@ -201,6 +201,8 @@ export const TextBookEditor = ({ initial }: Props) => {
         if (cur) next[activeIdx] = { ...cur, doc: json };
         return next;
       });
+      // Only this chapter changed → mark it dirty for incremental save.
+      dirtyPagesRef.current.add(activeIdx);
       setDirty(true);
     },
     // Only re-render the toolbar when the selection changes — not on every
