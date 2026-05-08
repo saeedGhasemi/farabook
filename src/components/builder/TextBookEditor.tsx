@@ -323,25 +323,66 @@ export const TextBookEditor = ({ initial }: Props) => {
     }
   };
 
-  const persist = useCallback(async (showToast = false) => {
+  // Track which chapters changed since last save and whether the
+  // structural shape (chapter order/count, metadata) changed. Autosave
+  // sends only the dirty chapters via an RPC; manual Save (or any
+  // structural change) always sends the full book.
+  const dirtyPagesRef = useRef<Set<number>>(new Set());
+  const structureDirtyRef = useRef(false);
+
+  const markPageDirty = useCallback((idx: number) => {
+    dirtyPagesRef.current.add(idx);
+    setDirty(true);
+  }, []);
+  const markStructureDirty = useCallback(() => {
+    structureDirtyRef.current = true;
+    setDirty(true);
+  }, []);
+
+  const persist = useCallback(async (opts: { showToast?: boolean; full?: boolean } | boolean = false) => {
+    const showToast = typeof opts === "boolean" ? opts : !!opts.showToast;
+    const forceFull = typeof opts === "boolean" ? false : !!opts.full;
     if (!isEdit || !initial?.id || !user) return;
     setSaving(true);
     try {
+      // Always sync the editor's current chapter back into local state
       const syncedPages = pages.map((p, i) => (
         i === activeIdx && editor ? { ...p, doc: editor.getJSON() as TextPage["doc"] } : p
       ));
-      const dbPages = textPagesToDbPages(syncedPages);
-      const { error } = await supabase
-        .from("books")
-        .update({
-          title: title || initial.title,
-          author: author || initial.author,
-          cover_url: coverUrl,
-          pages: dbPages,
-          typography_preset: typography,
-        })
-        .eq("id", initial.id);
-      if (error) throw error;
+      // Only save the dirty pages when nothing structural changed and
+      // the user didn't press the Save button.
+      const dirtyIdx = Array.from(dirtyPagesRef.current).filter(
+        (i) => i >= 0 && i < syncedPages.length,
+      );
+      const doFull = forceFull || structureDirtyRef.current || dirtyIdx.length === 0;
+
+      if (doFull) {
+        const dbPages = textPagesToDbPages(syncedPages);
+        const { error } = await supabase
+          .from("books")
+          .update({
+            title: title || initial.title,
+            author: author || initial.author,
+            cover_url: coverUrl,
+            pages: dbPages,
+            typography_preset: typography,
+          })
+          .eq("id", initial.id);
+        if (error) throw error;
+      } else {
+        // Partial: send only the chapters that changed.
+        const patches = dirtyIdx
+          .sort((a, b) => a - b)
+          .map((i) => ({ index: i, page: textPagesToDbPages([syncedPages[i]])[0] }));
+        const { error } = await supabase.rpc("update_book_pages_partial", {
+          _book_id: initial.id,
+          _patches: patches as any,
+        });
+        if (error) throw error;
+      }
+
+      dirtyPagesRef.current.clear();
+      structureDirtyRef.current = false;
       setSavedAt(new Date());
       setPages(syncedPages);
       setDirty(false);
