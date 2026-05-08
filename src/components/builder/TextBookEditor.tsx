@@ -150,6 +150,12 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  // Track which chapters changed since last save and whether the
+  // structural shape (chapter order/count, metadata) changed. Autosave
+  // sends only the dirty chapters via an RPC; manual Save (or any
+  // structural change) always sends the full book.
+  const dirtyPagesRef = useRef<Set<number>>(new Set());
+  const structureDirtyRef = useRef(false);
   const [showAi, setShowAi] = useState(false);
   const [showAutoFill, setShowAutoFill] = useState(false);
   const [importId, setImportId] = useState<string | undefined>(undefined);
