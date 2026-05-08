@@ -331,13 +331,6 @@ export const TextBookEditor = ({ initial }: Props) => {
     }
   };
 
-  // Track which chapters changed since last save and whether the
-  // structural shape (chapter order/count, metadata) changed. Autosave
-  // sends only the dirty chapters via an RPC; manual Save (or any
-  // structural change) always sends the full book.
-  const dirtyPagesRef = useRef<Set<number>>(new Set());
-  const structureDirtyRef = useRef(false);
-
   const markPageDirty = useCallback((idx: number) => {
     dirtyPagesRef.current.add(idx);
     setDirty(true);
