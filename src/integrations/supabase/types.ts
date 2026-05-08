@@ -597,6 +597,51 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_orders: {
+        Row: {
+          amount_toman: number
+          authority: string | null
+          created_at: string
+          credits: number
+          description: string | null
+          gateway: string
+          id: string
+          metadata: Json
+          ref_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_toman: number
+          authority?: string | null
+          created_at?: string
+          credits: number
+          description?: string | null
+          gateway?: string
+          id?: string
+          metadata?: Json
+          ref_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_toman?: number
+          authority?: string | null
+          created_at?: string
+          credits?: number
+          description?: string | null
+          gateway?: string
+          id?: string
+          metadata?: Json
+          ref_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       platform_fee_settings: {
         Row: {
           ai_image_gen_cost: number
@@ -607,6 +652,7 @@ export type Database = {
           book_publish_value: number
           book_purchase_mode: string
           book_purchase_value: number
+          credits_per_toman: number
           editor_order_mode: string
           editor_order_value: number
           id: number
@@ -624,6 +670,7 @@ export type Database = {
           book_publish_value?: number
           book_purchase_mode?: string
           book_purchase_value?: number
+          credits_per_toman?: number
           editor_order_mode?: string
           editor_order_value?: number
           id?: number
@@ -641,6 +688,7 @@ export type Database = {
           book_publish_value?: number
           book_purchase_mode?: string
           book_purchase_value?: number
+          credits_per_toman?: number
           editor_order_mode?: string
           editor_order_value?: number
           id?: number
@@ -1140,6 +1188,7 @@ export type Database = {
           book_publish_value: number
           book_purchase_mode: string
           book_purchase_value: number
+          credits_per_toman: number
           editor_order_mode: string
           editor_order_value: number
           id: number
@@ -1168,9 +1217,17 @@ export type Database = {
         }
         Returns: Json
       }
+      complete_payment_order: {
+        Args: { _order_id: string; _ref_id: string }
+        Returns: Json
+      }
       compute_fee: {
         Args: { _base: number; _mode: string; _value: number }
         Returns: number
+      }
+      fail_payment_order: {
+        Args: { _order_id: string; _reason: string }
+        Returns: undefined
       }
       find_user_by_email: { Args: { _email: string }; Returns: string }
       has_role: {
