@@ -150,6 +150,12 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  // Track which chapters changed since last save and whether the
+  // structural shape (chapter order/count, metadata) changed. Autosave
+  // sends only the dirty chapters via an RPC; manual Save (or any
+  // structural change) always sends the full book.
+  const dirtyPagesRef = useRef<Set<number>>(new Set());
+  const structureDirtyRef = useRef(false);
   const [showAi, setShowAi] = useState(false);
   const [showAutoFill, setShowAutoFill] = useState(false);
   const [importId, setImportId] = useState<string | undefined>(undefined);
@@ -201,6 +207,8 @@ export const TextBookEditor = ({ initial }: Props) => {
         if (cur) next[activeIdx] = { ...cur, doc: json };
         return next;
       });
+      // Only this chapter changed → mark it dirty for incremental save.
+      dirtyPagesRef.current.add(activeIdx);
       setDirty(true);
     },
     // Only re-render the toolbar when the selection changes — not on every
@@ -323,25 +331,59 @@ export const TextBookEditor = ({ initial }: Props) => {
     }
   };
 
-  const persist = useCallback(async (showToast = false) => {
+  const markPageDirty = useCallback((idx: number) => {
+    dirtyPagesRef.current.add(idx);
+    setDirty(true);
+  }, []);
+  const markStructureDirty = useCallback(() => {
+    structureDirtyRef.current = true;
+    setDirty(true);
+  }, []);
+
+  const persist = useCallback(async (opts: { showToast?: boolean; full?: boolean } | boolean = false) => {
+    const showToast = typeof opts === "boolean" ? opts : !!opts.showToast;
+    const forceFull = typeof opts === "boolean" ? false : !!opts.full;
     if (!isEdit || !initial?.id || !user) return;
     setSaving(true);
     try {
+      // Always sync the editor's current chapter back into local state
       const syncedPages = pages.map((p, i) => (
         i === activeIdx && editor ? { ...p, doc: editor.getJSON() as TextPage["doc"] } : p
       ));
-      const dbPages = textPagesToDbPages(syncedPages);
-      const { error } = await supabase
-        .from("books")
-        .update({
-          title: title || initial.title,
-          author: author || initial.author,
-          cover_url: coverUrl,
-          pages: dbPages,
-          typography_preset: typography,
-        })
-        .eq("id", initial.id);
-      if (error) throw error;
+      // Only save the dirty pages when nothing structural changed and
+      // the user didn't press the Save button.
+      const dirtyIdx = Array.from(dirtyPagesRef.current).filter(
+        (i) => i >= 0 && i < syncedPages.length,
+      );
+      const doFull = forceFull || structureDirtyRef.current || dirtyIdx.length === 0;
+
+      if (doFull) {
+        const dbPages = textPagesToDbPages(syncedPages);
+        const { error } = await supabase
+          .from("books")
+          .update({
+            title: title || initial.title,
+            author: author || initial.author,
+            cover_url: coverUrl,
+            pages: dbPages,
+            typography_preset: typography,
+          })
+          .eq("id", initial.id);
+        if (error) throw error;
+      } else {
+        // Partial: send only the chapters that changed.
+        const patches = dirtyIdx
+          .sort((a, b) => a - b)
+          .map((i) => ({ index: i, page: textPagesToDbPages([syncedPages[i]])[0] }));
+        const { error } = await supabase.rpc("update_book_pages_partial", {
+          _book_id: initial.id,
+          _patches: patches as any,
+        });
+        if (error) throw error;
+      }
+
+      dirtyPagesRef.current.clear();
+      structureDirtyRef.current = false;
       setSavedAt(new Date());
       setPages(syncedPages);
       setDirty(false);
@@ -365,7 +407,7 @@ export const TextBookEditor = ({ initial }: Props) => {
   const addChapter = () => {
     setPages((ps) => [...ps, newEmptyPage(fa ? `فصل ${ps.length + 1}` : `Chapter ${ps.length + 1}`)]);
     setActiveIdx(pages.length);
-    setDirty(true);
+    markStructureDirty();
   };
   const removeChapter = (idx: number) => {
     if (pages.length <= 1) {
@@ -374,11 +416,11 @@ export const TextBookEditor = ({ initial }: Props) => {
     }
     setPages((ps) => ps.filter((_, i) => i !== idx));
     setActiveIdx((cur) => Math.max(0, cur >= idx ? cur - 1 : cur));
-    setDirty(true);
+    markStructureDirty();
   };
   const renameChapter = (idx: number, value: string) => {
     setPages((ps) => ps.map((p, i) => (i === idx ? { ...p, title: value } : p)));
-    setDirty(true);
+    markPageDirty(idx);
   };
 
   const insertImageAtCursor = async (file: File) => {
@@ -393,7 +435,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     const url = await upload(file);
     if (!url) return;
     setCoverUrl(url);
-    setDirty(true);
+    markStructureDirty();
     toast.success(fa ? "کاور بارگذاری شد" : "Cover uploaded");
   };
 
@@ -443,7 +485,7 @@ export const TextBookEditor = ({ initial }: Props) => {
       next.splice(activeIdx + 1, 0, newPage);
       return next;
     });
-    setDirty(true);
+    markStructureDirty();
     setTimeout(() => setActiveIdx(activeIdx + 1), 0);
     toast.success(
       selectedTitle
@@ -607,7 +649,7 @@ export const TextBookEditor = ({ initial }: Props) => {
                   size="sm"
                   variant="ghost"
                   className="h-7 text-xs text-destructive"
-                  onClick={() => { setCoverUrl(null); setDirty(true); }}
+                  onClick={() => { setCoverUrl(null); markStructureDirty(); }}
                 >
                   <Trash2 className="w-3.5 h-3.5 me-1" /> {fa ? "حذف" : "Remove"}
                 </Button>
@@ -630,7 +672,7 @@ export const TextBookEditor = ({ initial }: Props) => {
              savedAt ? <span>✓ {savedAt.toLocaleTimeString()}</span> :
              <span>{fa ? "آماده" : "Ready"}</span>}
           </div>
-          <Button size="sm" variant="outline" className="h-8" onClick={() => persist(true)}>
+          <Button size="sm" variant="outline" className="h-8" onClick={() => persist({ showToast: true, full: true })}>
             <Save className="w-3.5 h-3.5 me-1" /> {fa ? "ذخیره" : "Save"}
           </Button>
           {isEdit && (
@@ -830,7 +872,7 @@ export const TextBookEditor = ({ initial }: Props) => {
             <TbSep />
 
             {/* Typography */}
-            <Select value={typography} onValueChange={(v) => { setTypography(v); setDirty(true); }}>
+            <Select value={typography} onValueChange={(v) => { setTypography(v); markStructureDirty(); }}>
               <SelectTrigger className="h-8 w-[130px] shrink-0" title={fa ? "تیپوگرافی" : "Typography"}>
                 <TypeIcon className="w-3.5 h-3.5 me-1" />
                 <SelectValue />

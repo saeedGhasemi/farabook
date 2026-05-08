@@ -1265,6 +1265,10 @@ export type Database = {
         Args: { _book_id: string; _shares: Json }
         Returns: Json
       }
+      update_book_pages_partial: {
+        Args: { _book_id: string; _patches: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role:
