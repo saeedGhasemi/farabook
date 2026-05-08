@@ -872,7 +872,7 @@ export const TextBookEditor = ({ initial }: Props) => {
             <TbSep />
 
             {/* Typography */}
-            <Select value={typography} onValueChange={(v) => { setTypography(v); setDirty(true); }}>
+            <Select value={typography} onValueChange={(v) => { setTypography(v); markStructureDirty(); }}>
               <SelectTrigger className="h-8 w-[130px] shrink-0" title={fa ? "تیپوگرافی" : "Typography"}>
                 <TypeIcon className="w-3.5 h-3.5 me-1" />
                 <SelectValue />
