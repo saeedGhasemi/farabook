@@ -649,7 +649,7 @@ export const TextBookEditor = ({ initial }: Props) => {
                   size="sm"
                   variant="ghost"
                   className="h-7 text-xs text-destructive"
-                  onClick={() => { setCoverUrl(null); setDirty(true); }}
+                  onClick={() => { setCoverUrl(null); markStructureDirty(); }}
                 >
                   <Trash2 className="w-3.5 h-3.5 me-1" /> {fa ? "حذف" : "Remove"}
                 </Button>
