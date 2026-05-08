@@ -407,7 +407,7 @@ export const TextBookEditor = ({ initial }: Props) => {
   const addChapter = () => {
     setPages((ps) => [...ps, newEmptyPage(fa ? `فصل ${ps.length + 1}` : `Chapter ${ps.length + 1}`)]);
     setActiveIdx(pages.length);
-    setDirty(true);
+    markStructureDirty();
   };
   const removeChapter = (idx: number) => {
     if (pages.length <= 1) {
@@ -416,11 +416,11 @@ export const TextBookEditor = ({ initial }: Props) => {
     }
     setPages((ps) => ps.filter((_, i) => i !== idx));
     setActiveIdx((cur) => Math.max(0, cur >= idx ? cur - 1 : cur));
-    setDirty(true);
+    markStructureDirty();
   };
   const renameChapter = (idx: number, value: string) => {
     setPages((ps) => ps.map((p, i) => (i === idx ? { ...p, title: value } : p)));
-    setDirty(true);
+    markPageDirty(idx);
   };
 
   const insertImageAtCursor = async (file: File) => {
