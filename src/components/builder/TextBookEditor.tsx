@@ -435,7 +435,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     const url = await upload(file);
     if (!url) return;
     setCoverUrl(url);
-    setDirty(true);
+    markStructureDirty();
     toast.success(fa ? "کاور بارگذاری شد" : "Cover uploaded");
   };
 
