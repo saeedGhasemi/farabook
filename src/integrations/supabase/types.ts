@@ -1230,6 +1230,7 @@ export type Database = {
         Returns: undefined
       }
       find_user_by_email: { Args: { _email: string }; Returns: string }
+      get_public_fee_settings: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
