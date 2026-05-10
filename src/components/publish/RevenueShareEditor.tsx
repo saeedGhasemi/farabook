@@ -46,7 +46,7 @@ export const RevenueShareEditor = ({
     (async () => {
       setLoading(true);
       const [feesRes, shRes, edRes] = await Promise.all([
-        supabase.from("platform_fee_settings").select("*").eq("id", 1).maybeSingle(),
+        supabase.from("platform_fee_settings").select("book_purchase_mode, book_purchase_value").eq("id", 1).maybeSingle(),
         supabase.from("book_revenue_shares").select("*").eq("book_id", bookId),
         supabase.from("book_editors").select("editor_id, can_publish").eq("book_id", bookId),
       ]);
