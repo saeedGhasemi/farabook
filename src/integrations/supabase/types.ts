@@ -1121,6 +1121,33 @@ export type Database = {
         Args: { _amount: number; _reason: string; _user_id: string }
         Returns: undefined
       }
+      admin_get_fee_settings: {
+        Args: never
+        Returns: {
+          ai_image_gen_cost: number
+          ai_image_gen_usd: number
+          ai_text_suggest_cost: number
+          ai_text_suggest_usd: number
+          book_publish_mode: string
+          book_publish_value: number
+          book_purchase_mode: string
+          book_purchase_value: number
+          credits_per_toman: number
+          editor_order_mode: string
+          editor_order_value: number
+          id: number
+          publisher_signup_mode: string
+          publisher_signup_value: number
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "platform_fee_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       admin_list_users: {
         Args: never
         Returns: {
@@ -1230,6 +1257,7 @@ export type Database = {
         Returns: undefined
       }
       find_user_by_email: { Args: { _email: string }; Returns: string }
+      get_public_fee_settings: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

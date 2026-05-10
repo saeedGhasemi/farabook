@@ -22,9 +22,11 @@ export const useAiCosts = () => {
   useEffect(() => {
     let alive = true;
     (async () => {
+      // USD cost columns are restricted to admins; non-admin clients only
+      // need credit-cost values. We over-select and tolerate undefined.
       const { data } = await supabase
         .from("platform_fee_settings")
-        .select("ai_text_suggest_cost, ai_image_gen_cost, ai_text_suggest_usd, ai_image_gen_usd")
+        .select("ai_text_suggest_cost, ai_image_gen_cost")
         .eq("id", 1)
         .maybeSingle();
       if (!alive) return;
