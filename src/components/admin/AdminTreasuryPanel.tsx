@@ -62,7 +62,7 @@ export const AdminTreasuryPanel = () => {
 
   const load = async () => {
     const [{ data: f }, { data: txs }, { data: ai }] = await Promise.all([
-      supabase.from("platform_fee_settings").select("*").eq("id", 1).maybeSingle(),
+      (supabase.rpc as any)("admin_get_fee_settings"),
       (supabase.rpc as any)("admin_recent_transactions", { _limit: 200 }),
       (supabase.rpc as any)("admin_recent_ai_usage", { _limit: 500 }),
     ]);
