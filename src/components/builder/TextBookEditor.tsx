@@ -152,6 +152,31 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [showImageReview, setShowImageReview] = useState(false);
+  const reviewKey = `img-review:${initial?.id || "draft"}`;
+  const [reviewedImages, setReviewedImages] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(`img-review:${initial?.id || "draft"}`);
+      return new Set<string>(raw ? JSON.parse(raw) : []);
+    } catch { return new Set(); }
+  });
+  const toggleReviewedImage = useCallback((key: string) => {
+    setReviewedImages((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      try { localStorage.setItem(reviewKey, JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, [reviewKey]);
+  const totalImages = useMemo(() => {
+    let n = 0;
+    for (const p of pages) {
+      for (const node of (p.doc?.content ?? []) as any[]) {
+        if (node?.type === "image" || node?.type === "image_placeholder") n += 1;
+      }
+    }
+    return n;
+  }, [pages]);
+  const unreviewedCount = Math.max(0, totalImages - reviewedImages.size);
   // Track which chapters changed since last save and whether the
   // structural shape (chapter order/count, metadata) changed. Autosave
   // sends only the dirty chapters via an RPC; manual Save (or any
