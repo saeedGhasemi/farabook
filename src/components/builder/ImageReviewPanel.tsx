@@ -197,7 +197,7 @@ export const ImageReviewPanel = ({
           {placeholderEmpty > 0 && <> · <span className="text-destructive font-medium">{placeholderEmpty}</span> بدون فایل</>}
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {onAutoPlaceAll && placeholderEmpty > 0 && (
+          {onAutoPlaceAll && placeholderTotal > 0 && (
             <Button size="sm" className="h-7 text-[11px] flex-1" onClick={onAutoPlaceAll}>
               <Wand2 className="w-3 h-3 me-1" /> جایگذاری همه
             </Button>
@@ -208,7 +208,7 @@ export const ImageReviewPanel = ({
             </Button>
           )}
         </div>
-        <div className="flex gap-1 text-[11px]">
+        <div className="flex gap-1 text-[11px] flex-wrap">
           <button
             type="button"
             onClick={() => setFilter("attention")}
@@ -223,6 +223,16 @@ export const ImageReviewPanel = ({
           >
             همه ({total})
           </button>
+          <select
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as SortMode)}
+            className="ms-auto h-6 text-[10px] rounded-md border bg-background px-1"
+            title="مرتب‌سازی"
+          >
+            <option value="attention-first">نیاز به توجه ↑</option>
+            <option value="ok-first">بررسی‌شده ↑</option>
+            <option value="page-order">ترتیب صفحه</option>
+          </select>
         </div>
       </div>
 
@@ -233,7 +243,8 @@ export const ImageReviewPanel = ({
           </div>
         ) : (
           visible.map((it) => {
-            const isReviewed = reviewed.has(it.key);
+            const autoOk = isAutoOk(it);
+            const isReviewed = autoOk || reviewed.has(it.key);
             const isExpanded = expanded === it.key;
             const hasPending = it.type === "placeholder" && !!it.pendingSrc;
             const captionValue = captionDrafts[it.key] ?? "";
