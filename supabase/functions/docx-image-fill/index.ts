@@ -77,6 +77,12 @@ Deno.serve(async (req) => {
     const importId: string | undefined = body.importId;
     const batchSize: number = Math.min(40, Math.max(1, Number(body.batchSize) || 15));
     const startSlot: number = Math.max(0, Number(body.startSlot) || 0);
+    const convertedImages = new Map<string, ConvertedImage>();
+    if (body.convertedImages && typeof body.convertedImages === "object") {
+      for (const [path, value] of Object.entries(body.convertedImages as Record<string, ConvertedImage>)) {
+        convertedImages.set(path.toLowerCase(), value);
+      }
+    }
 
     if (!bookId) return json(400, { error: "missing bookId" });
 
@@ -165,11 +171,9 @@ Deno.serve(async (req) => {
     const ab = await fileBlob.arrayBuffer();
     const zipBytes = new Uint8Array(ab);
 
-    // Build set of media file names this batch actually needs (skip unrenderable).
+    // Build set of media file names this batch actually needs.
     const wantedMedia = new Set<string>();
     for (const s of batch) {
-      const ext = (s.originalPath.split(".").pop() || "").toLowerCase();
-      if (UNRENDERABLE_EXT.has(ext)) continue;
       wantedMedia.add(s.originalPath.toLowerCase());
     }
 
