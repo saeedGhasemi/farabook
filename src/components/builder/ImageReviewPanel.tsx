@@ -64,11 +64,14 @@ interface Props {
   ) => void;
 }
 
+type SortMode = "attention-first" | "ok-first" | "page-order";
+
 export const ImageReviewPanel = ({
   pages, onClose, onJump, reviewed, onToggleReviewed,
   onAutoPlaceAll, onAutoAlign, onFinalizePlaceholder,
 }: Props) => {
   const [filter, setFilter] = useState<"all" | "attention">("attention");
+  const [sortMode, setSortMode] = useState<SortMode>("attention-first");
 
   const items: Item[] = useMemo(() => {
     const out: Item[] = [];
