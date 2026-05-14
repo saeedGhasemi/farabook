@@ -771,11 +771,17 @@ export const TextBookEditor = ({ initial }: Props) => {
           <Button
             size="sm"
             variant="outline"
-            className="h-8 gap-1"
+            className="h-8 gap-1 relative"
             onClick={() => setShowImageReview(true)}
-            title={fa ? "مرور تصاویر" : "Review images"}
+            title={fa ? `مرور تصاویر (${unreviewedCount} بررسی‌نشده)` : `Review images (${unreviewedCount} unreviewed)`}
+            disabled={totalImages === 0}
           >
             <ImageIcon className="w-3.5 h-3.5" /> {fa ? "مرور تصاویر" : "Review images"}
+            {unreviewedCount > 0 && (
+              <span className="ms-1 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold tabular-nums">
+                {unreviewedCount}
+              </span>
+            )}
           </Button>
           {isEdit && (
             <Button
