@@ -604,6 +604,47 @@ export const TextBookEditor = ({ initial }: Props) => {
     editor.chain().focus().insertContent({ type: kind, attrs }).run();
   };
 
+  /** Replace an image_placeholder with a final image (using its pendingSrc),
+   *  optionally consuming a following paragraph as caption. Updates both
+   *  page.blocks and page.doc.content, marks the chapter dirty, and refreshes
+   *  the live editor if it's the active page. */
+  const finalizePlaceholder = useCallback((
+    pageIndex: number,
+    blockIndex: number,
+    options: { caption: string; consumeCaptionOffset?: number },
+  ) => {
+    setPages((ps) => {
+      const next = [...ps];
+      const page = next[pageIndex];
+      if (!page) return ps;
+      const docContent = [...(page.doc?.content ?? [])];
+      const node = docContent[blockIndex];
+      if (!node || node.type !== "image_placeholder") return ps;
+      const pendingSrc = node.attrs?.pendingSrc;
+      if (!pendingSrc) return ps;
+      docContent[blockIndex] = {
+        type: "image",
+        attrs: { src: pendingSrc, caption: options.caption || "", hideCaption: false },
+      };
+      if (options.consumeCaptionOffset && options.consumeCaptionOffset > 0) {
+        const idx = blockIndex + options.consumeCaptionOffset;
+        if (docContent[idx]) docContent.splice(idx, 1);
+      }
+      next[pageIndex] = { ...page, doc: { ...page.doc, content: docContent } };
+      dirtyPagesRef.current.add(pageIndex);
+      return next;
+    });
+    // If active chapter, push the updated doc into the editor too.
+    if (pageIndex === activeIdx && editor) {
+      window.setTimeout(() => {
+        const tgt = (pages[activeIdx] && pages[activeIdx].doc) as any;
+        if (tgt) editor.commands.setContent(tgt, { emitUpdate: false });
+      }, 0);
+    }
+    markStructureDirty();
+    toast.success(fa ? "تصویر در جای خود درج شد" : "Image inserted");
+  }, [activeIdx, editor, pages, markStructureDirty, fa]);
+
   const jumpToImagePlacement = useCallback((pageIndex: number, _blockIndex?: number) => {
     setActiveIdx(Math.max(0, Math.min(pageIndex, pages.length - 1)));
     window.setTimeout(() => {
