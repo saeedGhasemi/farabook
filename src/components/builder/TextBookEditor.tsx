@@ -1357,7 +1357,17 @@ export const TextBookEditor = ({ initial }: Props) => {
               reviewed={reviewedImages}
               onToggleReviewed={toggleReviewedImage}
               onFinalizePlaceholder={finalizePlaceholder}
-              onAutoPlaceAll={importId ? () => { setShowAutoFill(true); setShowImageReview(false); setShowAi(false); } : undefined}
+              onAutoPlaceAll={() => {
+                // Empty placeholders (no pendingSrc) need the docx-image-fill
+                // pipeline; if any exist and we have an importId, open it.
+                const hasEmpty = pages.some((p) => (p.doc?.content ?? []).some((n: any) =>
+                  n?.type === "image_placeholder" && !n.attrs?.pendingSrc));
+                if (hasEmpty && importId) {
+                  setShowAutoFill(true); setShowImageReview(false); setShowAi(false);
+                } else {
+                  finalizeAllPending();
+                }
+              }}
               onAutoAlign={autoAlignFigures}
             />
           </motion.aside>
