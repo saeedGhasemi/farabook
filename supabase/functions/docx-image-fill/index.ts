@@ -8,8 +8,8 @@
 //  2) Use streaming `unzip` and only inflate the specific media files needed
 //     for this batch (plus the rels/content-types XML). This avoids decompressing
 //     all 100+ images at once which blows the 256MB edge function limit.
-//  3) Skip vector formats browsers cannot render (.emf, .wmf) — record as failure
-//     so the UI can show them but never retry forever.
+//  3) Vector formats (.emf, .wmf) are accepted when the browser sends a
+//     converted PNG data URL for the same originalPath.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { strFromU8, unzip, type Unzipped } from "https://esm.sh/fflate@0.8.2?target=deno";
 import { Buffer } from "node:buffer";
@@ -28,7 +28,22 @@ const json = (status: number, body: unknown) =>
   });
 
 const PER_IMAGE_HARD_LIMIT = 6 * 1024 * 1024; // 6MB upload cap
+const PER_CONVERTED_IMAGE_HARD_LIMIT = 12 * 1024 * 1024; // PNG conversion can be larger but is still bounded
 const UNRENDERABLE_EXT = new Set(["emf", "wmf"]); // vector formats browsers cannot show
+
+type ConvertedImage = { dataUrl?: string; base64?: string; contentType?: string; bytes?: number };
+
+function decodeBase64Image(input: ConvertedImage): { bytes: Uint8Array; contentType: string } | null {
+  const raw = String(input.dataUrl || input.base64 || "").trim();
+  if (!raw) return null;
+  const m = raw.match(/^data:([^;]+);base64,(.*)$/i);
+  const contentType = input.contentType || m?.[1] || "image/png";
+  const b64 = (m ? m[2] : raw).replace(/\s/g, "");
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(b64)) return null;
+  const buf = Buffer.from(b64, "base64");
+  if (!buf.byteLength || buf.byteLength > PER_CONVERTED_IMAGE_HARD_LIMIT) return null;
+  return { bytes: new Uint8Array(buf), contentType };
+}
 
 // Promisified streaming unzip with file filter — only inflates files matching `wanted`.
 function unzipFiltered(buf: Uint8Array, wanted: (name: string) => boolean): Promise<Unzipped> {
@@ -62,6 +77,12 @@ Deno.serve(async (req) => {
     const importId: string | undefined = body.importId;
     const batchSize: number = Math.min(40, Math.max(1, Number(body.batchSize) || 15));
     const startSlot: number = Math.max(0, Number(body.startSlot) || 0);
+    const convertedImages = new Map<string, ConvertedImage>();
+    if (body.convertedImages && typeof body.convertedImages === "object") {
+      for (const [path, value] of Object.entries(body.convertedImages as Record<string, ConvertedImage>)) {
+        convertedImages.set(path.toLowerCase(), value);
+      }
+    }
 
     if (!bookId) return json(400, { error: "missing bookId" });
 
@@ -150,11 +171,9 @@ Deno.serve(async (req) => {
     const ab = await fileBlob.arrayBuffer();
     const zipBytes = new Uint8Array(ab);
 
-    // Build set of media file names this batch actually needs (skip unrenderable).
+    // Build set of media file names this batch actually needs.
     const wantedMedia = new Set<string>();
     for (const s of batch) {
-      const ext = (s.originalPath.split(".").pop() || "").toLowerCase();
-      if (UNRENDERABLE_EXT.has(ext)) continue;
       wantedMedia.add(s.originalPath.toLowerCase());
     }
 
@@ -202,35 +221,73 @@ Deno.serve(async (req) => {
     };
 
     const failures: { slot: number; reason: string; originalPath: string }[] = [];
+    const placements: {
+      slot: number;
+      pageIndex: number;
+      blockIndex: number;
+      originalPath: string;
+      url: string;
+      contentType: string;
+      bytes: number;
+      mode: "original" | "converted";
+      sourceFormat: string;
+    }[] = [];
     let filled = 0;
 
     const folder = `${userId}/${bookId}/auto-fill`;
 
     for (const sl of batch) {
       const ext = (sl.originalPath.split(".").pop() || "png").toLowerCase().replace("jpeg", "jpg");
+      const norm = sl.originalPath.toLowerCase();
 
       if (UNRENDERABLE_EXT.has(ext)) {
-        failures.push({
-          slot: sl.slot,
-          reason: `unsupported_format: .${ext} (cannot display in browser — please replace manually)`,
-          originalPath: sl.originalPath,
-        });
-        // Mark placeholder so UI shows the issue
+        const converted = decodeBase64Image(convertedImages.get(norm) || {});
+        if (!converted) {
+          failures.push({
+            slot: sl.slot,
+            reason: `needs_browser_conversion: .${ext}`,
+            originalPath: sl.originalPath,
+          });
+          continue;
+        }
+
+        const outKey = `${folder}/slot-${String(sl.slot).padStart(4, "0")}-converted.png`;
+        const up = await admin.storage.from("book-media").upload(
+          outKey, Buffer.from(converted.bytes), { contentType: converted.contentType, upsert: true },
+        );
+        if (up.error) {
+          failures.push({ slot: sl.slot, reason: `upload_failed: ${up.error.message}`, originalPath: sl.originalPath });
+          continue;
+        }
+        const url = admin.storage.from("book-media").getPublicUrl(outKey).data.publicUrl;
+
         const page = pagesArr[sl.pageIdx];
-        const block = page?.blocks?.[sl.blockIdx];
-        if (block) {
-          block.reason = `unsupported_${ext}`;
-          block.unsupported = true;
+        if (!page) continue;
+        const block = page.blocks?.[sl.blockIdx];
+        if (block && block.type === "image_placeholder") {
+          block.pendingSrc = url;
+          block.bytes = converted.bytes.byteLength;
+          block.contentType = converted.contentType;
+          block.reason = "vector_converted";
+          block.unsupported = false;
+          block.placementMode = "converted";
+          block.sourceFormat = ext;
         }
         updateDocNode(page, sl.blockIdx, (node) => {
           node.attrs = node.attrs || {};
-          node.attrs.reason = `unsupported_${ext}`;
-          node.attrs.unsupported = true;
+          node.attrs.pendingSrc = url;
+          node.attrs.bytes = converted.bytes.byteLength;
+          node.attrs.contentType = converted.contentType;
+          node.attrs.reason = "vector_converted";
+          node.attrs.unsupported = false;
+          node.attrs.placementMode = "converted";
+          node.attrs.sourceFormat = ext;
         });
+        placements.push({ slot: sl.slot, pageIndex: sl.pageIdx, blockIndex: sl.blockIdx, originalPath: sl.originalPath, url, contentType: converted.contentType, bytes: converted.bytes.byteLength, mode: "converted", sourceFormat: ext });
+        filled += 1;
         continue;
       }
 
-      const norm = sl.originalPath.toLowerCase();
       const data = mediaByPath.get(norm);
       if (!data) {
         failures.push({ slot: sl.slot, reason: "media_missing", originalPath: sl.originalPath });
@@ -267,6 +324,8 @@ Deno.serve(async (req) => {
         block.bytes = data.byteLength;
         block.contentType = ct;
         block.reason = "auto_filled";
+        block.placementMode = "original";
+        block.sourceFormat = ext;
       }
       updateDocNode(page, sl.blockIdx, (node) => {
         node.attrs = node.attrs || {};
@@ -274,7 +333,10 @@ Deno.serve(async (req) => {
         node.attrs.bytes = data.byteLength;
         node.attrs.contentType = ct;
         node.attrs.reason = "auto_filled";
+        node.attrs.placementMode = "original";
+        node.attrs.sourceFormat = ext;
       });
+      placements.push({ slot: sl.slot, pageIndex: sl.pageIdx, blockIndex: sl.blockIdx, originalPath: sl.originalPath, url, contentType: ct, bytes: data.byteLength, mode: "original", sourceFormat: ext });
       filled += 1;
     }
 
@@ -293,6 +355,7 @@ Deno.serve(async (req) => {
       processed: batch.length,
       filled,
       failures,
+      placements,
       nextStartSlot: stillRemaining ? lastSlotInBatch : null,
     });
   } catch (e) {

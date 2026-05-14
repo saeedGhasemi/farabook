@@ -259,6 +259,12 @@ export const convertWordImport = async (opts: ConvertOptions): Promise<ConvertRe
   try {
     onStatus?.("تبدیل متن انجام شد. در حال جایگذاری تصاویر…");
     imageStats = await fillImages(textData.book.id, importId, onImageProgress);
+    const vectorStats = await fillVectorImagesInBrowser(textData.book.id, importId);
+    if (vectorStats.filled > 0) {
+      imageStats.filled += vectorStats.filled;
+      imageStats.total = Math.max(imageStats.total, imageStats.filled + imageStats.failures, vectorStats.total);
+      imageStats.failures = Math.max(0, imageStats.failures - vectorStats.filled);
+    }
   } catch (e) {
     // Text book is already created; tolerate partial image fill.
     onStatus?.(

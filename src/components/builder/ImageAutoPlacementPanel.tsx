@@ -2,9 +2,11 @@
 // from the original .docx upload (kept in book-uploads bucket). Calls the
 // `docx-image-fill` edge function in batches and shows live progress + a
 // per-failure retry list.
-import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ImageIcon, Loader2, RefreshCw, X, CheckCircle2, AlertTriangle, PlayCircle, PauseCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { unzipSync } from "fflate";
+import { convertEmfToDataUrl, convertWmfToDataUrl } from "emf-converter";
+import { ImageIcon, Loader2, RefreshCw, X, CheckCircle2, AlertTriangle, PlayCircle, PauseCircle, MousePointerClick } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +18,24 @@ interface Failure {
   originalPath: string;
 }
 
+interface Placement {
+  slot: number;
+  pageIndex: number;
+  blockIndex: number;
+  originalPath: string;
+  url: string;
+  contentType: string;
+  bytes: number;
+  mode: "original" | "converted";
+  sourceFormat: string;
+}
+
+const formatBytes = (bytes: number) => {
+  if (!bytes) return "—";
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)} مگابایت` : `${Math.round(bytes / 1024)} کیلوبایت`;
+};
+
 interface Props {
   bookId: string;
   importId?: string;
@@ -23,9 +43,10 @@ interface Props {
   onClose: () => void;
   /** Called when a batch persisted images so the editor can refresh content. */
   onBatchApplied?: () => void;
+  onJumpToPlacement?: (pageIndex: number, blockIndex?: number) => void;
 }
 
-export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, onClose, onBatchApplied }: Props) => {
+export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, onClose, onBatchApplied, onJumpToPlacement }: Props) => {
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
   const [total, setTotal] = useState(totalPlaceholders ?? 0);
@@ -33,8 +54,10 @@ export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, o
   const [processed, setProcessed] = useState(0);
   const [nextSlot, setNextSlot] = useState<number | null>(0);
   const [failures, setFailures] = useState<Failure[]>([]);
+  const [placements, setPlacements] = useState<Placement[]>([]);
   const [batchSize] = useState(20);
   const stopRef = useRef(false);
+  const vectorFilesRef = useRef<Map<string, Uint8Array> | null>(null);
 
   // Pull initial total from the panel caller; if missing try to load fresh count.
   useEffect(() => {
@@ -43,9 +66,9 @@ export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, o
 
   const pct = total > 0 ? Math.min(100, Math.round((filled / total) * 100)) : 0;
 
-  const runOne = async (start: number) => {
+  const runOne = async (start: number, convertedImages?: Record<string, { dataUrl: string; contentType: string }>) => {
     const { data, error } = await supabase.functions.invoke("docx-image-fill", {
-      body: { bookId, importId, batchSize, startSlot: start },
+      body: { bookId, importId, batchSize, startSlot: start, convertedImages },
     });
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
@@ -55,8 +78,51 @@ export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, o
       processed: number;
       filled: number;
       failures: Failure[];
+      placements?: Placement[];
       nextStartSlot: number | null;
     };
+  };
+
+  const getVectorFiles = async (paths: string[]) => {
+    const current = vectorFilesRef.current ?? new Map<string, Uint8Array>();
+    const missing = paths.filter((p) => !current.has(p.toLowerCase()));
+    if (missing.length) {
+      let filePath: string | undefined;
+      if (importId) {
+        const { data } = await supabase.from("word_imports").select("file_path").eq("id", importId).maybeSingle();
+        filePath = (data as any)?.file_path;
+      } else {
+        const { data } = await supabase.from("word_imports").select("file_path").eq("book_id", bookId).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+        filePath = (data as any)?.file_path;
+      }
+      if (!filePath) throw new Error("فایل Word اصلی برای تبدیل تصاویر پیدا نشد");
+      const wanted = new Set(missing.map((p) => p.toLowerCase()));
+      const { data: blob, error } = await supabase.storage.from("book-uploads").download(filePath);
+      if (error || !blob) throw new Error(error?.message || "دانلود فایل Word ناموفق بود");
+      const files = unzipSync(new Uint8Array(await blob.arrayBuffer()), { filter: (f) => wanted.has(f.name.toLowerCase()) });
+      for (const [k, v] of Object.entries(files)) current.set(k.toLowerCase(), v);
+      vectorFilesRef.current = current;
+    }
+    return current;
+  };
+
+  const convertVectorFailures = async (items: Failure[]) => {
+    const vectorItems = items.filter((f) => /needs_browser_conversion|unsupported_format|unsupported_/i.test(f.reason)
+      && /\.(emf|wmf)$/i.test(f.originalPath));
+    if (!vectorItems.length) return null;
+    const files = await getVectorFiles(vectorItems.map((f) => f.originalPath));
+    const converted: Record<string, { dataUrl: string; contentType: string }> = {};
+    for (const f of vectorItems) {
+      const bytes = files.get(f.originalPath.toLowerCase());
+      if (!bytes) continue;
+      const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+      const ext = f.originalPath.split(".").pop()?.toLowerCase();
+      const png = ext === "wmf"
+        ? await convertWmfToDataUrl(buf, 2400, 2400, { dpiScale: 2 })
+        : await convertEmfToDataUrl(buf, 2400, 2400, { dpiScale: 2 });
+      if (png) converted[f.originalPath] = { dataUrl: png, contentType: "image/png" };
+    }
+    return Object.keys(converted).length ? converted : null;
   };
 
   const start = async () => {
@@ -68,18 +134,25 @@ export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, o
     let totalFilled = filled;
     let totalProcessed = processed;
     let allFailures = [...failures];
+    let allPlacements = [...placements];
     try {
       // First batch establishes the actual total
       while (true) {
         if (stopRef.current) break;
-        const r = await runOne(cur);
+        let r = await runOne(cur);
+        const converted = await convertVectorFailures(r.failures || []);
+        if (converted && !stopRef.current) {
+          r = await runOne(cur, converted);
+        }
         setTotal(r.totalSlots);
         totalFilled += r.filled;
         totalProcessed += r.processed;
         allFailures = [...allFailures, ...r.failures];
+        allPlacements = [...allPlacements, ...(r.placements || [])];
         setFilled(totalFilled);
         setProcessed(totalProcessed);
         setFailures(allFailures);
+        setPlacements(allPlacements);
         onBatchApplied?.();
         if (r.done || r.nextStartSlot == null) {
           setNextSlot(null);
@@ -108,17 +181,22 @@ export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, o
       const slots = [...failures].sort((a, b) => a.slot - b.slot);
       const stillFailing: Failure[] = [];
       let extraFilled = 0;
+      let extraPlacements: Placement[] = [];
       for (const f of slots) {
         if (stopRef.current) break;
         // Process a batch starting JUST BEFORE this slot, so the function
         // picks it as the first remaining slot for this book.
-        const r = await runOne(Math.max(0, f.slot - 1));
+        let r = await runOne(Math.max(0, f.slot - 1));
+        const converted = await convertVectorFailures(r.failures || []);
+        if (converted && !stopRef.current) r = await runOne(Math.max(0, f.slot - 1), converted);
         extraFilled += r.filled;
+        extraPlacements = [...extraPlacements, ...(r.placements || [])];
         const nextFails = r.failures.filter((nf) => nf.slot === f.slot);
         if (nextFails.length) stillFailing.push(...nextFails);
       }
       setFilled((v) => v + extraFilled);
       setFailures(stillFailing);
+      setPlacements((v) => [...v, ...extraPlacements]);
       onBatchApplied?.();
       if (extraFilled > 0) toast.success(`${extraFilled} تصویر در تلاش مجدد جای‌گذاری شد`);
       if (stillFailing.length) toast.warning(`${stillFailing.length} تصویر همچنان قابل جایگذاری نیست`);
@@ -204,6 +282,38 @@ export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, o
           {failures.length > 50 && (
             <div className="text-[10px] text-muted-foreground">…و {failures.length - 50} مورد دیگر</div>
           )}
+        </div>
+      )}
+
+      {placements.length > 0 && (
+        <div className="space-y-1 max-h-[42vh] overflow-y-auto pe-1 border-t pt-2">
+          <div className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            گزارش جایگذاری ({placements.length})
+          </div>
+          {placements.slice().sort((a, b) => a.slot - b.slot).map((p) => (
+            <button
+              type="button"
+              key={`${p.slot}-${p.originalPath}`}
+              onClick={() => onJumpToPlacement?.(p.pageIndex, p.blockIndex)}
+              className="w-full text-start text-[10px] rounded border bg-background/60 hover:bg-muted/60 p-1.5 transition"
+              title="رفتن به محل تصویر"
+            >
+              <div className="flex items-center justify-between gap-2 font-medium">
+                <span className="font-mono">تصویر {p.slot}</span>
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <MousePointerClick className="w-3 h-3" /> صفحه {p.pageIndex + 1}
+                </span>
+              </div>
+              <div className="opacity-75 break-all">{p.originalPath}</div>
+              <div className="opacity-75">
+                {p.mode === "converted"
+                  ? `${(p.sourceFormat || "EMF").toUpperCase()} تبدیل شد و جایگذاری شد`
+                  : "تصویر عیناً جایگذاری شد"}
+                {` · ${formatBytes(p.bytes)}`}
+              </div>
+            </button>
+          ))}
         </div>
       )}
 
