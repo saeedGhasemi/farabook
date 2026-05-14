@@ -58,6 +58,22 @@ export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, o
   const [failures, setFailures] = useState<Failure[]>([]);
   const [placements, setPlacements] = useState<Placement[]>([]);
   const [batchSize] = useState(20);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const reviewKey = `img-review:${bookId}`;
+  const [reviewed, setReviewed] = useState<Set<number>>(() => {
+    try {
+      const raw = localStorage.getItem(`img-review:${bookId}`);
+      return new Set<number>(raw ? JSON.parse(raw) : []);
+    } catch { return new Set(); }
+  });
+  const toggleReviewed = (slot: number) => {
+    setReviewed((prev) => {
+      const next = new Set(prev);
+      if (next.has(slot)) next.delete(slot); else next.add(slot);
+      try { localStorage.setItem(reviewKey, JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
   const stopRef = useRef(false);
   const vectorFilesRef = useRef<Map<string, Uint8Array> | null>(null);
 
