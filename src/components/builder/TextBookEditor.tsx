@@ -613,6 +613,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     blockIndex: number,
     options: { caption: string; consumeCaptionOffset?: number },
   ) => {
+    let updatedDoc: any = null;
     setPages((ps) => {
       const next = [...ps];
       const page = next[pageIndex];
@@ -630,20 +631,18 @@ export const TextBookEditor = ({ initial }: Props) => {
         const idx = blockIndex + options.consumeCaptionOffset;
         if (docContent[idx]) docContent.splice(idx, 1);
       }
-      next[pageIndex] = { ...page, doc: { ...page.doc, content: docContent } };
+      const newDoc = { ...page.doc, content: docContent };
+      next[pageIndex] = { ...page, doc: newDoc };
+      if (pageIndex === activeIdx) updatedDoc = newDoc;
       dirtyPagesRef.current.add(pageIndex);
       return next;
     });
-    // If active chapter, push the updated doc into the editor too.
-    if (pageIndex === activeIdx && editor) {
-      window.setTimeout(() => {
-        const tgt = (pages[activeIdx] && pages[activeIdx].doc) as any;
-        if (tgt) editor.commands.setContent(tgt, { emitUpdate: false });
-      }, 0);
+    if (updatedDoc && editor) {
+      window.setTimeout(() => editor.commands.setContent(updatedDoc, { emitUpdate: false }), 0);
     }
     markStructureDirty();
     toast.success(fa ? "تصویر در جای خود درج شد" : "Image inserted");
-  }, [activeIdx, editor, pages, markStructureDirty, fa]);
+  }, [activeIdx, editor, markStructureDirty, fa]);
 
   const jumpToImagePlacement = useCallback((pageIndex: number, _blockIndex?: number) => {
     setActiveIdx(Math.max(0, Math.min(pageIndex, pages.length - 1)));
