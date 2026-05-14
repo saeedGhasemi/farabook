@@ -381,12 +381,15 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
     const style = /<w:pStyle\b[^>]*(?:w:val|val)=["']([^"']+)["']/i.exec(token)?.[1] || "";
     const headingMatch = /heading\s*([1-4])|Heading([1-4])|عنوان\s*([1-4])/i.exec(style);
     const level = Number(headingMatch?.[1] || headingMatch?.[2] || headingMatch?.[3] || 0);
-    const parts = token.split(/<w:lastRenderedPageBreak\b[^>]*\/>|<w:br\b[^>]*(?:w:)?type=["']page["'][^>]*\/>/gi);
+    // Only split on EXPLICIT page breaks (w:br type="page"); ignore
+    // <w:lastRenderedPageBreak/> which is just a print-pagination marker
+    // and was creating dozens of one-sentence "chapters" in long books.
+    const parts = token.split(/<w:br\b[^>]*(?:w:)?type=["']page["'][^>]*\/>/gi);
     for (let i = 0; i < parts.length; i += 1) {
       const part = parts[i];
       const text = textFromWordXml(part);
       if (text) {
-        const looksLikeChapter = level === 0 && text.length <= 160 && /^\s*(فصل|بخش|گفتار|chapter|part|section)\s+/i.test(text);
+        const looksLikeChapter = level === 0 && isStrictChapterTitle(text);
         if (level === 1 || level === 2 || looksLikeChapter) {
           pushPage();
           cur = { title: text.slice(0, 120), blocks: [] };
@@ -395,14 +398,44 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
           cur.blocks.push(level ? { type: "heading", level: Math.min(level, 3), text } : { type: "paragraph", text });
         }
       }
-      if (i < parts.length - 1) {
+      // Only honor a manual page break if the current chapter actually has
+      // content; otherwise we'd produce an empty "صفحه N" stub.
+      if (i < parts.length - 1 && cur.blocks.length > 0) {
         pushPage();
         cur = { title: `صفحه ${pages.length + 1}`, blocks: [] };
       }
     }
   }
   pushPage();
-  return { pages: pages.filter((p) => p.blocks.length > 0), removedImages };
+  return { pages: mergeTinyChapters(pages.filter((p) => p.blocks.length > 0)), removedImages };
+}
+
+// Strict chapter-title detector: the WHOLE paragraph must be a chapter
+// label (optionally followed by ": title"), not just start with the
+// keyword. Prevents in-text mentions like "در این بخش ..." being promoted.
+const STRICT_CHAPTER_RE = /^\s*(فصل|بخش|گفتار|chapter|part|section)\s+(?:[\d\u06F0-\u06F9۰-۹IVXLC]+|اول|دوم|سوم|چهارم|پنجم|ششم|هفتم|هشتم|نهم|دهم|یازدهم|دوازدهم|سیزدهم|چهاردهم|پانزدهم|شانزدهم|هفدهم|هجدهم|نوزدهم|بیستم)(?:\s*[:：\-\u2013\u2014.]\s*[^\n]{0,140})?\s*$/i;
+function isStrictChapterTitle(t: string): boolean {
+  return t.length <= 160 && STRICT_CHAPTER_RE.test(t.trim());
+}
+
+// Merge "tiny" chapters (auto-paginated stubs with very little content)
+// into the previous chapter. A chapter is tiny if its title looks
+// auto-generated ("صفحه 12" / "بخش 3") AND it has very little text.
+function mergeTinyChapters<T extends { title: string; blocks: any[] }>(pages: T[]): T[] {
+  if (pages.length <= 1) return pages;
+  const isAutoTitle = (t: string) => /^(صفحه|بخش)\s+\d+\s*$/.test(t.trim());
+  const textLen = (p: T) => p.blocks.reduce((n, b: any) => n + (typeof b?.text === "string" ? b.text.length : 0), 0);
+  const isTiny = (p: T) => isAutoTitle(p.title) && (p.blocks.length < 3 || textLen(p) < 220);
+  const out: T[] = [pages[0]];
+  for (let i = 1; i < pages.length; i += 1) {
+    const p = pages[i];
+    if (isTiny(p)) {
+      out[out.length - 1].blocks.push(...p.blocks);
+    } else {
+      out.push(p);
+    }
+  }
+  return out;
 }
 
 // Find Persian/English figure or table label like "شکل ۹–۱" / "Figure 9.1" / "جدول ۲-۱"
