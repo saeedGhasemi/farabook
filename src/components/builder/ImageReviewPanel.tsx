@@ -131,9 +131,35 @@ export const ImageReviewPanel = ({
   }, [pages]);
 
   const total = items.length;
+  const placeholderTotal = items.filter((i) => i.type === "placeholder").length;
+  // An item is "auto-OK" (green) when it's a real image with src + caption
+  // and no attention flag — no manual check required.
+  const isAutoOk = (it: Item) =>
+    it.type === "image" && !!it.src && !!it.caption && !it.attention;
   const attentionCount = items.filter((i) => i.attention).length;
   const placeholderEmpty = items.filter((i) => i.type === "placeholder" && !i.pendingSrc).length;
-  const visible = filter === "attention" ? items.filter((i) => i.attention || (i.type === "placeholder" && i.pendingSrc)) : items;
+
+  const baseVisible = filter === "attention"
+    ? items.filter((i) => i.attention || (i.type === "placeholder" && i.pendingSrc) || (!isAutoOk(i) && !reviewed.has(i.key)))
+    : items;
+
+  const sortRank = (it: Item) => {
+    const ok = isAutoOk(it) || reviewed.has(it.key);
+    const needs = !!it.attention || (it.type === "placeholder" && !!it.pendingSrc);
+    if (sortMode === "attention-first") {
+      // missing-image (3) > mismatch (2) > missing-caption (1) > pending (1) > others (0) > ok (-1)
+      if (it.attention === "missing-image") return 3;
+      if (it.attention === "mismatch") return 2;
+      if (it.attention === "missing-caption") return 1;
+      if (needs) return 1;
+      return ok ? -1 : 0;
+    }
+    if (sortMode === "ok-first") return ok ? 1 : -1;
+    return 0;
+  };
+  const visible = sortMode === "page-order"
+    ? baseVisible
+    : [...baseVisible].sort((a, b) => sortRank(b) - sortRank(a));
 
   // Per-card editable caption drafts
   const [captionDrafts, setCaptionDrafts] = useState<Record<string, string>>({});
