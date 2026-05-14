@@ -624,6 +624,15 @@ export const TextBookEditor = ({ initial }: Props) => {
                 <BookOpen className="w-4 h-4 text-accent shrink-0" /> {fa ? "فصل‌ها" : "Chapters"}
               </h3>
               <div className="flex items-center gap-0.5 shrink-0">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={rebuildChapters}
+                  title={fa ? "ادغام فصل‌های کوتاه (بازسازی)" : "Merge tiny chapters"}
+                >
+                  <Combine className="w-3.5 h-3.5" />
+                </Button>
                 <Button size="sm" variant="ghost" className="h-7 px-2" onClick={addChapter} title={fa ? "افزودن فصل" : "Add chapter"}>
                   <Plus className="w-3.5 h-3.5" />
                 </Button>
