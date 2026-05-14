@@ -85,8 +85,8 @@ const Auth = () => {
             {mode === "signin" ? t("switch_signup") : t("switch_signin")}
           </button>
 
-          {/* Test accounts — dev-only quick login */}
-          {import.meta.env.DEV && (
+          {/* Test accounts — quick login (kept visible until told otherwise) */}
+          {true && (
             <div className="mt-6 pt-4 border-t border-border/40">
               <p className="text-xs text-muted-foreground text-center mb-3">
                 {lang === "fa" ? "ورود سریع با کاربران تستی" : "Quick login (test accounts)"}
