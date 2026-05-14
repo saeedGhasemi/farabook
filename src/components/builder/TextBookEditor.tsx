@@ -20,7 +20,7 @@ import {
   Palette, Type as TypeIcon, SplitSquareVertical, Film, GalleryHorizontal,
   ListOrdered, Layers, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Undo2, Redo2, X, ArrowLeftRight, ChevronsLeft, ChevronsRight, Scissors,
-  Eraser, Info,
+  Eraser, Info, Combine,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -423,6 +423,56 @@ export const TextBookEditor = ({ initial }: Props) => {
     markPageDirty(idx);
   };
 
+  // Merge auto-paginated tiny chapters (e.g. "صفحه 12" with one sentence)
+  // into the previous chapter. Lets the user clean up legacy imports
+  // without re-uploading the Word file.
+  const rebuildChapters = () => {
+    // Sync the currently focused page first so its edits aren't lost.
+    if (editor) {
+      const json = editor.getJSON() as TextPage["doc"];
+      setPages((ps) => ps.map((p, i) => (i === activeIdx ? { ...p, doc: json } : p)));
+    }
+    setPages((ps) => {
+      if (ps.length <= 1) return ps;
+      const isAutoTitle = (t: string) => /^(صفحه|بخش|page|section)\s+\d+\s*$/i.test((t || "").trim());
+      const docTextLen = (doc: any): number => {
+        let n = 0;
+        const walk = (node: any) => {
+          if (!node) return;
+          if (typeof node.text === "string") n += node.text.length;
+          if (Array.isArray(node.content)) node.content.forEach(walk);
+        };
+        walk(doc);
+        return n;
+      };
+      const docBlockCount = (doc: any) => Array.isArray(doc?.content) ? doc.content.length : 0;
+      const isTiny = (p: TextPage) =>
+        isAutoTitle(p.title) && (docBlockCount(p.doc) < 3 || docTextLen(p.doc) < 220);
+      const out: TextPage[] = [{ ...ps[0], doc: { ...ps[0].doc } }];
+      let merged = 0;
+      for (let i = 1; i < ps.length; i += 1) {
+        const p = ps[i];
+        if (isTiny(p)) {
+          const prev = out[out.length - 1];
+          const prevContent = Array.isArray(prev.doc?.content) ? prev.doc.content : [];
+          const addContent = Array.isArray(p.doc?.content) ? p.doc.content : [];
+          prev.doc = { ...prev.doc, type: "doc", content: [...prevContent, ...addContent] };
+          merged += 1;
+        } else {
+          out.push(p);
+        }
+      }
+      if (merged > 0) {
+        toast.success(fa ? `${merged} فصل کوتاه با فصل قبلی ادغام شد` : `Merged ${merged} tiny chapter(s)`);
+        setActiveIdx(0);
+        markStructureDirty();
+      } else {
+        toast.info(fa ? "فصل کوتاهی برای ادغام پیدا نشد" : "No tiny chapters to merge");
+      }
+      return out;
+    });
+  };
+
   const insertImageAtCursor = async (file: File) => {
     const url = await upload(file);
     if (!url || !editor) return;
@@ -574,6 +624,15 @@ export const TextBookEditor = ({ initial }: Props) => {
                 <BookOpen className="w-4 h-4 text-accent shrink-0" /> {fa ? "فصل‌ها" : "Chapters"}
               </h3>
               <div className="flex items-center gap-0.5 shrink-0">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={rebuildChapters}
+                  title={fa ? "ادغام فصل‌های کوتاه (بازسازی)" : "Merge tiny chapters"}
+                >
+                  <Combine className="w-3.5 h-3.5" />
+                </Button>
                 <Button size="sm" variant="ghost" className="h-7 px-2" onClick={addChapter} title={fa ? "افزودن فصل" : "Add chapter"}>
                   <Plus className="w-3.5 h-3.5" />
                 </Button>
