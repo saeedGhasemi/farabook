@@ -125,18 +125,25 @@ export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, o
     let totalFilled = filled;
     let totalProcessed = processed;
     let allFailures = [...failures];
+    let allPlacements = [...placements];
     try {
       // First batch establishes the actual total
       while (true) {
         if (stopRef.current) break;
-        const r = await runOne(cur);
+        let r = await runOne(cur);
+        const converted = await convertVectorFailures(r.failures || []);
+        if (converted && !stopRef.current) {
+          r = await runOne(cur, converted);
+        }
         setTotal(r.totalSlots);
         totalFilled += r.filled;
         totalProcessed += r.processed;
         allFailures = [...allFailures, ...r.failures];
+        allPlacements = [...allPlacements, ...(r.placements || [])];
         setFilled(totalFilled);
         setProcessed(totalProcessed);
         setFailures(allFailures);
+        setPlacements(allPlacements);
         onBatchApplied?.();
         if (r.done || r.nextStartSlot == null) {
           setNextSlot(null);
@@ -165,17 +172,22 @@ export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, o
       const slots = [...failures].sort((a, b) => a.slot - b.slot);
       const stillFailing: Failure[] = [];
       let extraFilled = 0;
+      let extraPlacements: Placement[] = [];
       for (const f of slots) {
         if (stopRef.current) break;
         // Process a batch starting JUST BEFORE this slot, so the function
         // picks it as the first remaining slot for this book.
-        const r = await runOne(Math.max(0, f.slot - 1));
+        let r = await runOne(Math.max(0, f.slot - 1));
+        const converted = await convertVectorFailures(r.failures || []);
+        if (converted && !stopRef.current) r = await runOne(Math.max(0, f.slot - 1), converted);
         extraFilled += r.filled;
+        extraPlacements = [...extraPlacements, ...(r.placements || [])];
         const nextFails = r.failures.filter((nf) => nf.slot === f.slot);
         if (nextFails.length) stillFailing.push(...nextFails);
       }
       setFilled((v) => v + extraFilled);
       setFailures(stillFailing);
+      setPlacements((v) => [...v, ...extraPlacements]);
       onBatchApplied?.();
       if (extraFilled > 0) toast.success(`${extraFilled} تصویر در تلاش مجدد جای‌گذاری شد`);
       if (stillFailing.length) toast.warning(`${stillFailing.length} تصویر همچنان قابل جایگذاری نیست`);
