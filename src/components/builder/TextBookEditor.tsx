@@ -820,7 +820,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-accent" /></div>;
   }
 
-  const sidePanel = showAi || showAutoFill;
+  const sidePanel = showAi || showAutoFill || showImageReview;
   const gridCols = chaptersCollapsed
     ? (sidePanel ? "lg:grid-cols-[44px_1fr_340px]" : "lg:grid-cols-[44px_1fr]")
     : (sidePanel ? "lg:grid-cols-[220px_1fr_340px]" : "lg:grid-cols-[260px_1fr]");
