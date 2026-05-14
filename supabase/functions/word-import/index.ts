@@ -626,7 +626,7 @@ function htmlToPages(html: string): Page[] {
   }
   pushPage();
 
-  return pages.filter((p) => p.blocks.length > 0);
+  return mergeTinyChapters(pages.filter((p) => p.blocks.length > 0));
 }
 
 Deno.serve(async (req) => {
