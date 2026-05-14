@@ -555,7 +555,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     editor.chain().focus().insertContent({ type: kind, attrs }).run();
   };
 
-  const jumpToImagePlacement = useCallback((pageIndex: number) => {
+  const jumpToImagePlacement = useCallback((pageIndex: number, _blockIndex?: number) => {
     setActiveIdx(Math.max(0, Math.min(pageIndex, pages.length - 1)));
     window.setTimeout(() => {
       document.querySelector(".tiptap-surface")?.scrollIntoView({ behavior: "smooth", block: "start" });
