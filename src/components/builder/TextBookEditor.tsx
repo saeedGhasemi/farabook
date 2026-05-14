@@ -2,7 +2,7 @@
 // rich-text document. A sticky toolbar at the top of the editor
 // exposes ALL formatting actions and stays visible while scrolling.
 // Side panel hosts AI suggestions with Accept/Reject.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { Extension } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
