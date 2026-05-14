@@ -43,7 +43,7 @@ import {
 } from "@/lib/tiptap-doc";
 import { AiSuggestPanel } from "./AiSuggestPanel";
 import { ImageAutoPlacementPanel } from "./ImageAutoPlacementPanel";
-import { ImageReviewDialog } from "./ImageReviewDialog";
+import { ImageReviewPanel } from "./ImageReviewPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   BookMetadataForm,
@@ -152,6 +152,8 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [showImageReview, setShowImageReview] = useState(false);
+  // Track an explicit scroll target; effect scrolls after content swap.
+  const pendingScrollBlockRef = useRef<number | null>(null);
   const reviewKey = `img-review:${initial?.id || "draft"}`;
   const [reviewedImages, setReviewedImages] = useState<Set<string>>(() => {
     try {
@@ -644,12 +646,149 @@ export const TextBookEditor = ({ initial }: Props) => {
     toast.success(fa ? "تصویر در جای خود درج شد" : "Image inserted");
   }, [activeIdx, editor, markStructureDirty, fa]);
 
-  const jumpToImagePlacement = useCallback((pageIndex: number, _blockIndex?: number) => {
-    setActiveIdx(Math.max(0, Math.min(pageIndex, pages.length - 1)));
-    window.setTimeout(() => {
+  const jumpToImagePlacement = useCallback((pageIndex: number, blockIndex?: number) => {
+    const target = Math.max(0, Math.min(pageIndex, pages.length - 1));
+    if (typeof blockIndex === "number") pendingScrollBlockRef.current = blockIndex;
+    if (target !== activeIdx) {
+      setActiveIdx(target);
+      // Editor content swap is async; the effect below handles scrolling
+      // after setContent. Also scroll the editor surface into view.
+      window.setTimeout(() => {
+        document.querySelector(".tiptap-surface")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    } else {
+      // Same chapter — scroll directly.
+      window.setTimeout(() => scrollEditorToBlock(blockIndex), 0);
+    }
+  }, [pages.length, activeIdx]);
+
+  const scrollEditorToBlock = useCallback((blockIndex?: number) => {
+    if (!editor) return;
+    if (typeof blockIndex !== "number") return;
+    const dom = editor.view.dom as HTMLElement;
+    const child = dom?.children?.[blockIndex] as HTMLElement | undefined;
+    if (child?.scrollIntoView) {
+      child.scrollIntoView({ behavior: "smooth", block: "center" });
+      child.classList.add("ring-2", "ring-primary", "ring-offset-2", "rounded-lg");
+      window.setTimeout(() => {
+        child.classList.remove("ring-2", "ring-primary", "ring-offset-2", "rounded-lg");
+      }, 1600);
+    } else {
       document.querySelector(".tiptap-surface")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 80);
-  }, [pages.length]);
+    }
+  }, [editor]);
+
+  // After chapter switch / content swap, run any pending scroll.
+  useEffect(() => {
+    if (pendingScrollBlockRef.current === null) return;
+    const t = window.setTimeout(() => {
+      scrollEditorToBlock(pendingScrollBlockRef.current ?? undefined);
+      pendingScrollBlockRef.current = null;
+    }, 220);
+    return () => window.clearTimeout(t);
+  }, [activeIdx, scrollEditorToBlock]);
+
+  /** Auto-align figure images with their matching caption paragraphs by
+   *  matching figure numbers across the active chapter. Reorders blocks
+   *  so each labelled image sits immediately above its caption. */
+  const autoAlignFigures = useCallback(() => {
+    const FIG_NUM_RE = /(?:شکل|تصویر|نگاره|figure|fig\.?)\s*([\d\u06F0-\u06F9\u0660-\u0669]+(?:[.\-\u2013\u2014][\d\u06F0-\u06F9\u0660-\u0669]+)?)/i;
+    const norm = (s: string) =>
+      s.replace(/[\u06F0-\u06F9]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x06F0 + 0x30))
+        .replace(/[\u0660-\u0669]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x0660 + 0x30))
+        .replace(/[\u2013\u2014]/g, "-")
+        .toLowerCase().trim();
+    const blockText = (n: any): string =>
+      (n?.content ?? []).map((c: any) => (typeof c?.text === "string" ? c.text : "")).join("").trim();
+    const getImgNum = (n: any): string | null => {
+      const fn = n?.attrs?.figureNumber;
+      if (!fn) return null;
+      const m = String(fn).match(FIG_NUM_RE);
+      return m?.[1] ? norm(m[1]) : norm(String(fn));
+    };
+
+    let movedTotal = 0;
+    let chaptersTouched = 0;
+
+    const newPages = pages.map((page, pi) => {
+      const content = (page.doc?.content ?? []) as any[];
+      if (!content.length) return page;
+      const isImg = (n: any) => n?.type === "image" || n?.type === "image_placeholder";
+      const isText = (n: any) => n?.type === "paragraph" || n?.type === "heading";
+
+      // Caption indices keyed by normalized number (first match wins)
+      const captionIdxByNum = new Map<string, number>();
+      content.forEach((n, i) => {
+        if (!isText(n)) return;
+        const t = blockText(n);
+        const m = t.match(FIG_NUM_RE);
+        if (m?.[1] && FIG_NUM_RE.test(t)) {
+          const k = norm(m[1]);
+          if (!captionIdxByNum.has(k)) captionIdxByNum.set(k, i);
+        }
+      });
+
+      // Images that should be reordered (have a matching caption)
+      const movableImg = new Set<number>();
+      content.forEach((n, i) => {
+        if (!isImg(n)) return;
+        const num = getImgNum(n);
+        if (num && captionIdxByNum.has(num)) movableImg.add(i);
+      });
+      if (movableImg.size === 0) return page;
+
+      const out: any[] = [];
+      const placed = new Set<number>();
+      content.forEach((node, i) => {
+        if (movableImg.has(i)) return; // skip — will be re-inserted before its caption
+        if (isText(node)) {
+          const t = blockText(node);
+          const m = t.match(FIG_NUM_RE);
+          if (m?.[1] && FIG_NUM_RE.test(t)) {
+            const k = norm(m[1]);
+            // find first un-placed movable image with matching num
+            const imgIdx = content.findIndex(
+              (n2, j) => movableImg.has(j) && !placed.has(j) && getImgNum(n2) === k,
+            );
+            if (imgIdx >= 0) { out.push(content[imgIdx]); placed.add(imgIdx); }
+          }
+        }
+        out.push(node);
+      });
+      // Append any leftover movable images at end (caption found but not visited?)
+      movableImg.forEach((i) => { if (!placed.has(i)) out.push(content[i]); });
+
+      // Did anything actually move?
+      let changed = false;
+      if (out.length === content.length) {
+        for (let i = 0; i < out.length; i += 1) if (out[i] !== content[i]) { changed = true; break; }
+      } else changed = true;
+      if (!changed) return page;
+
+      chaptersTouched += 1;
+      movedTotal += movableImg.size;
+      const newDoc = { ...page.doc, type: "doc" as const, content: out };
+      dirtyPagesRef.current.add(pi);
+      return { ...page, doc: newDoc };
+    });
+
+    if (movedTotal === 0) {
+      toast.info(fa ? "هیچ شکلی نیاز به جابه‌جایی نداشت" : "All figures already aligned");
+      return;
+    }
+    setPages(newPages);
+    markStructureDirty();
+    // Refresh editor for active chapter
+    if (editor) {
+      const tgt = newPages[activeIdx]?.doc;
+      if (tgt) window.setTimeout(() => editor.commands.setContent(tgt as any, { emitUpdate: false }), 0);
+    }
+    toast.success(
+      fa
+        ? `${movedTotal} شکل در ${chaptersTouched} فصل با کپشن خود هم‌تراز شد`
+        : `${movedTotal} figure(s) aligned across ${chaptersTouched} chapter(s)`,
+    );
+  }, [pages, editor, activeIdx, fa, markStructureDirty]);
 
   /** Toggle direction on the current text block (rtl ↔ ltr). */
   const toggleBlockDirection = () => {
@@ -681,7 +820,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-accent" /></div>;
   }
 
-  const sidePanel = showAi || showAutoFill;
+  const sidePanel = showAi || showAutoFill || showImageReview;
   const gridCols = chaptersCollapsed
     ? (sidePanel ? "lg:grid-cols-[44px_1fr_340px]" : "lg:grid-cols-[44px_1fr]")
     : (sidePanel ? "lg:grid-cols-[220px_1fr_340px]" : "lg:grid-cols-[260px_1fr]");
@@ -834,9 +973,9 @@ export const TextBookEditor = ({ initial }: Props) => {
           </Button>
           <Button
             size="sm"
-            variant="outline"
+            variant={showImageReview ? "default" : "outline"}
             className="h-8 gap-1 relative"
-            onClick={() => setShowImageReview(true)}
+            onClick={() => { setShowImageReview((v) => !v); if (!showImageReview) { setShowAi(false); setShowAutoFill(false); } }}
             title={fa ? `مرور تصاویر (${unreviewedCount} بررسی‌نشده)` : `Review images (${unreviewedCount} unreviewed)`}
             disabled={totalImages === 0}
           >
@@ -1159,20 +1298,26 @@ export const TextBookEditor = ({ initial }: Props) => {
             onJumpToPlacement={(pageIndex) => jumpToImagePlacement(pageIndex)}
           />
         )}
+        {showImageReview && (
+          <motion.aside
+            initial={{ opacity: 0, x: fa ? -20 : 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: fa ? -20 : 20 }}
+            className="lg:sticky lg:top-20 lg:self-start min-w-0"
+          >
+            <ImageReviewPanel
+              pages={pages}
+              onClose={() => setShowImageReview(false)}
+              onJump={(pi, bi) => jumpToImagePlacement(pi, bi)}
+              reviewed={reviewedImages}
+              onToggleReviewed={toggleReviewedImage}
+              onFinalizePlaceholder={finalizePlaceholder}
+              onAutoPlaceAll={importId ? () => { setShowAutoFill(true); setShowImageReview(false); setShowAi(false); } : undefined}
+              onAutoAlign={autoAlignFigures}
+            />
+          </motion.aside>
+        )}
       </AnimatePresence>
-
-      <ImageReviewDialog
-        open={showImageReview}
-        onOpenChange={setShowImageReview}
-        pages={pages}
-        bookId={initial?.id}
-        onJump={(pi, bi) => jumpToImagePlacement(pi, bi)}
-        reviewed={reviewedImages}
-        onToggleReviewed={toggleReviewedImage}
-        onFinalizePlaceholder={finalizePlaceholder}
-        onAutoPlaceAll={importId ? () => { setShowAutoFill(true); setShowAi(false); } : undefined}
-        pendingPlaceholderTotal={pages.reduce((acc, p) => acc + (p.doc?.content?.filter((n: any) => n?.type === "image_placeholder" && !n.attrs?.pendingSrc).length || 0), 0)}
-      />
 
       {/* Confirm chapter delete */}
       <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
