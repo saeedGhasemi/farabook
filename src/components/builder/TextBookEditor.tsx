@@ -1091,6 +1091,8 @@ export const TextBookEditor = ({ initial }: Props) => {
         pages={pages}
         bookId={initial?.id}
         onJump={(pi, bi) => jumpToImagePlacement(pi, bi)}
+        reviewed={reviewedImages}
+        onToggleReviewed={toggleReviewedImage}
       />
 
       {/* Confirm chapter delete */}
