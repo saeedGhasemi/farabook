@@ -436,6 +436,30 @@ export const TextBookEditor = ({ initial }: Props) => {
     setActiveIdx(pages.length);
     markStructureDirty();
   };
+
+  // Merge the currently-active chapter into the previous one. Sync the
+  // editor's pending JSON first so in-flight edits aren't lost.
+  const mergeWithPreviousChapter = () => {
+    if (activeIdx <= 0) {
+      toast.info(fa ? "این فصل اول است" : "This is the first chapter");
+      return;
+    }
+    const json = editor ? (editor.getJSON() as TextPage["doc"]) : pages[activeIdx]?.doc;
+    setPages((ps) => {
+      const prev = ps[activeIdx - 1];
+      const cur = { ...ps[activeIdx], doc: json };
+      const prevContent = Array.isArray(prev.doc?.content) ? prev.doc.content : [];
+      const curContent = Array.isArray(cur.doc?.content) ? cur.doc.content : [];
+      const merged: TextPage = {
+        ...prev,
+        doc: { ...prev.doc, type: "doc", content: [...prevContent, ...curContent] },
+      };
+      return [...ps.slice(0, activeIdx - 1), merged, ...ps.slice(activeIdx + 1)];
+    });
+    setActiveIdx((cur) => Math.max(0, cur - 1));
+    markStructureDirty();
+    toast.success(fa ? "با فصل قبلی ادغام شد" : "Merged with previous chapter");
+  };
   const removeChapter = (idx: number) => {
     if (pages.length <= 1) {
       toast.error(fa ? "حداقل یک فصل لازم است" : "At least one chapter is required");
@@ -947,6 +971,12 @@ export const TextBookEditor = ({ initial }: Props) => {
               onClick={splitChapterAtSelection}
             >
               <Scissors className="w-4 h-4" />
+            </TbBtn>
+            <TbBtn
+              title={fa ? "ادغام با فصل قبلی" : "Merge with previous chapter"}
+              onClick={mergeWithPreviousChapter}
+            >
+              <Combine className="w-4 h-4" />
             </TbBtn>
             <TbSep />
 
