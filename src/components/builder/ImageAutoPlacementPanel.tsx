@@ -30,6 +30,12 @@ interface Placement {
   sourceFormat: string;
 }
 
+const formatBytes = (bytes: number) => {
+  if (!bytes) return "—";
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)} مگابایت` : `${Math.round(bytes / 1024)} کیلوبایت`;
+};
+
 interface Props {
   bookId: string;
   importId?: string;
@@ -273,6 +279,38 @@ export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, o
           {failures.length > 50 && (
             <div className="text-[10px] text-muted-foreground">…و {failures.length - 50} مورد دیگر</div>
           )}
+        </div>
+      )}
+
+      {placements.length > 0 && (
+        <div className="space-y-1 max-h-[42vh] overflow-y-auto pe-1 border-t pt-2">
+          <div className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            گزارش جایگذاری ({placements.length})
+          </div>
+          {placements.slice().sort((a, b) => a.slot - b.slot).map((p) => (
+            <button
+              type="button"
+              key={`${p.slot}-${p.originalPath}`}
+              onClick={() => onJumpToPlacement?.(p.pageIndex, p.blockIndex)}
+              className="w-full text-start text-[10px] rounded border bg-background/60 hover:bg-muted/60 p-1.5 transition"
+              title="رفتن به محل تصویر"
+            >
+              <div className="flex items-center justify-between gap-2 font-medium">
+                <span className="font-mono">تصویر {p.slot}</span>
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <MousePointerClick className="w-3 h-3" /> صفحه {p.pageIndex + 1}
+                </span>
+              </div>
+              <div className="opacity-75 break-all">{p.originalPath}</div>
+              <div className="opacity-75">
+                {p.mode === "converted"
+                  ? `${(p.sourceFormat || "EMF").toUpperCase()} تبدیل شد و جایگذاری شد`
+                  : "تصویر عیناً جایگذاری شد"}
+                {` · ${formatBytes(p.bytes)}`}
+              </div>
+            </button>
+          ))}
         </div>
       )}
 
