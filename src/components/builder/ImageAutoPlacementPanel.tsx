@@ -6,10 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { unzipSync } from "fflate";
 import { convertEmfToDataUrl, convertWmfToDataUrl } from "emf-converter";
-import { ImageIcon, Loader2, RefreshCw, X, CheckCircle2, AlertTriangle, PlayCircle, PauseCircle, MousePointerClick } from "lucide-react";
+import { ImageIcon, Loader2, RefreshCw, X, CheckCircle2, AlertTriangle, PlayCircle, PauseCircle, MousePointerClick, LayoutGrid, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveBookMedia } from "@/lib/book-media";
 import { toast } from "sonner";
 
 interface Failure {
