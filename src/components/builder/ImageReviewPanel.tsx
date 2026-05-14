@@ -64,11 +64,14 @@ interface Props {
   ) => void;
 }
 
+type SortMode = "attention-first" | "ok-first" | "page-order";
+
 export const ImageReviewPanel = ({
   pages, onClose, onJump, reviewed, onToggleReviewed,
   onAutoPlaceAll, onAutoAlign, onFinalizePlaceholder,
 }: Props) => {
   const [filter, setFilter] = useState<"all" | "attention">("attention");
+  const [sortMode, setSortMode] = useState<SortMode>("attention-first");
 
   const items: Item[] = useMemo(() => {
     const out: Item[] = [];
@@ -128,9 +131,35 @@ export const ImageReviewPanel = ({
   }, [pages]);
 
   const total = items.length;
+  const placeholderTotal = items.filter((i) => i.type === "placeholder").length;
+  // An item is "auto-OK" (green) when it's a real image with src + caption
+  // and no attention flag — no manual check required.
+  const isAutoOk = (it: Item) =>
+    it.type === "image" && !!it.src && !!it.caption && !it.attention;
   const attentionCount = items.filter((i) => i.attention).length;
   const placeholderEmpty = items.filter((i) => i.type === "placeholder" && !i.pendingSrc).length;
-  const visible = filter === "attention" ? items.filter((i) => i.attention || (i.type === "placeholder" && i.pendingSrc)) : items;
+
+  const baseVisible = filter === "attention"
+    ? items.filter((i) => i.attention || (i.type === "placeholder" && i.pendingSrc) || (!isAutoOk(i) && !reviewed.has(i.key)))
+    : items;
+
+  const sortRank = (it: Item) => {
+    const ok = isAutoOk(it) || reviewed.has(it.key);
+    const needs = !!it.attention || (it.type === "placeholder" && !!it.pendingSrc);
+    if (sortMode === "attention-first") {
+      // missing-image (3) > mismatch (2) > missing-caption (1) > pending (1) > others (0) > ok (-1)
+      if (it.attention === "missing-image") return 3;
+      if (it.attention === "mismatch") return 2;
+      if (it.attention === "missing-caption") return 1;
+      if (needs) return 1;
+      return ok ? -1 : 0;
+    }
+    if (sortMode === "ok-first") return ok ? 1 : -1;
+    return 0;
+  };
+  const visible = sortMode === "page-order"
+    ? baseVisible
+    : [...baseVisible].sort((a, b) => sortRank(b) - sortRank(a));
 
   // Per-card editable caption drafts
   const [captionDrafts, setCaptionDrafts] = useState<Record<string, string>>({});
@@ -168,7 +197,7 @@ export const ImageReviewPanel = ({
           {placeholderEmpty > 0 && <> · <span className="text-destructive font-medium">{placeholderEmpty}</span> بدون فایل</>}
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {onAutoPlaceAll && placeholderEmpty > 0 && (
+          {onAutoPlaceAll && placeholderTotal > 0 && (
             <Button size="sm" className="h-7 text-[11px] flex-1" onClick={onAutoPlaceAll}>
               <Wand2 className="w-3 h-3 me-1" /> جایگذاری همه
             </Button>
@@ -179,7 +208,7 @@ export const ImageReviewPanel = ({
             </Button>
           )}
         </div>
-        <div className="flex gap-1 text-[11px]">
+        <div className="flex gap-1 text-[11px] flex-wrap">
           <button
             type="button"
             onClick={() => setFilter("attention")}
@@ -194,6 +223,16 @@ export const ImageReviewPanel = ({
           >
             همه ({total})
           </button>
+          <select
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as SortMode)}
+            className="ms-auto h-6 text-[10px] rounded-md border bg-background px-1"
+            title="مرتب‌سازی"
+          >
+            <option value="attention-first">نیاز به توجه ↑</option>
+            <option value="ok-first">بررسی‌شده ↑</option>
+            <option value="page-order">ترتیب صفحه</option>
+          </select>
         </div>
       </div>
 
@@ -204,7 +243,8 @@ export const ImageReviewPanel = ({
           </div>
         ) : (
           visible.map((it) => {
-            const isReviewed = reviewed.has(it.key);
+            const autoOk = isAutoOk(it);
+            const isReviewed = autoOk || reviewed.has(it.key);
             const isExpanded = expanded === it.key;
             const hasPending = it.type === "placeholder" && !!it.pendingSrc;
             const captionValue = captionDrafts[it.key] ?? "";

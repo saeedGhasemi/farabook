@@ -646,6 +646,51 @@ export const TextBookEditor = ({ initial }: Props) => {
     toast.success(fa ? "تصویر در جای خود درج شد" : "Image inserted");
   }, [activeIdx, editor, markStructureDirty, fa]);
 
+  /** Finalize every placeholder that already has a pendingSrc — across all
+   *  chapters. Caption auto-detected from the next 1-3 paragraphs starting
+   *  with «شکل/تصویر/Figure»; that paragraph is then consumed. */
+  const finalizeAllPending = useCallback(() => {
+    const FIG_RE_BULK = /^(شکل|تصویر|نگاره|figure|fig\.?)\s*[\d\u06F0-\u06F9۰-۹]+([.\-\u2013\u2014][\d\u06F0-\u06F9۰-۹]+)?/i;
+    const blockTextOf = (n: any) =>
+      (n?.content ?? []).map((c: any) => (typeof c?.text === "string" ? c.text : "")).join("").trim();
+    let count = 0;
+    setPages((ps) => ps.map((page) => {
+      const content = [...((page.doc?.content ?? []) as any[])];
+      for (let i = 0; i < content.length; i += 1) {
+        const node = content[i];
+        if (!node || node.type !== "image_placeholder") continue;
+        const pendingSrc = node.attrs?.pendingSrc;
+        if (!pendingSrc) continue;
+        let caption = ""; let consumeAt = -1;
+        for (let j = 1; j <= 3 && i + j < content.length; j += 1) {
+          const nx = content[i + j];
+          if (!nx) continue;
+          if (nx.type === "image" || nx.type === "image_placeholder") break;
+          if (nx.type !== "paragraph" && nx.type !== "heading") continue;
+          const t = blockTextOf(nx);
+          if (!t) continue;
+          if (FIG_RE_BULK.test(t)) { caption = t; consumeAt = i + j; }
+          break;
+        }
+        content[i] = { type: "image", attrs: { src: pendingSrc, caption, hideCaption: false } };
+        if (consumeAt > 0) content.splice(consumeAt, 1);
+        count += 1;
+      }
+      return { ...page, doc: { ...page.doc, content } };
+    }));
+    if (count > 0) {
+      pages.forEach((_, i) => dirtyPagesRef.current.add(i));
+      markStructureDirty();
+      toast.success(fa ? `${count} تصویر در جای خود درج شد` : `${count} images inserted`);
+      if (editor) {
+        const active = pages[activeIdx];
+        if (active) window.setTimeout(() => editor.commands.setContent(active.doc, { emitUpdate: false }), 30);
+      }
+    } else {
+      toast.info(fa ? "تصویر آماده‌ای برای درج وجود ندارد" : "Nothing to insert");
+    }
+  }, [pages, activeIdx, editor, markStructureDirty, fa]);
+
   const jumpToImagePlacement = useCallback((pageIndex: number, blockIndex?: number) => {
     const target = Math.max(0, Math.min(pageIndex, pages.length - 1));
     if (typeof blockIndex === "number") pendingScrollBlockRef.current = blockIndex;
@@ -1312,7 +1357,17 @@ export const TextBookEditor = ({ initial }: Props) => {
               reviewed={reviewedImages}
               onToggleReviewed={toggleReviewedImage}
               onFinalizePlaceholder={finalizePlaceholder}
-              onAutoPlaceAll={importId ? () => { setShowAutoFill(true); setShowImageReview(false); setShowAi(false); } : undefined}
+              onAutoPlaceAll={() => {
+                // Empty placeholders (no pendingSrc) need the docx-image-fill
+                // pipeline; if any exist and we have an importId, open it.
+                const hasEmpty = pages.some((p) => (p.doc?.content ?? []).some((n: any) =>
+                  n?.type === "image_placeholder" && !n.attrs?.pendingSrc));
+                if (hasEmpty && importId) {
+                  setShowAutoFill(true); setShowImageReview(false); setShowAi(false);
+                } else {
+                  finalizeAllPending();
+                }
+              }}
               onAutoAlign={autoAlignFigures}
             />
           </motion.aside>
