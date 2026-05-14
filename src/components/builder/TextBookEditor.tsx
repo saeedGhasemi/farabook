@@ -743,6 +743,15 @@ export const TextBookEditor = ({ initial }: Props) => {
           <Button size="sm" variant="outline" className="h-8" onClick={() => persist({ showToast: true, full: true })}>
             <Save className="w-3.5 h-3.5 me-1" /> {fa ? "ذخیره" : "Save"}
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1"
+            onClick={() => setShowImageReview(true)}
+            title={fa ? "مرور تصاویر" : "Review images"}
+          >
+            <ImageIcon className="w-3.5 h-3.5" /> {fa ? "مرور تصاویر" : "Review images"}
+          </Button>
           {isEdit && (
             <Button
               type="button"
