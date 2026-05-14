@@ -2,7 +2,7 @@
 // image_placeholder nodes and shows a thumbnail grid grouped by page so
 // the user can verify each placement without paging through the editor.
 // Reviewed-state is persisted per book in localStorage.
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { LayoutGrid, MousePointerClick, Check, AlertTriangle, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -28,24 +28,12 @@ interface Props {
   pages: TextPage[];
   bookId?: string;
   onJump: (pageIndex: number, blockIndex?: number) => void;
+  reviewed: Set<string>;
+  onToggleReviewed: (key: string) => void;
 }
 
-export const ImageReviewDialog = ({ open, onOpenChange, pages, bookId, onJump }: Props) => {
-  const reviewKey = `img-review:${bookId || "draft"}`;
-  const [reviewed, setReviewed] = useState<Set<string>>(() => {
-    try {
-      const raw = localStorage.getItem(`img-review:${bookId || "draft"}`);
-      return new Set<string>(raw ? JSON.parse(raw) : []);
-    } catch { return new Set(); }
-  });
-  const toggleReviewed = (key: string) => {
-    setReviewed((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      try { localStorage.setItem(reviewKey, JSON.stringify([...next])); } catch {}
-      return next;
-    });
-  };
+export const ImageReviewDialog = ({ open, onOpenChange, pages, onJump, reviewed, onToggleReviewed }: Props) => {
+  const toggleReviewed = onToggleReviewed;
 
   const items: Item[] = useMemo(() => {
     const out: Item[] = [];

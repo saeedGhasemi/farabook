@@ -2,7 +2,7 @@
 // rich-text document. A sticky toolbar at the top of the editor
 // exposes ALL formatting actions and stays visible while scrolling.
 // Side panel hosts AI suggestions with Accept/Reject.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { Extension } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
@@ -152,6 +152,31 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [showImageReview, setShowImageReview] = useState(false);
+  const reviewKey = `img-review:${initial?.id || "draft"}`;
+  const [reviewedImages, setReviewedImages] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(`img-review:${initial?.id || "draft"}`);
+      return new Set<string>(raw ? JSON.parse(raw) : []);
+    } catch { return new Set(); }
+  });
+  const toggleReviewedImage = useCallback((key: string) => {
+    setReviewedImages((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      try { localStorage.setItem(reviewKey, JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, [reviewKey]);
+  const totalImages = useMemo(() => {
+    let n = 0;
+    for (const p of pages) {
+      for (const node of (p.doc?.content ?? []) as any[]) {
+        if (node?.type === "image" || node?.type === "image_placeholder") n += 1;
+      }
+    }
+    return n;
+  }, [pages]);
+  const unreviewedCount = Math.max(0, totalImages - reviewedImages.size);
   // Track which chapters changed since last save and whether the
   // structural shape (chapter order/count, metadata) changed. Autosave
   // sends only the dirty chapters via an RPC; manual Save (or any
@@ -746,11 +771,17 @@ export const TextBookEditor = ({ initial }: Props) => {
           <Button
             size="sm"
             variant="outline"
-            className="h-8 gap-1"
+            className="h-8 gap-1 relative"
             onClick={() => setShowImageReview(true)}
-            title={fa ? "مرور تصاویر" : "Review images"}
+            title={fa ? `مرور تصاویر (${unreviewedCount} بررسی‌نشده)` : `Review images (${unreviewedCount} unreviewed)`}
+            disabled={totalImages === 0}
           >
             <ImageIcon className="w-3.5 h-3.5" /> {fa ? "مرور تصاویر" : "Review images"}
+            {unreviewedCount > 0 && (
+              <span className="ms-1 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold tabular-nums">
+                {unreviewedCount}
+              </span>
+            )}
           </Button>
           {isEdit && (
             <Button
@@ -1066,6 +1097,8 @@ export const TextBookEditor = ({ initial }: Props) => {
         pages={pages}
         bookId={initial?.id}
         onJump={(pi, bi) => jumpToImagePlacement(pi, bi)}
+        reviewed={reviewedImages}
+        onToggleReviewed={toggleReviewedImage}
       />
 
       {/* Confirm chapter delete */}
