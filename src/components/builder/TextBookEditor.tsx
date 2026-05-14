@@ -43,7 +43,7 @@ import {
 } from "@/lib/tiptap-doc";
 import { AiSuggestPanel } from "./AiSuggestPanel";
 import { ImageAutoPlacementPanel } from "./ImageAutoPlacementPanel";
-import { ImageReviewDialog } from "./ImageReviewDialog";
+import { ImageReviewPanel } from "./ImageReviewPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   BookMetadataForm,
