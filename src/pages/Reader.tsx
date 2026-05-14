@@ -19,6 +19,7 @@ import { resolveBookMedia } from "@/lib/book-media";
 import { speakSmart, stopSpeak as stopSpeakSmart } from "@/lib/tts";
 import { docToLegacyBlocks } from "@/lib/tiptap-doc";
 import { BookComments } from "@/components/BookComments";
+import { CopyProtection } from "@/components/reader/CopyProtection";
 
 interface Page {
   title: string;
@@ -500,8 +501,11 @@ const Reader = () => {
     }
   };
 
+  const watermarkLabel = (user?.email || user?.id || (lang === "fa" ? "کاربر مهمان" : "Guest user")) + " · " + (book?.title || "");
+
   return (
     <main className={`min-h-[calc(100vh-4rem)] relative transition-colors duration-700 ${dark ? "bg-background" : "bg-gradient-hero"}`}>
+      <CopyProtection watermark={watermarkLabel} />
       <div className={`fixed inset-0 pointer-events-none transition-opacity duration-1000 ${ambientClass}`} />
 
       <motion.div
@@ -581,6 +585,26 @@ const Reader = () => {
                   <h2 className="text-3xl md:text-5xl font-display font-bold mb-8 gold-text leading-tight">
                     {currentPage.title}
                   </h2>
+
+                  {pageIdx === 0 && (
+                    <div className="mb-6 p-4 rounded-2xl border border-accent/30 bg-accent/5 text-xs leading-relaxed text-muted-foreground">
+                      {lang === "fa" ? (
+                        <>
+                          <strong className="text-foreground">© کپی‌رایت محفوظ.</strong>{" "}
+                          این نسخه برای{" "}
+                          <span className="text-accent font-semibold">{user?.email || (lang === "fa" ? "کاربر مهمان" : "Guest user")}</span>{" "}
+                          صادر شده است. کپی، اسکرین‌شات، چاپ یا توزیع غیرمجاز این محتوا پیگرد قانونی دارد.
+                        </>
+                      ) : (
+                        <>
+                          <strong className="text-foreground">© All rights reserved.</strong>{" "}
+                          This copy is licensed to{" "}
+                          <span className="text-accent font-semibold">{user?.email || "Guest user"}</span>.{" "}
+                          Unauthorized copying, screenshots, printing or redistribution is prohibited.
+                        </>
+                      )}
+                    </div>
+                  )}
 
                   <div className="space-y-4 selectable selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text">
                     {blocks.map((block, i) => (
