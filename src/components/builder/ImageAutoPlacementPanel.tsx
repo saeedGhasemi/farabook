@@ -282,6 +282,12 @@ export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, o
             تلاش مجدد ({failures.length})
           </Button>
         )}
+        {placements.length > 0 && !running && (
+          <Button size="sm" variant="secondary" onClick={() => setReviewOpen(true)}>
+            <LayoutGrid className="w-4 h-4 me-1" />
+            مرور همه ({reviewed.size}/{placements.length})
+          </Button>
+        )}
       </div>
 
       {failures.length > 0 && (
