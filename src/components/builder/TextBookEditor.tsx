@@ -503,6 +503,13 @@ export const TextBookEditor = ({ initial }: Props) => {
     editor.chain().focus().insertContent({ type: kind, attrs }).run();
   };
 
+  const jumpToImagePlacement = useCallback((pageIndex: number) => {
+    setActiveIdx(Math.max(0, Math.min(pageIndex, pages.length - 1)));
+    window.setTimeout(() => {
+      document.querySelector(".tiptap-surface")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  }, [pages.length]);
+
   /** Toggle direction on the current text block (rtl ↔ ltr). */
   const toggleBlockDirection = () => {
     if (!editor) return;
@@ -978,6 +985,7 @@ export const TextBookEditor = ({ initial }: Props) => {
             totalPlaceholders={pages.reduce((acc, p) => acc + (p.doc?.content?.filter((n: any) => n?.type === "image_placeholder" && !n.attrs?.pendingSrc).length || 0), 0)}
             onClose={() => setShowAutoFill(false)}
             onBatchApplied={() => { void reloadPagesFromDb(); }}
+            onJumpToPlacement={(pageIndex) => jumpToImagePlacement(pageIndex)}
           />
         )}
       </AnimatePresence>
