@@ -84,7 +84,9 @@ export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, o
   };
 
   const getVectorFiles = async (paths: string[]) => {
-    if (!vectorFilesRef.current) {
+    const current = vectorFilesRef.current ?? new Map<string, Uint8Array>();
+    const missing = paths.filter((p) => !current.has(p.toLowerCase()));
+    if (missing.length) {
       let filePath: string | undefined;
       if (importId) {
         const { data } = await supabase.from("word_imports").select("file_path").eq("id", importId).maybeSingle();
@@ -94,13 +96,14 @@ export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, o
         filePath = (data as any)?.file_path;
       }
       if (!filePath) throw new Error("فایل Word اصلی برای تبدیل تصاویر پیدا نشد");
-      const wanted = new Set(paths.map((p) => p.toLowerCase()));
+      const wanted = new Set(missing.map((p) => p.toLowerCase()));
       const { data: blob, error } = await supabase.storage.from("book-uploads").download(filePath);
       if (error || !blob) throw new Error(error?.message || "دانلود فایل Word ناموفق بود");
       const files = unzipSync(new Uint8Array(await blob.arrayBuffer()), { filter: (f) => wanted.has(f.name.toLowerCase()) });
-      vectorFilesRef.current = new Map(Object.entries(files).map(([k, v]) => [k.toLowerCase(), v]));
+      for (const [k, v] of Object.entries(files)) current.set(k.toLowerCase(), v);
+      vectorFilesRef.current = current;
     }
-    return vectorFilesRef.current;
+    return current;
   };
 
   const convertVectorFailures = async (items: Failure[]) => {
