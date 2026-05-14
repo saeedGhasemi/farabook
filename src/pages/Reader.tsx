@@ -19,6 +19,7 @@ import { resolveBookMedia } from "@/lib/book-media";
 import { speakSmart, stopSpeak as stopSpeakSmart } from "@/lib/tts";
 import { docToLegacyBlocks } from "@/lib/tiptap-doc";
 import { BookComments } from "@/components/BookComments";
+import { CopyProtection } from "@/components/reader/CopyProtection";
 
 interface Page {
   title: string;
