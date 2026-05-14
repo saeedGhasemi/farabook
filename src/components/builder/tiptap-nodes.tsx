@@ -234,7 +234,7 @@ const formatBytes = (b: number) => {
 
 const ImagePlaceholderView = (props: NodeViewProps) => {
   const { user } = useAuth();
-  const { pendingSrc, bytes, contentType, reason, caption, figureNumber, originalPath, slot } =
+  const { pendingSrc, bytes, contentType, reason, caption, figureNumber, originalPath, slot, placementMode, sourceFormat } =
     props.node.attrs as {
       pendingSrc?: string;
       bytes?: number;
@@ -244,6 +244,8 @@ const ImagePlaceholderView = (props: NodeViewProps) => {
       figureNumber?: string;
       originalPath?: string;
       slot?: number;
+      placementMode?: "original" | "converted";
+      sourceFormat?: string;
     };
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
@@ -253,6 +255,8 @@ const ImagePlaceholderView = (props: NodeViewProps) => {
     : reason === "too_large" ? "تصویر بسیار حجیم — برای جلوگیری از خطا کنار گذاشته شد"
     : reason === "upload_failed" ? "بارگذاری خودکار این تصویر ناموفق بود"
     : reason === "text_only" ? "جایگاه تصویر از فایل Word حفظ شد، اما خود تصویر هنوز وارد متن نشده است"
+    : reason === "vector_converted" ? `تصویر ${sourceFormat ? sourceFormat.toUpperCase() : "برداری"} با حفظ کیفیت به PNG تبدیل و آماده جایگذاری شد`
+    : placementMode === "original" ? "تصویر عیناً از فایل Word استخراج و آماده جایگذاری شد"
     : "تصویر در زمان وارد کردن کتاب درج نشد";
 
   const replaceWithImage = (src: string) => {
@@ -358,6 +362,8 @@ export const ImagePlaceholderBlock = Node.create({
       figureNumber: { default: "" },
       originalPath: { default: "" },
       slot: { default: 0 },
+      placementMode: { default: "" },
+      sourceFormat: { default: "" },
     };
   },
   parseHTML() { return [{ tag: "div[data-image-placeholder]" }]; },
