@@ -2,7 +2,7 @@
 // image_placeholder nodes and shows a thumbnail grid grouped by page so
 // the user can verify each placement without paging through the editor.
 // Reviewed-state is persisted per book in localStorage.
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { LayoutGrid, MousePointerClick, Check, AlertTriangle, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
