@@ -926,6 +926,7 @@ export const TextBookEditor = ({ initial }: Props) => {
               {pages.map((p, i) => (
                 <div
                   key={i}
+                  ref={i === activeIdx ? activeChapterRef : undefined}
                   className={`group flex items-center gap-1 rounded-lg border px-2 py-1.5 transition ${
                     i === activeIdx ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/40"
                   }`}
