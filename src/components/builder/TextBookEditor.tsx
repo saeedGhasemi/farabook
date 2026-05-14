@@ -152,6 +152,8 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [showImageReview, setShowImageReview] = useState(false);
+  // Track an explicit scroll target; effect scrolls after content swap.
+  const pendingScrollBlockRef = useRef<number | null>(null);
   const reviewKey = `img-review:${initial?.id || "draft"}`;
   const [reviewedImages, setReviewedImages] = useState<Set<string>>(() => {
     try {
