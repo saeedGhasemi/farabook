@@ -57,6 +57,8 @@ export interface ImagePlaceholderNode {
     figureNumber?: string;
     originalPath?: string;
     slot?: number;
+    placementMode?: "original" | "converted";
+    sourceFormat?: string;
   };
 }
 export interface GalleryNode { type: "gallery"; attrs: { images: string[]; caption?: string } }
@@ -280,6 +282,8 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
           figureNumber: b.figureNumber ? String(b.figureNumber) : undefined,
           originalPath: b.originalPath ? String(b.originalPath) : undefined,
           slot: typeof b.slot === "number" ? b.slot : undefined,
+          placementMode: b.placementMode === "converted" ? "converted" : (b.placementMode === "original" ? "original" : undefined),
+          sourceFormat: b.sourceFormat ? String(b.sourceFormat) : undefined,
         },
       }];
     case "gallery":
@@ -480,6 +484,8 @@ export const docToLegacyBlocks = (doc: TiptapDoc): any[] => {
           figureNumber: n.attrs.figureNumber,
           originalPath: n.attrs.originalPath,
           slot: n.attrs.slot,
+          placementMode: n.attrs.placementMode,
+          sourceFormat: n.attrs.sourceFormat,
         });
         break;
       case "gallery":
