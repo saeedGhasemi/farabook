@@ -972,6 +972,12 @@ export const TextBookEditor = ({ initial }: Props) => {
             >
               <Scissors className="w-4 h-4" />
             </TbBtn>
+            <TbBtn
+              title={fa ? "ادغام با فصل قبلی" : "Merge with previous chapter"}
+              onClick={mergeWithPreviousChapter}
+            >
+              <Combine className="w-4 h-4" />
+            </TbBtn>
             <TbSep />
 
             {/* Interactive insert */}
