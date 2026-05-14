@@ -767,7 +767,7 @@ export const TextBookEditor = ({ initial }: Props) => {
 
       chaptersTouched += 1;
       movedTotal += movableImg.size;
-      const newDoc = { ...page.doc, type: "doc", content: out };
+      const newDoc = { ...page.doc, type: "doc" as const, content: out };
       dirtyPagesRef.current.add(pi);
       return { ...page, doc: newDoc };
     });
