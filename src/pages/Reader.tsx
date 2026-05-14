@@ -501,8 +501,11 @@ const Reader = () => {
     }
   };
 
+  const watermarkLabel = (user?.email || user?.id || (lang === "fa" ? "کاربر مهمان" : "Guest user")) + " · " + (book?.title || "");
+
   return (
     <main className={`min-h-[calc(100vh-4rem)] relative transition-colors duration-700 ${dark ? "bg-background" : "bg-gradient-hero"}`}>
+      <CopyProtection watermark={watermarkLabel} />
       <div className={`fixed inset-0 pointer-events-none transition-opacity duration-1000 ${ambientClass}`} />
 
       <motion.div
