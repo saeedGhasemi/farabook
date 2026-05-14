@@ -189,6 +189,11 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [showAutoFill, setShowAutoFill] = useState(false);
   const [importId, setImportId] = useState<string | undefined>(undefined);
   const [chaptersCollapsed, setChaptersCollapsed] = useState(false);
+  const activeChapterRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (chaptersCollapsed) return;
+    activeChapterRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [activeIdx, chaptersCollapsed]);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [typography, setTypography] = useState<string>(initial?.typography_preset || "editorial");
   // Metadata dialog
