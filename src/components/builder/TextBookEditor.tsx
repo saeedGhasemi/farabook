@@ -973,9 +973,9 @@ export const TextBookEditor = ({ initial }: Props) => {
           </Button>
           <Button
             size="sm"
-            variant="outline"
+            variant={showImageReview ? "default" : "outline"}
             className="h-8 gap-1 relative"
-            onClick={() => setShowImageReview(true)}
+            onClick={() => { setShowImageReview((v) => !v); if (!showImageReview) { setShowAi(false); setShowAutoFill(false); } }}
             title={fa ? `مرور تصاویر (${unreviewedCount} بررسی‌نشده)` : `Review images (${unreviewedCount} unreviewed)`}
             disabled={totalImages === 0}
           >
