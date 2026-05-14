@@ -1298,20 +1298,26 @@ export const TextBookEditor = ({ initial }: Props) => {
             onJumpToPlacement={(pageIndex) => jumpToImagePlacement(pageIndex)}
           />
         )}
+        {showImageReview && (
+          <motion.aside
+            initial={{ opacity: 0, x: fa ? -20 : 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: fa ? -20 : 20 }}
+            className="lg:sticky lg:top-20 lg:self-start min-w-0"
+          >
+            <ImageReviewPanel
+              pages={pages}
+              onClose={() => setShowImageReview(false)}
+              onJump={(pi, bi) => jumpToImagePlacement(pi, bi)}
+              reviewed={reviewedImages}
+              onToggleReviewed={toggleReviewedImage}
+              onFinalizePlaceholder={finalizePlaceholder}
+              onAutoPlaceAll={importId ? () => { setShowAutoFill(true); setShowImageReview(false); setShowAi(false); } : undefined}
+              onAutoAlign={autoAlignFigures}
+            />
+          </motion.aside>
+        )}
       </AnimatePresence>
-
-      <ImageReviewDialog
-        open={showImageReview}
-        onOpenChange={setShowImageReview}
-        pages={pages}
-        bookId={initial?.id}
-        onJump={(pi, bi) => jumpToImagePlacement(pi, bi)}
-        reviewed={reviewedImages}
-        onToggleReviewed={toggleReviewedImage}
-        onFinalizePlaceholder={finalizePlaceholder}
-        onAutoPlaceAll={importId ? () => { setShowAutoFill(true); setShowAi(false); } : undefined}
-        pendingPlaceholderTotal={pages.reduce((acc, p) => acc + (p.doc?.content?.filter((n: any) => n?.type === "image_placeholder" && !n.attrs?.pendingSrc).length || 0), 0)}
-      />
 
       {/* Confirm chapter delete */}
       <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
