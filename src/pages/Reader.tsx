@@ -586,6 +586,26 @@ const Reader = () => {
                     {currentPage.title}
                   </h2>
 
+                  {pageIdx === 0 && (
+                    <div className="mb-6 p-4 rounded-2xl border border-accent/30 bg-accent/5 text-xs leading-relaxed text-muted-foreground">
+                      {lang === "fa" ? (
+                        <>
+                          <strong className="text-foreground">© کپی‌رایت محفوظ.</strong>{" "}
+                          این نسخه برای{" "}
+                          <span className="text-accent font-semibold">{user?.email || (lang === "fa" ? "کاربر مهمان" : "Guest user")}</span>{" "}
+                          صادر شده است. کپی، اسکرین‌شات، چاپ یا توزیع غیرمجاز این محتوا پیگرد قانونی دارد.
+                        </>
+                      ) : (
+                        <>
+                          <strong className="text-foreground">© All rights reserved.</strong>{" "}
+                          This copy is licensed to{" "}
+                          <span className="text-accent font-semibold">{user?.email || "Guest user"}</span>.{" "}
+                          Unauthorized copying, screenshots, printing or redistribution is prohibited.
+                        </>
+                      )}
+                    </div>
+                  )}
+
                   <div className="space-y-4 selectable selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text">
                     {blocks.map((block, i) => (
                       <BlockRenderer
