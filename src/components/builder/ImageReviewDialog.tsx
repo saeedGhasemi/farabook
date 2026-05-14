@@ -1,0 +1,192 @@
+// Standalone image review dialog. Scans every chapter for image and
+// image_placeholder nodes and shows a thumbnail grid grouped by page so
+// the user can verify each placement without paging through the editor.
+// Reviewed-state is persisted per book in localStorage.
+import { useMemo, useState } from "react";
+import { LayoutGrid, MousePointerClick, Check, AlertTriangle, ImageIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { resolveBookMedia } from "@/lib/book-media";
+import type { TextPage } from "@/lib/tiptap-doc";
+
+interface Item {
+  key: string;
+  pageIndex: number;
+  blockIndex: number;
+  type: "image" | "placeholder";
+  src?: string;
+  caption?: string;
+  figureNumber?: string;
+  slot?: number;
+  originalPath?: string;
+  reason?: string;
+}
+
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  pages: TextPage[];
+  bookId?: string;
+  onJump: (pageIndex: number, blockIndex?: number) => void;
+}
+
+export const ImageReviewDialog = ({ open, onOpenChange, pages, bookId, onJump }: Props) => {
+  const reviewKey = `img-review:${bookId || "draft"}`;
+  const [reviewed, setReviewed] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(`img-review:${bookId || "draft"}`);
+      return new Set<string>(raw ? JSON.parse(raw) : []);
+    } catch { return new Set(); }
+  });
+  const toggleReviewed = (key: string) => {
+    setReviewed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      try { localStorage.setItem(reviewKey, JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
+
+  const items: Item[] = useMemo(() => {
+    const out: Item[] = [];
+    pages.forEach((p, pi) => {
+      const content = (p.doc?.content ?? []) as any[];
+      content.forEach((node, bi) => {
+        if (!node) return;
+        if (node.type === "image") {
+          out.push({
+            key: `${pi}:${bi}:img`,
+            pageIndex: pi,
+            blockIndex: bi,
+            type: "image",
+            src: node.attrs?.src,
+            caption: node.attrs?.caption,
+            figureNumber: node.attrs?.figureNumber,
+          });
+        } else if (node.type === "image_placeholder") {
+          out.push({
+            key: `${pi}:${bi}:ph`,
+            pageIndex: pi,
+            blockIndex: bi,
+            type: "placeholder",
+            src: node.attrs?.pendingSrc || undefined,
+            caption: node.attrs?.caption,
+            figureNumber: node.attrs?.figureNumber,
+            slot: node.attrs?.slot,
+            originalPath: node.attrs?.originalPath,
+            reason: node.attrs?.reason,
+          });
+        }
+      });
+    });
+    return out;
+  }, [pages]);
+
+  const placedCount = items.filter((i) => i.type === "image").length;
+  const placeholderCount = items.length - placedCount;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl max-h-[88vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <LayoutGrid className="w-4 h-4" />
+            مرور همه تصاویر کتاب
+          </DialogTitle>
+          <DialogDescription>
+            {items.length} تصویر — {placedCount} درج‌شده، {placeholderCount} پیش‌نویس · {reviewed.size} مورد بررسی‌شده. روی هر کارت بزنید تا به محل دقیق آن در ادیتور پرش کند.
+          </DialogDescription>
+        </DialogHeader>
+
+        {items.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground py-12">
+            <ImageIcon className="w-4 h-4 me-2" /> هیچ تصویری در این کتاب یافت نشد
+          </div>
+        ) : (
+          <div className="overflow-y-auto -mx-2 px-2 pb-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {items.map((it) => {
+                const isReviewed = reviewed.has(it.key);
+                const isPlaceholder = it.type === "placeholder";
+                return (
+                  <div
+                    key={it.key}
+                    className={`group rounded-xl border overflow-hidden bg-card/60 transition ${
+                      isReviewed ? "border-emerald-500/60 ring-1 ring-emerald-500/30"
+                      : isPlaceholder ? "border-amber-500/50"
+                      : "hover:border-primary/40"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => { onJump(it.pageIndex, it.blockIndex); onOpenChange(false); }}
+                      className="block w-full bg-muted/40 aspect-[4/3] overflow-hidden relative"
+                      title="مشاهده در کتاب"
+                    >
+                      {it.src ? (
+                        <img
+                          src={resolveBookMedia(it.src)}
+                          alt={it.caption || ""}
+                          loading="lazy"
+                          className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-amber-600">
+                          <AlertTriangle className="w-6 h-6" />
+                        </div>
+                      )}
+                      <span className="absolute top-1 start-1 rounded-md bg-background/85 px-1.5 py-0.5 text-[10px] font-mono">
+                        صفحه {it.pageIndex + 1}
+                      </span>
+                      {isPlaceholder && (
+                        <span className="absolute bottom-1 start-1 rounded-md bg-amber-500/90 text-white px-1.5 py-0.5 text-[9px]">
+                          پیش‌نویس
+                        </span>
+                      )}
+                      {isReviewed && (
+                        <span className="absolute top-1 end-1 rounded-full bg-emerald-500 text-white p-1">
+                          <Check className="w-3 h-3" />
+                        </span>
+                      )}
+                    </button>
+                    <div className="p-2 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="truncate" title={it.caption || it.figureNumber || ""}>
+                          {it.figureNumber || (it.slot ? `تصویر ${it.slot}` : `بلوک ${it.blockIndex + 1}`)}
+                        </span>
+                      </div>
+                      {it.caption && (
+                        <div className="text-[10px] text-muted-foreground line-clamp-2" title={it.caption}>
+                          {it.caption}
+                        </div>
+                      )}
+                      <div className="flex gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 flex-1 text-[11px]"
+                          onClick={() => { onJump(it.pageIndex, it.blockIndex); onOpenChange(false); }}
+                        >
+                          <MousePointerClick className="w-3 h-3 me-1" /> مشاهده
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={isReviewed ? "default" : "secondary"}
+                          className="h-7 text-[11px]"
+                          onClick={() => toggleReviewed(it.key)}
+                        >
+                          <Check className="w-3 h-3 me-1" />
+                          {isReviewed ? "بررسی شد" : "تایید"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};

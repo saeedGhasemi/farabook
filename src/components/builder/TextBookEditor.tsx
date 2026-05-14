@@ -43,6 +43,7 @@ import {
 } from "@/lib/tiptap-doc";
 import { AiSuggestPanel } from "./AiSuggestPanel";
 import { ImageAutoPlacementPanel } from "./ImageAutoPlacementPanel";
+import { ImageReviewDialog } from "./ImageReviewDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   BookMetadataForm,
@@ -150,6 +151,7 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [showImageReview, setShowImageReview] = useState(false);
   // Track which chapters changed since last save and whether the
   // structural shape (chapter order/count, metadata) changed. Autosave
   // sends only the dirty chapters via an RPC; manual Save (or any
@@ -553,7 +555,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     editor.chain().focus().insertContent({ type: kind, attrs }).run();
   };
 
-  const jumpToImagePlacement = useCallback((pageIndex: number) => {
+  const jumpToImagePlacement = useCallback((pageIndex: number, _blockIndex?: number) => {
     setActiveIdx(Math.max(0, Math.min(pageIndex, pages.length - 1)));
     window.setTimeout(() => {
       document.querySelector(".tiptap-surface")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -740,6 +742,15 @@ export const TextBookEditor = ({ initial }: Props) => {
           </div>
           <Button size="sm" variant="outline" className="h-8" onClick={() => persist({ showToast: true, full: true })}>
             <Save className="w-3.5 h-3.5 me-1" /> {fa ? "ذخیره" : "Save"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1"
+            onClick={() => setShowImageReview(true)}
+            title={fa ? "مرور تصاویر" : "Review images"}
+          >
+            <ImageIcon className="w-3.5 h-3.5" /> {fa ? "مرور تصاویر" : "Review images"}
           </Button>
           {isEdit && (
             <Button
@@ -1048,6 +1059,14 @@ export const TextBookEditor = ({ initial }: Props) => {
           />
         )}
       </AnimatePresence>
+
+      <ImageReviewDialog
+        open={showImageReview}
+        onOpenChange={setShowImageReview}
+        pages={pages}
+        bookId={initial?.id}
+        onJump={(pi, bi) => jumpToImagePlacement(pi, bi)}
+      />
 
       {/* Confirm chapter delete */}
       <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
