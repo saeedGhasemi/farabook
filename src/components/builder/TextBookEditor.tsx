@@ -1169,6 +1169,9 @@ export const TextBookEditor = ({ initial }: Props) => {
         onJump={(pi, bi) => jumpToImagePlacement(pi, bi)}
         reviewed={reviewedImages}
         onToggleReviewed={toggleReviewedImage}
+        onFinalizePlaceholder={finalizePlaceholder}
+        onAutoPlaceAll={importId ? () => { setShowAutoFill(true); setShowAi(false); } : undefined}
+        pendingPlaceholderTotal={pages.reduce((acc, p) => acc + (p.doc?.content?.filter((n: any) => n?.type === "image_placeholder" && !n.attrs?.pendingSrc).length || 0), 0)}
       />
 
       {/* Confirm chapter delete */}
