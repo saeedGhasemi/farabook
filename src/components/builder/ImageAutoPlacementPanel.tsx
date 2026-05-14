@@ -347,6 +347,83 @@ export const ImageAutoPlacementPanel = ({ bookId, importId, totalPlaceholders, o
           در حال پردازش گروهی (هر بار {batchSize} تصویر)…
         </div>
       )}
+
+      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+        <DialogContent className="max-w-5xl max-h-[88vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LayoutGrid className="w-4 h-4" />
+              مرور همه تصاویر جایگذاری‌شده
+            </DialogTitle>
+            <DialogDescription>
+              {placements.length} تصویر — {reviewed.size} مورد بررسی شده. روی «مشاهده در کتاب» بزنید تا به محل دقیق تصویر بروید، و پس از تایید آن را علامت بزنید تا چیزی از قلم نیفتد.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto -mx-2 px-2 pb-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {placements.slice().sort((a, b) => a.pageIndex - b.pageIndex || a.slot - b.slot).map((p) => {
+                const isReviewed = reviewed.has(p.slot);
+                return (
+                  <div
+                    key={`rev-${p.slot}-${p.originalPath}`}
+                    className={`group rounded-xl border overflow-hidden bg-card/60 transition ${isReviewed ? "border-emerald-500/60 ring-1 ring-emerald-500/30" : "hover:border-primary/40"}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => { onJumpToPlacement?.(p.pageIndex, p.blockIndex); setReviewOpen(false); }}
+                      className="block w-full bg-muted/40 aspect-[4/3] overflow-hidden relative"
+                      title="مشاهده در کتاب"
+                    >
+                      <img
+                        src={resolveBookMedia(p.url)}
+                        alt={`تصویر ${p.slot}`}
+                        loading="lazy"
+                        className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform"
+                      />
+                      <span className="absolute top-1 start-1 rounded-md bg-background/85 px-1.5 py-0.5 text-[10px] font-mono">
+                        صفحه {p.pageIndex + 1}
+                      </span>
+                      {isReviewed && (
+                        <span className="absolute top-1 end-1 rounded-full bg-emerald-500 text-white p-1">
+                          <Check className="w-3 h-3" />
+                        </span>
+                      )}
+                    </button>
+                    <div className="p-2 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-mono">تصویر {p.slot}</span>
+                        <span className="text-muted-foreground">{formatBytes(p.bytes)}</span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground truncate" title={p.originalPath}>
+                        {p.mode === "converted" ? `${(p.sourceFormat || "EMF").toUpperCase()} → PNG` : "اصلی"}
+                      </div>
+                      <div className="flex gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 flex-1 text-[11px]"
+                          onClick={() => { onJumpToPlacement?.(p.pageIndex, p.blockIndex); setReviewOpen(false); }}
+                        >
+                          <MousePointerClick className="w-3 h-3 me-1" /> مشاهده
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={isReviewed ? "default" : "secondary"}
+                          className="h-7 text-[11px]"
+                          onClick={() => toggleReviewed(p.slot)}
+                        >
+                          <Check className="w-3 h-3 me-1" />
+                          {isReviewed ? "بررسی شد" : "تایید"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.aside>
   );
 };
