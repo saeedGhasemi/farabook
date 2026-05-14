@@ -1060,6 +1060,14 @@ export const TextBookEditor = ({ initial }: Props) => {
         )}
       </AnimatePresence>
 
+      <ImageReviewDialog
+        open={showImageReview}
+        onOpenChange={setShowImageReview}
+        pages={pages}
+        bookId={initial?.id}
+        onJump={(pi, bi) => jumpToImagePlacement(pi, bi)}
+      />
+
       {/* Confirm chapter delete */}
       <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
         <AlertDialogContent>
