@@ -8,8 +8,8 @@
 //  2) Use streaming `unzip` and only inflate the specific media files needed
 //     for this batch (plus the rels/content-types XML). This avoids decompressing
 //     all 100+ images at once which blows the 256MB edge function limit.
-//  3) Skip vector formats browsers cannot render (.emf, .wmf) — record as failure
-//     so the UI can show them but never retry forever.
+//  3) Vector formats (.emf, .wmf) are accepted when the browser sends a
+//     converted PNG data URL for the same originalPath.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 import { strFromU8, unzip, type Unzipped } from "https://esm.sh/fflate@0.8.2?target=deno";
 import { Buffer } from "node:buffer";
@@ -28,7 +28,22 @@ const json = (status: number, body: unknown) =>
   });
 
 const PER_IMAGE_HARD_LIMIT = 6 * 1024 * 1024; // 6MB upload cap
+const PER_CONVERTED_IMAGE_HARD_LIMIT = 12 * 1024 * 1024; // PNG conversion can be larger but is still bounded
 const UNRENDERABLE_EXT = new Set(["emf", "wmf"]); // vector formats browsers cannot show
+
+type ConvertedImage = { dataUrl?: string; base64?: string; contentType?: string; bytes?: number };
+
+function decodeBase64Image(input: ConvertedImage): { bytes: Uint8Array; contentType: string } | null {
+  const raw = String(input.dataUrl || input.base64 || "").trim();
+  if (!raw) return null;
+  const m = raw.match(/^data:([^;]+);base64,(.*)$/i);
+  const contentType = input.contentType || m?.[1] || "image/png";
+  const b64 = (m ? m[2] : raw).replace(/\s/g, "");
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(b64)) return null;
+  const buf = Buffer.from(b64, "base64");
+  if (!buf.byteLength || buf.byteLength > PER_CONVERTED_IMAGE_HARD_LIMIT) return null;
+  return { bytes: new Uint8Array(buf), contentType };
+}
 
 // Promisified streaming unzip with file filter — only inflates files matching `wanted`.
 function unzipFiltered(buf: Uint8Array, wanted: (name: string) => boolean): Promise<Unzipped> {
