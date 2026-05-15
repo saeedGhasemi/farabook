@@ -20,6 +20,8 @@ import { speakSmart, stopSpeak as stopSpeakSmart } from "@/lib/tts";
 import { docToLegacyBlocks } from "@/lib/tiptap-doc";
 import { BookComments } from "@/components/BookComments";
 import { CopyProtection } from "@/components/reader/CopyProtection";
+import { ReadingLockOverlay } from "@/components/reader/ReadingLockOverlay";
+import { useReadingLock } from "@/hooks/useReadingLock";
 
 interface Page {
   title: string;
