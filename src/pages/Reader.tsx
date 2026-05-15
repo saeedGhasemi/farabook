@@ -20,6 +20,8 @@ import { speakSmart, stopSpeak as stopSpeakSmart } from "@/lib/tts";
 import { docToLegacyBlocks } from "@/lib/tiptap-doc";
 import { BookComments } from "@/components/BookComments";
 import { CopyProtection } from "@/components/reader/CopyProtection";
+import { ReadingLockOverlay } from "@/components/reader/ReadingLockOverlay";
+import { useReadingLock } from "@/hooks/useReadingLock";
 
 interface Page {
   title: string;
@@ -67,6 +69,7 @@ const Reader = () => {
   const nav = useNavigate();
   const { t, dir, lang } = useI18n();
   const { user, loading: authLoading } = useAuth();
+  const { state: lockState, reclaim: reclaimLock } = useReadingLock(user?.id, id);
 
   const [book, setBook] = useState<Book | null>(null);
   const [pageIdx, setPageIdx] = useState(0);
@@ -506,6 +509,7 @@ const Reader = () => {
   return (
     <main className={`min-h-[calc(100vh-4rem)] relative transition-colors duration-700 ${dark ? "bg-background" : "bg-gradient-hero"}`}>
       <CopyProtection watermark={watermarkLabel} />
+      <ReadingLockOverlay state={lockState} onReclaim={reclaimLock} />
       <div className={`fixed inset-0 pointer-events-none transition-opacity duration-1000 ${ambientClass}`} />
 
       <motion.div

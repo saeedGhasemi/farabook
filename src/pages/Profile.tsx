@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserEarnings } from "@/components/profile/UserEarnings";
 import { BecomePublisher } from "@/components/profile/BecomePublisher";
+import { OfflineDevicesPanel } from "@/components/profile/OfflineDevicesPanel";
 import { toast } from "sonner";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -216,12 +217,16 @@ const Profile = () => {
           <TabsTrigger value="info">اطلاعات من</TabsTrigger>
           <TabsTrigger value="earnings">درآمد و هزینه</TabsTrigger>
           <TabsTrigger value="publisher">ناشر شدن</TabsTrigger>
+          <TabsTrigger value="devices">دستگاه‌ها</TabsTrigger>
         </TabsList>
         <TabsContent value="earnings" className="mt-4">
           {user && <UserEarnings userId={user.id} />}
         </TabsContent>
         <TabsContent value="publisher" className="mt-4">
           <BecomePublisher lang="fa" alreadyPublisher={roles.includes("publisher" as any)} />
+        </TabsContent>
+        <TabsContent value="devices" className="mt-4">
+          <OfflineDevicesPanel />
         </TabsContent>
         <TabsContent value="info" className="mt-4">
       <Card className="glass">
