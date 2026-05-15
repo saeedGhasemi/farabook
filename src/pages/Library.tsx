@@ -49,6 +49,7 @@ const Library = () => {
   const [rowsLoading, setRowsLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<Row["books"] | null>(null);
   const [commentsBook, setCommentsBook] = useState<{ id: string; title: string } | null>(null);
+  const [activity, setActivity] = useState<Record<string, { count: number; last: string | null }>>({});
 
   useEffect(() => {
     if (!loading && !user) nav("/auth");
@@ -82,10 +83,43 @@ const Library = () => {
           books: b,
         }));
 
-      setRows([...ownedRows, ...virtualRows]);
+      const allRows = [...ownedRows, ...virtualRows];
+      setRows(allRows);
       setRowsLoading(false);
+
+      // Fetch comment activity for each book (count + most recent timestamp).
+      const bookIds = Array.from(new Set(allRows.map((r) => r.books?.id).filter(Boolean) as string[]));
+      if (bookIds.length) {
+        const { data: cmts } = await supabase
+          .from("book_comments")
+          .select("book_id, created_at")
+          .in("book_id", bookIds)
+          .eq("is_hidden", false)
+          .order("created_at", { ascending: false });
+        const map: Record<string, { count: number; last: string | null }> = {};
+        bookIds.forEach((id) => (map[id] = { count: 0, last: null }));
+        ((cmts as { book_id: string; created_at: string }[]) ?? []).forEach((c) => {
+          const m = map[c.book_id];
+          if (!m) return;
+          m.count += 1;
+          if (!m.last) m.last = c.created_at;
+        });
+        setActivity(map);
+      }
     })();
   }, [user]);
+
+  const formatRelative = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const min = Math.floor(diff / 60000);
+    if (min < 1) return lang === "fa" ? "هم‌اکنون" : "now";
+    if (min < 60) return lang === "fa" ? `${min.toLocaleString("fa-IR")} دقیقه پیش` : `${min}m ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return lang === "fa" ? `${hr.toLocaleString("fa-IR")} ساعت پیش` : `${hr}h ago`;
+    const day = Math.floor(hr / 24);
+    if (day < 30) return lang === "fa" ? `${day.toLocaleString("fa-IR")} روز پیش` : `${day}d ago`;
+    return new Date(iso).toLocaleDateString(lang === "fa" ? "fa-IR" : "en-US");
+  };
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
