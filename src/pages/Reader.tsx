@@ -69,6 +69,7 @@ const Reader = () => {
   const nav = useNavigate();
   const { t, dir, lang } = useI18n();
   const { user, loading: authLoading } = useAuth();
+  const { state: lockState, reclaim: reclaimLock } = useReadingLock(user?.id, id);
 
   const [book, setBook] = useState<Book | null>(null);
   const [pageIdx, setPageIdx] = useState(0);
