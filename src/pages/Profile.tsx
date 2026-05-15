@@ -216,12 +216,16 @@ const Profile = () => {
           <TabsTrigger value="info">اطلاعات من</TabsTrigger>
           <TabsTrigger value="earnings">درآمد و هزینه</TabsTrigger>
           <TabsTrigger value="publisher">ناشر شدن</TabsTrigger>
+          <TabsTrigger value="devices">دستگاه‌ها</TabsTrigger>
         </TabsList>
         <TabsContent value="earnings" className="mt-4">
           {user && <UserEarnings userId={user.id} />}
         </TabsContent>
         <TabsContent value="publisher" className="mt-4">
           <BecomePublisher lang="fa" alreadyPublisher={roles.includes("publisher" as any)} />
+        </TabsContent>
+        <TabsContent value="devices" className="mt-4">
+          <OfflineDevicesPanel />
         </TabsContent>
         <TabsContent value="info" className="mt-4">
       <Card className="glass">
