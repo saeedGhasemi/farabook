@@ -62,19 +62,25 @@ const Landing = () => {
 
   useEffect(() => {
     (async () => {
+      // IMPORTANT (Iran access): keep this SELECT minimal. Heavy text columns
+      // (description, ai_summary) must NOT be fetched for the listing — on
+      // slow/filtered connections they balloon the response and block the
+      // whole landing page from rendering. Fetch only what cards need.
       const { data } = await supabase
         .from("books")
-        .select("id,title,title_en,author,category,cover_url,description,price,publisher_id,created_at,ai_summary")
+        .select("id,title,title_en,author,category,cover_url,price,publisher_id,created_at")
         .eq("status", "published")
-        .order("created_at", { ascending: false });
-      const list = (data as Book[]) ?? [];
+        .order("created_at", { ascending: false })
+        .limit(60);
+      const list = ((data as Omit<Book, "description" | "ai_summary">[]) ?? [])
+        .map((b) => ({ ...b, description: null, ai_summary: null })) as Book[];
       setBooks(list);
 
       if (list.length) {
         const ids = list.map((b) => b.id);
         const { data: ub } = await supabase.from("user_books").select("book_id").in("book_id", ids);
         const counts: Record<string, number> = {};
-        (ub ?? []).forEach((r: any) => { counts[r.book_id] = (counts[r.book_id] ?? 0) + 1; });
+        (ub ?? []).forEach((r: { book_id: string }) => { counts[r.book_id] = (counts[r.book_id] ?? 0) + 1; });
         setReaderCounts(counts);
       }
 
@@ -85,7 +91,7 @@ const Landing = () => {
           .from("profiles")
           .select("id,display_name,avatar_url")
           .in("id", pubIds);
-        const cards: PublisherCard[] = (profs ?? []).map((p: any) => {
+        const cards: PublisherCard[] = (profs ?? []).map((p: { id: string; display_name: string | null }) => {
           const pubBooks = list.filter((b) => b.publisher_id === p.id);
           return {
             id: p.id,
