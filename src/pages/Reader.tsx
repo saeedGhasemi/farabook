@@ -657,7 +657,7 @@ const Reader = () => {
                 {t("next")} <Next className="w-4 h-4" />
               </Button>
             </div>
-            {id && (
+            {id && pageIdx >= total - 1 && (
               <section className="pb-32">
                 <div className="paper-card rounded-2xl p-4 md:p-6">
                   <BookComments bookId={id} />
