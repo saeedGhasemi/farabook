@@ -103,12 +103,16 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
     setSummary(null); setPages([]); setLoading(true); setTtsError(null); setIdentity(null);
     (async () => {
       const [{ data }, { data: cs }] = await Promise.all([
-        supabase.from("books").select("pages, ai_summary, preview_pages, subtitle, book_type, contributors, publisher, publication_year, edition, isbn, page_count, language, original_title, original_language, series_name, series_index, categories, subjects").eq("id", book.id).maybeSingle(),
+        supabase.from("books").select("pages, ai_summary, description, preview_pages, subtitle, book_type, contributors, publisher, publication_year, edition, isbn, page_count, language, original_title, original_language, series_name, series_index, categories, subjects").eq("id", book.id).maybeSingle(),
         supabase.from("book_comments").select("rating").eq("book_id", book.id).not("rating", "is", null),
       ]);
       const all = (data?.pages as unknown as PageRow[]) ?? [];
       setPages(all);
       setSummary((data?.ai_summary as string | null) ?? null);
+      // Hydrate description on the (slim) book object so the dialog body shows it.
+      if (book && (data as { description?: string | null } | null)?.description != null) {
+        (book as { description: string | null }).description = (data as { description: string | null }).description;
+      }
       const pi = (data?.preview_pages as number[] | null) ?? [0];
       const preview = pi && pi.length ? pi : [0, 1];
       setPreviewIdx(preview.filter((i) => i < all.length));

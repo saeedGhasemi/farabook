@@ -62,19 +62,44 @@ const Landing = () => {
 
   useEffect(() => {
     (async () => {
+      // IMPORTANT (Iran access): keep this SELECT minimal. Heavy text columns
+      // (description, ai_summary) must NOT be fetched for the listing — on
+      // slow/filtered connections they balloon the response and block the
+      // whole landing page from rendering. Fetch only what cards need.
       const { data } = await supabase
         .from("books")
-        .select("id,title,title_en,author,category,cover_url,description,price,publisher_id,created_at,ai_summary")
+        .select("id,title,title_en,author,category,cover_url,price,publisher_id,created_at")
         .eq("status", "published")
-        .order("created_at", { ascending: false });
-      const list = (data as Book[]) ?? [];
+        .order("created_at", { ascending: false })
+        .limit(60);
+      const list = ((data as Omit<Book, "description" | "ai_summary">[]) ?? [])
+        .map((b) => ({ ...b, description: null, ai_summary: null })) as Book[];
       setBooks(list);
+
+      // Lazily hydrate ONLY the featured (first) book with its blurb so the
+      // hero summary renders. Keeping this as a separate small request avoids
+      // bloating the main listing payload (critical for Iran access).
+      if (list[0]) {
+        supabase
+          .from("books")
+          .select("description, ai_summary")
+          .eq("id", list[0].id)
+          .maybeSingle()
+          .then(({ data: f }) => {
+            if (!f) return;
+            setBooks((cur) => {
+              if (!cur.length) return cur;
+              const [head, ...rest] = cur;
+              return [{ ...head, description: f.description ?? null, ai_summary: f.ai_summary ?? null }, ...rest];
+            });
+          });
+      }
 
       if (list.length) {
         const ids = list.map((b) => b.id);
         const { data: ub } = await supabase.from("user_books").select("book_id").in("book_id", ids);
         const counts: Record<string, number> = {};
-        (ub ?? []).forEach((r: any) => { counts[r.book_id] = (counts[r.book_id] ?? 0) + 1; });
+        (ub ?? []).forEach((r: { book_id: string }) => { counts[r.book_id] = (counts[r.book_id] ?? 0) + 1; });
         setReaderCounts(counts);
       }
 
@@ -85,7 +110,7 @@ const Landing = () => {
           .from("profiles")
           .select("id,display_name,avatar_url")
           .in("id", pubIds);
-        const cards: PublisherCard[] = (profs ?? []).map((p: any) => {
+        const cards: PublisherCard[] = (profs ?? []).map((p: { id: string; display_name: string | null }) => {
           const pubBooks = list.filter((b) => b.publisher_id === p.id);
           return {
             id: p.id,

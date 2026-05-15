@@ -55,17 +55,23 @@ const Store = () => {
 
   const reload = () => {
     setBooksLoading(true);
+    // IMPORTANT (Iran access): keep this SELECT minimal — never include
+    // `description`, `ai_summary` or other big text columns here. Cards in
+    // the store grid only need the metadata below; heavy columns explode
+    // the payload and break loading on slow/filtered Iran connections.
     supabase.from("books")
-      .select("id, title, title_en, author, publisher, publisher_id, status, category, cover_url, description, price, ambient_theme")
+      .select("id, title, title_en, author, publisher, publisher_id, status, category, cover_url, price, ambient_theme")
       .order("created_at", { ascending: false })
       .then(({ data }) => {
-        setBooks((data as Book[]) ?? []);
+        const list = ((data as Omit<Book, "description">[]) ?? [])
+          .map((b) => ({ ...b, description: null })) as Book[];
+        setBooks(list);
         setBooksLoading(false);
       });
     supabase.from("book_comments").select("book_id, rating")
       .then(({ data }) => {
         const map: Record<string, { sum: number; count: number }> = {};
-        ((data as any[]) || []).forEach((r) => {
+        ((data as { book_id: string; rating: number | null }[]) || []).forEach((r) => {
           if (r.rating == null) return;
           if (!map[r.book_id]) map[r.book_id] = { sum: 0, count: 0 };
           map[r.book_id].sum += Number(r.rating);
