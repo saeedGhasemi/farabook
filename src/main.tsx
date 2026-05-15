@@ -13,6 +13,7 @@ import "@fontsource/fraunces/500.css";
 import "@fontsource/fraunces/600.css";
 import "@fontsource/fraunces/700.css";
 
+import "katex/dist/katex.min.css";
 import "./index.css";
 
 createRoot(document.getElementById("root")!).render(<App />);
