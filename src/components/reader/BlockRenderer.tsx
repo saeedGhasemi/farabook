@@ -91,6 +91,18 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
         </span>
       );
     }
+    // Block math: $$...$$ or \[...\]
+    if ((p.startsWith("$$") && p.endsWith("$$") && p.length > 4)
+      || (p.startsWith("\\[") && p.endsWith("\\]") && p.length > 4)) {
+      const tex = p.startsWith("$$") ? p.slice(2, -2) : p.slice(2, -2);
+      return <MathRender key={key} tex={tex.trim()} display />;
+    }
+    // Inline math: $...$ or \(...\)
+    if ((p.startsWith("$") && p.endsWith("$") && p.length > 2 && !p.startsWith("$$"))
+      || (p.startsWith("\\(") && p.endsWith("\\)") && p.length > 4)) {
+      const tex = p.startsWith("$") ? p.slice(1, -1) : p.slice(2, -2);
+      return <MathRender key={key} tex={tex.trim()} />;
+    }
     // Bold
     if (p.startsWith("**") && p.endsWith("**") && p.length > 4) {
       return <strong key={key}>{p.slice(2, -2)}</strong>;
