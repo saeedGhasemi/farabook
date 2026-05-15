@@ -509,6 +509,7 @@ const Reader = () => {
   return (
     <main className={`min-h-[calc(100vh-4rem)] relative transition-colors duration-700 ${dark ? "bg-background" : "bg-gradient-hero"}`}>
       <CopyProtection watermark={watermarkLabel} />
+      <ReadingLockOverlay state={lockState} onReclaim={reclaimLock} />
       <div className={`fixed inset-0 pointer-events-none transition-opacity duration-1000 ${ambientClass}`} />
 
       <motion.div
