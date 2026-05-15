@@ -197,7 +197,19 @@ const Library = () => {
                               : `${bookCreditCost(r.books.price).toLocaleString()} cr`)}
                       </span>
                     </div>
-                    <div className="mt-auto">
+                    <div className="mt-auto space-y-1.5">
+                      <div className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <MessageCircle className="w-3 h-3 text-accent" />
+                          {(activity[r.books.id]?.count ?? 0).toLocaleString(lang === "fa" ? "fa-IR" : "en-US")}
+                        </span>
+                        <span className="flex items-center gap-1 truncate">
+                          <Clock className="w-3 h-3" />
+                          {activity[r.books.id]?.last
+                            ? formatRelative(activity[r.books.id]!.last!)
+                            : (lang === "fa" ? "بدون فعالیت" : "no activity")}
+                        </span>
+                      </div>
                       <Progress value={r.progress} className="h-1" />
                     </div>
                   </div>
