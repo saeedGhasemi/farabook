@@ -6,6 +6,7 @@ import { resolveBookMedia } from "@/lib/book-media";
 import { normalizeImportedText } from "@/lib/tiptap-doc";
 import { SmartImage } from "@/components/SmartImage";
 import { Timeline, type TimelineStep } from "./Timeline";
+import { Math } from "./Math";
 import { Scrollytelling, type ScrollyStep } from "./Scrollytelling";
 
 const resolveImg = (src: string) => resolveBookMedia(src);
@@ -73,10 +74,10 @@ const safeInlineColor = (value: string) => value.replace(/[;{}<>]/g, "").trim();
 
 const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
   text = normalizeImportedText(text);
-  // Order matters — color spans first (they may wrap other inline marks),
-  // then bold (**), italic (*), underline, links, urls.
+  // Order matters — math first (so $...$ doesn't collide with markdown),
+  // then color spans, bold (**), italic (*), underline, links, urls.
   const re =
-    /(\[c=[^\]\n]+\][\s\S]*?\[\/c\]|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
+    /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$\n]+?\$|\[c=[^\]\n]+\][\s\S]*?\[\/c\]|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
   const parts = text.split(re);
   return parts.map((p, i) => {
     const key = `${baseKey}-${i}`;
