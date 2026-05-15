@@ -130,7 +130,7 @@ const Publisher = () => {
       const [{ data: bookList }, { data: prof }, { data: sf }] = await Promise.all([
         supabase
           .from("books")
-          .select("*")
+          .select("id,title,title_en,author,publisher,publisher_id,status,category,cover_url,description,price,created_at")
           .eq("publisher_id", targetId)
           .order("created_at", { ascending: false }),
         supabase.from("profiles").select("id, display_name, avatar_url").eq("id", targetId).maybeSingle(),
