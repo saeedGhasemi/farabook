@@ -6,7 +6,7 @@ import { resolveBookMedia } from "@/lib/book-media";
 import { normalizeImportedText } from "@/lib/tiptap-doc";
 import { SmartImage } from "@/components/SmartImage";
 import { Timeline, type TimelineStep } from "./Timeline";
-import { Math } from "./Math";
+import { Math as MathRender } from "./Math";
 import { Scrollytelling, type ScrollyStep } from "./Scrollytelling";
 
 const resolveImg = (src: string) => resolveBookMedia(src);
