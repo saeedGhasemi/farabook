@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner";
 import { BookCover } from "@/components/store/BookCover";
 import { bookCreditCost } from "@/lib/purchase";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Clock } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
