@@ -76,6 +76,25 @@ const Landing = () => {
         .map((b) => ({ ...b, description: null, ai_summary: null })) as Book[];
       setBooks(list);
 
+      // Lazily hydrate ONLY the featured (first) book with its blurb so the
+      // hero summary renders. Keeping this as a separate small request avoids
+      // bloating the main listing payload (critical for Iran access).
+      if (list[0]) {
+        supabase
+          .from("books")
+          .select("description, ai_summary")
+          .eq("id", list[0].id)
+          .maybeSingle()
+          .then(({ data: f }) => {
+            if (!f) return;
+            setBooks((cur) => {
+              if (!cur.length) return cur;
+              const [head, ...rest] = cur;
+              return [{ ...head, description: f.description ?? null, ai_summary: f.ai_summary ?? null }, ...rest];
+            });
+          });
+      }
+
       if (list.length) {
         const ids = list.map((b) => b.id);
         const { data: ub } = await supabase.from("user_books").select("book_id").in("book_id", ids);
