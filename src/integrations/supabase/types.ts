@@ -148,6 +148,42 @@ export type Database = {
           },
         ]
       }
+      book_reading_sessions: {
+        Row: {
+          book_id: string
+          device_id: string
+          device_label: string | null
+          id: string
+          last_heartbeat_at: string
+          released_at: string | null
+          released_reason: string | null
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          book_id: string
+          device_id: string
+          device_label?: string | null
+          id?: string
+          last_heartbeat_at?: string
+          released_at?: string | null
+          released_reason?: string | null
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          book_id?: string
+          device_id?: string
+          device_label?: string | null
+          id?: string
+          last_heartbeat_at?: string
+          released_at?: string | null
+          released_reason?: string | null
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       book_revenue_shares: {
         Row: {
           book_id: string
@@ -236,6 +272,8 @@ export type Database = {
           categories: string[] | null
           category: string | null
           comments_enabled: boolean
+          content_updated_at: string
+          content_version: number
           contributors: Json
           cover_url: string | null
           created_at: string
@@ -283,6 +321,8 @@ export type Database = {
           categories?: string[] | null
           category?: string | null
           comments_enabled?: boolean
+          content_updated_at?: string
+          content_version?: number
           contributors?: Json
           cover_url?: string | null
           created_at?: string
@@ -330,6 +370,8 @@ export type Database = {
           categories?: string[] | null
           category?: string | null
           comments_enabled?: boolean
+          content_updated_at?: string
+          content_version?: number
           contributors?: Json
           cover_url?: string | null
           created_at?: string
@@ -520,35 +562,44 @@ export type Database = {
       highlights: {
         Row: {
           book_id: string
+          client_id: string | null
           color: string
           created_at: string
+          deleted_at: string | null
           id: string
           is_public: boolean
           note: string | null
           page_index: number
           text: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           book_id: string
+          client_id?: string | null
           color?: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           is_public?: boolean
           note?: string | null
           page_index: number
           text: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           book_id?: string
+          client_id?: string | null
           color?: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           is_public?: boolean
           note?: string | null
           page_index?: number
           text?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -994,6 +1045,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_offline_devices: {
+        Row: {
+          created_at: string
+          device_id: string
+          device_label: string | null
+          id: string
+          last_seen_at: string
+          platform: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          device_label?: string | null
+          id?: string
+          last_seen_at?: string
+          platform?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          device_label?: string | null
+          id?: string
+          last_seen_at?: string
+          platform?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
