@@ -64,7 +64,7 @@ export async function registerServiceWorker(): Promise<void> {
         // `true` → skipWaiting + reload, picks up the new build instantly.
         void updateSW(true);
       },
-      onRegisteredSW(_swUrl, registration) {
+      onRegistered(registration) {
         if (!registration) return;
         // Poll for a new SW periodically and on tab focus so deploys
         // propagate within ~1 minute even for long-lived tabs.
