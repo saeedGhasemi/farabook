@@ -33,44 +33,6 @@ const initial: OfflineState = {
 export function useOfflineDownload(bookId: string | undefined, userId: string | undefined) {
   const [state, setState] = useState<OfflineState>(initial);
 
-  // Hydrate from local cache so the button reflects existing downloads on mount.
-  useEffect(() => {
-    if (!bookId || !userId) return;
-    let alive = true;
-    (async () => {
-      const adapter = await getAdapter();
-      const row = await adapter.getBookCache(bookId);
-      if (!alive || !row || row.user_id !== userId) return;
-      setState({
-        status: row.status,
-        bytesWritten: row.size_bytes,
-        totalBytes: row.size_bytes || null,
-        contentVersion: row.content_version,
-        error: row.last_error,
-        isFresh: row.status === "ready" && row.key_valid,
-      });
-      // Silently re-download books cached with an older walker version
-      // (so previously-saved offline books pick up newly-supported media fields
-      // like interactive slideshow/timeline images). Only when online.
-      const cachedWalker = Number(await adapter.getMeta(`walker:${bookId}`)) || 0;
-      if (
-        row.status === "ready" &&
-        row.key_valid &&
-        cachedWalker !== ASSET_WALKER_VERSION &&
-        typeof navigator !== "undefined" &&
-        navigator.onLine
-      ) {
-        try {
-          await downloadBook(bookId, userId, { force: true, onProgress });
-        } catch (e) {
-          console.warn("[offline] walker-upgrade re-download failed", e);
-        }
-      }
-    })();
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookId, userId]);
-
   const onProgress = useCallback((p: DownloadProgress) => {
     setState((s) => ({
       ...s,
@@ -100,6 +62,53 @@ export function useOfflineDownload(bookId: string | undefined, userId: string | 
     }
   }, [bookId, userId, onProgress]);
 
+  // Hydrate from local cache + auto-resume interrupted downloads on mount.
+  useEffect(() => {
+    if (!bookId || !userId) return;
+    let alive = true;
+    (async () => {
+      const adapter = await getAdapter();
+      const row = await adapter.getBookCache(bookId);
+      if (!alive || !row || row.user_id !== userId) return;
+      setState({
+        status: row.status,
+        bytesWritten: row.size_bytes,
+        totalBytes: row.size_bytes || null,
+        contentVersion: row.content_version,
+        error: row.last_error,
+        isFresh: row.status === "ready" && row.key_valid,
+      });
+      const cachedWalker = Number(await adapter.getMeta(`walker:${bookId}`)) || 0;
+      const onLine = typeof navigator !== "undefined" && navigator.onLine;
+      // Walker upgrade: silently re-download newer schemas.
+      if (row.status === "ready" && row.key_valid && cachedWalker !== ASSET_WALKER_VERSION && onLine) {
+        try { await downloadBook(bookId, userId, { force: true, onProgress }); }
+        catch (e) { console.warn("[offline] walker-upgrade re-download failed", e); }
+      }
+      // Auto-resume: a "downloading" or "failed" row means a previous attempt
+      // was interrupted. Pick it up automatically — no user click required.
+      if ((row.status === "downloading" || row.status === "failed") && onLine) {
+        try { await downloadBook(bookId, userId, { onProgress }); }
+        catch (e) { console.warn("[offline] auto-resume failed", e); }
+      }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookId, userId]);
+
+  // Auto-resume when the network comes back.
+  useEffect(() => {
+    if (!bookId || !userId) return;
+    const onOnline = () => {
+      if (state.status === "downloading" || state.status === "failed") {
+        downloadBook(bookId, userId, { onProgress }).catch((e) =>
+          console.warn("[offline] online-resume failed", e));
+      }
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [bookId, userId, state.status, onProgress]);
+
   const remove = useCallback(async () => {
     if (!bookId || !userId) return;
     await removeBookLocally(bookId, userId);
@@ -112,3 +121,4 @@ export function useOfflineDownload(bookId: string | undefined, userId: string | 
 
   return { state, percent, download, remove };
 }
+

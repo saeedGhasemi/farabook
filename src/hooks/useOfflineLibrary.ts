@@ -1,23 +1,23 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { listLocalBooks, readManifest } from "@/lib/offline/OfflineStore";
-import type { BookCacheRow } from "@/lib/offline/types";
+import { listLocalBooks, readManifest, precacheBookAssets } from "@/lib/offline/OfflineStore";
+import { getAdapter } from "@/lib/offline/db";
+import type { BookCacheRow, ProgressRow } from "@/lib/offline/types";
 
 export interface OfflineLibBook {
   id: string;
   title: string;
   author: string | null;
   cover_url: string | null;
-  /** True when this entry was hydrated from the local encrypted store. */
   offline: true;
   status: BookCacheRow["status"];
   size_bytes: number;
   content_version: number;
+  /** 0..1 — read from local progress_local store if present. */
+  progress: number;
+  current_page: number;
 }
 
-/** Returns the list of books available in the local OfflineStore, hydrated
- *  with manifest metadata (title/author/cover) so the shelf renders even
- *  when fully offline. */
 export function useOfflineLibrary(userId?: string | null) {
   const [books, setBooks] = useState<OfflineLibBook[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,11 +28,16 @@ export function useOfflineLibrary(userId?: string | null) {
     (async () => {
       try {
         const rows = await listLocalBooks(userId);
+        const adapter = await getAdapter();
         const items: OfflineLibBook[] = [];
         for (const r of rows) {
           if (r.status === "revoked") continue;
           try {
             const m = await readManifest(r.book_id, userId);
+            // Decrypt+register cached asset blob URLs (incl. cover) so the
+            // Library thumbnails render even after a cold reload while offline.
+            await precacheBookAssets(r.book_id, userId).catch(() => 0);
+            const prog: ProgressRow | undefined = await adapter.getProgress(r.book_id, userId);
             items.push({
               id: r.book_id,
               title: m?.title ?? r.book_id,
@@ -42,12 +47,14 @@ export function useOfflineLibrary(userId?: string | null) {
               status: r.status,
               size_bytes: r.size_bytes,
               content_version: r.content_version,
+              progress: prog?.progress ?? 0,
+              current_page: prog?.current_page ?? 0,
             });
           } catch {
             items.push({
               id: r.book_id, title: r.book_id, author: null, cover_url: null,
               offline: true, status: r.status, size_bytes: r.size_bytes,
-              content_version: r.content_version,
+              content_version: r.content_version, progress: 0, current_page: 0,
             });
           }
         }
@@ -62,8 +69,6 @@ export function useOfflineLibrary(userId?: string | null) {
   return { books, loading };
 }
 
-/** Hydrate a cached Supabase session (if any) so `useAuth` can resolve a user
- *  while offline. Returns the user id when available. */
 export async function getCachedUserId(): Promise<string | null> {
   try {
     const { data } = await supabase.auth.getSession();

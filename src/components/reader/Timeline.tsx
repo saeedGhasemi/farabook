@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
+
 import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 
 export interface TimelineStep {
