@@ -29,11 +29,12 @@ export async function loadOfflineBook(bookId: string, userId: string): Promise<O
     const manifest = await readManifest(bookId, userId);
     if (!manifest) return null;
     // Decrypt asset blob URLs and pages in parallel — order-independent.
-    const [_, ...pages] = await Promise.all([
-      precacheBookAssets(bookId, userId),
-      ...Array.from({ length: manifest.page_count }, (_, i) => readPage(bookId, userId, i)),
+    const pageIndexes = Array.from({ length: manifest.page_count }, (_, i) => i);
+    const [, ...pageResults] = await Promise.all([
+      precacheBookAssets(bookId, userId) as Promise<unknown>,
+      ...pageIndexes.map((i) => readPage(bookId, userId, i) as Promise<unknown>),
     ]);
-    void _;
+    const pages = pageResults as unknown[];
     if (pages.some((p) => p == null)) return null;
     return {
       id: bookId,
