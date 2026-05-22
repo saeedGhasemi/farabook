@@ -112,7 +112,12 @@ const Library = () => {
         });
         setActivity(map);
       }
+      } catch (e) {
+        console.warn("[library] online fetch failed, offline-only", e);
+        setRowsLoading(false);
+      }
     })();
+
   }, [user]);
 
   const formatRelative = (iso: string) => {
