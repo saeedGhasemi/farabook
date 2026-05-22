@@ -53,28 +53,37 @@ interface Props {
   chapterKey?: string;
 }
 
-// Module-level cache so suggestions survive panel unmount/remount when
-// the user collapses the AI side-panel or switches chapters.
+// Module-level cache so suggestions survive panel unmount/remount; also
+// mirrored to localStorage so a full page reload keeps them too.
 type CacheEntry = {
   suggestions: Suggestion[];
   accepted: Array<[number, number]>;
   rejected: number[];
   error: string | null;
-  /** Lightweight fingerprint of the chapter text at the time suggestions
-   *  were generated. If the current doc no longer matches, the cache is
-   *  considered stale and discarded so the user doesn't see suggestions
-   *  pointing at text that has changed substantially. */
   fingerprint?: string;
+};
+const CACHE_LS_PREFIX = "ai-suggest-cache:v2:";
+const loadCacheFromLs = (key: string): CacheEntry | null => {
+  try { const raw = localStorage.getItem(CACHE_LS_PREFIX + key); return raw ? JSON.parse(raw) : null; } catch { return null; }
+};
+const saveCacheToLs = (key: string, entry: CacheEntry) => {
+  try { localStorage.setItem(CACHE_LS_PREFIX + key, JSON.stringify(entry)); } catch { /* quota */ }
 };
 const suggestionCache: Map<string, CacheEntry> = new Map();
 
-/** Cheap, stable fingerprint: length + djb2-style hash of the plain text.
- *  Sensitive to any character change, but ignores prosemirror node ids. */
 const computeDocFingerprint = (editor: Editor): string => {
   const text = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n", " ");
   let h = 5381;
   for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
   return `${text.length}:${(h >>> 0).toString(36)}`;
+};
+
+/** Keep only suggestions whose target_text still exists verbatim in the
+ *  current doc. A small edit to ONE paragraph only invalidates its
+ *  suggestions; the rest stay visible without re-spending credits. */
+const filterLiveSuggestions = (editor: Editor, list: Suggestion[]): Suggestion[] => {
+  const docText = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n", " ");
+  return list.filter((s) => !s.target_text || docText.includes(s.target_text));
 };
 
 const opMeta: Record<SuggestionOp, { Icon: any; label_fa: string; label_en: string }> = {
