@@ -170,26 +170,43 @@ const Reader = () => {
       });
   }, [user, id]);
 
-  // Load highlights
+  // Load highlights (server first; merge local pending). Falls back to local-only when offline.
   const loadHighlights = useCallback(async () => {
     if (!user || !id) return;
-    const { data } = await supabase
+    const local = await listOfflineHighlights(id);
+    const localById = new Map(local.map((r) => [r.id, r]));
+    const { data, error } = await supabase
       .from("highlights")
       .select("id, text, page_index, color, created_at, note")
       .eq("user_id", user.id).eq("book_id", id)
       .order("created_at", { ascending: false });
-    if (data) setHighlights(data as HighlightItem[]);
+    if (error || !data) {
+      // Offline path — show whatever we have locally.
+      setHighlights(local.map((r) => ({ id: r.id, text: r.text, page_index: r.page_index, color: r.color, created_at: r.created_at, note: r.note })) as HighlightItem[]);
+      return;
+    }
+    const serverIds = new Set(data.map((d) => d.id as string));
+    const localOnly = local.filter((r) => !serverIds.has(r.id))
+      .map((r) => ({ id: r.id, text: r.text, page_index: r.page_index, color: r.color, created_at: r.created_at, note: r.note })) as HighlightItem[];
+    setHighlights([...localOnly, ...(data as HighlightItem[])]);
+    // touch unused var to satisfy linter
+    void localById;
   }, [user, id]);
   useEffect(() => { loadHighlights(); }, [loadHighlights]);
 
-  // Persist progress
+  // Persist progress — local-first (offline safe), then server update if logged-purchased.
   useEffect(() => {
-    if (!userBookId || !book) return;
+    if (!book) return;
     const total = book.pages.length || 1;
     const progress = ((pageIdx + 1) / total) * 100;
-    const status = pageIdx >= total - 1 ? "finished" : "reading";
-    supabase.from("user_books").update({ current_page: pageIdx, progress, status }).eq("id", userBookId).then();
-  }, [pageIdx, userBookId, book]);
+    if (user && id) {
+      void persistProgressOfflineFirst(id, user.id, pageIdx, progress / 100);
+    }
+    if (userBookId) {
+      const status = pageIdx >= total - 1 ? "finished" : "reading";
+      supabase.from("user_books").update({ current_page: pageIdx, progress, status }).eq("id", userBookId).then();
+    }
+  }, [pageIdx, userBookId, book, user, id]);
 
   // Dark mode
   useEffect(() => {
