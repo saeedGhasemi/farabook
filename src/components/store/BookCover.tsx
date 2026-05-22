@@ -2,6 +2,7 @@
 // triggers `book-auto-cover` (AI-generated illustration based on the
 // book's first pages) and caches the result. While pending, shows a
 // tasteful gradient placeholder with the title initial.
+import type { CSSProperties } from "react";
 import { useAutoCover } from "@/hooks/useAutoCover";
 import { resolveBookCover } from "@/lib/book-media";
 import { cn } from "@/lib/utils";
