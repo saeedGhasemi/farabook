@@ -81,8 +81,8 @@ export function OfflineBookButton({ bookId, userId }: Props) {
       });
       const map: Record<string, { fa: string; en: string }> = {
         device_limit_reached: {
-          fa: "سقف ۲ دستگاه آفلاین پر است. ابتدا یک دستگاه را از پروفایل → دستگاه‌های آفلاین حذف کنید.",
-          en: "You've reached the 2-device offline limit. Remove a device from Profile → Offline devices first.",
+          fa: "سقف ۲ دستگاه آفلاین برای این کتاب پر است. یکی از دستگاه‌های همین کتاب را حذف کنید.",
+          en: "This book has reached the 2-device offline limit. Remove one of this book's devices first.",
         },
         not_owned: { fa: "این کتاب در کتابخانه شما نیست.", en: "This book isn't in your library." },
         unauthorized: { fa: "ابتدا وارد حساب خود شوید.", en: "Please sign in first." },
@@ -129,7 +129,8 @@ export function OfflineBookButton({ bookId, userId }: Props) {
   const Icon = state.status === "ready" ? Check
     : state.status === "failed" ? AlertTriangle
     : Download;
-  const ringValue = state.status === "downloading" ? Math.max(0, Math.min(100, percent ?? 0)) : state.status === "ready" ? 100 : 0;
+  const displayPercent = state.status === "downloading" ? (percent ?? 0) : null;
+  const ringValue = state.status === "downloading" ? Math.max(0, Math.min(100, displayPercent ?? 0)) : state.status === "ready" ? 100 : 0;
 
   return (
     <>
@@ -151,8 +152,8 @@ export function OfflineBookButton({ bookId, userId }: Props) {
             } : undefined}
           >
             <span className="absolute inset-[3px] rounded-full bg-background/95 grid place-items-center">
-              {state.status === "downloading" && percent != null ? (
-                <span className="text-[9px] font-bold tabular-nums">{percent}</span>
+              {state.status === "downloading" ? (
+                <span className="text-[9px] font-bold tabular-nums">{displayPercent}</span>
               ) : (
                 <Icon className="w-3.5 h-3.5" />
               )}
