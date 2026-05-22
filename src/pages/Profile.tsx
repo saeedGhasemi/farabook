@@ -85,6 +85,12 @@ const toIranLocal = (raw: string): string => {
   return s;
 };
 
+const profileTab = () => {
+  if (typeof window === "undefined") return "info";
+  const tab = new URLSearchParams(window.location.search).get("tab");
+  return tab === "earnings" || tab === "publisher" ? tab : "info";
+};
+
 const Profile = () => {
   const { user, loading: authLoading } = useAuth();
   const { roles } = useRoles();
@@ -211,7 +217,7 @@ const Profile = () => {
         </div>
       </div>
 
-      <Tabs defaultValue={(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab")) || "info"} dir="rtl">
+      <Tabs defaultValue={profileTab()} dir="rtl">
         <TabsList className="glass">
           <TabsTrigger value="info">اطلاعات من</TabsTrigger>
           <TabsTrigger value="earnings">درآمد و هزینه</TabsTrigger>
