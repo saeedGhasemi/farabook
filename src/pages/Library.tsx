@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dialog";
 import { BookComments } from "@/components/BookComments";
 import { OfflineBookButton } from "@/components/library/OfflineBookButton";
+import { useOfflineLibrary } from "@/hooks/useOfflineLibrary";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 
 interface Row {
@@ -51,6 +53,8 @@ const Library = () => {
   const [confirmDelete, setConfirmDelete] = useState<Row["books"] | null>(null);
   const [commentsBook, setCommentsBook] = useState<{ id: string; title: string } | null>(null);
   const [activity, setActivity] = useState<Record<string, { count: number; last: string | null }>>({});
+  const { offline } = useNetworkStatus();
+  const { books: offlineBooks } = useOfflineLibrary(user?.id);
 
   useEffect(() => {
     if (!loading && !user) nav("/auth");
@@ -59,11 +63,12 @@ const Library = () => {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      // 1) Books explicitly in the user's library
-      const { data: ub } = await supabase.from("user_books")
-        .select("id, status, progress, current_page, acquired_via, books(id, title, title_en, author, cover_url, category, publisher_id, status, price)")
-        .eq("user_id", user.id);
-      const ownedRows = ((ub as unknown as Row[]) ?? []).filter((r) => r.books);
+      try {
+        // 1) Books explicitly in the user's library
+        const { data: ub } = await supabase.from("user_books")
+          .select("id, status, progress, current_page, acquired_via, books(id, title, title_en, author, cover_url, category, publisher_id, status, price)")
+          .eq("user_id", user.id);
+        const ownedRows = ((ub as unknown as Row[]) ?? []).filter((r) => r.books);
 
       // 2) Books the user published AND are live in the store — auto-included
       //    as virtual library entries. Drafts stay only in "My Publications"
