@@ -7,7 +7,7 @@ import { getAdapter } from "./db";
 import {
   decryptBytes, decryptJson, deriveBookKey, encryptBytes, encryptJson, fetchBookPepper, invalidateBookKey,
 } from "./crypto";
-import { rewritePagesForOffline } from "./assetWalker";
+import { rewritePagesForOffline, ASSET_WALKER_VERSION } from "./assetWalker";
 import { registerOfflineBlobUrl, unregisterOfflineBlobUrls } from "@/lib/book-media";
 import type { BookCacheRow, BookPageRow, DownloadStatus, HighlightRow, ProgressRow, SyncQueueRow } from "./types";
 
