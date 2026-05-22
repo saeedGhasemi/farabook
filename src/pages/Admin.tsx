@@ -3,10 +3,11 @@ import { motion } from "framer-motion";
 import {
   Shield, Users, CreditCard, BookCheck, UserPlus, Trash2, Loader2, Check, X,
   AlertCircle, Power, PowerOff, Plus, Minus, ArrowUpDown, ArrowUp, ArrowDown, Save, Pencil,
-  Banknote, ShieldAlert, MessageSquare,
+  Banknote, ShieldAlert, MessageSquare, Bug,
 } from "lucide-react";
 import { CommentModerationPanel } from "@/components/admin/CommentModerationPanel";
 import { SmsSettingsPanel } from "@/components/admin/SmsSettingsPanel";
+import { ErrorLogsPanel } from "@/components/admin/ErrorLogsPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
