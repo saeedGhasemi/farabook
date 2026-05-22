@@ -241,7 +241,7 @@ export function OfflineBookButton({ bookId, userId }: Props) {
                   : "Only this book's devices are shown here; removing releases this book's offline slot.")}
             </DialogDescription>
           </DialogHeader>
-          <BookDevicesPanel bookId={bookId} />
+          <BookDevicesPanel bookId={bookId} currentDeviceLabel={currentDeviceName} />
           {state.status === "ready" && (
             <DialogFooter>
               <Button variant="destructive" onClick={onConfirmRemove} className="gap-2">
