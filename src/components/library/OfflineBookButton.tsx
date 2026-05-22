@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { getDeviceId, getDeviceLabel } from "@/lib/offline/deviceId";
+import { getDeviceId, getDeviceLabel, getDevicePlatform } from "@/lib/offline/deviceId";
 import { BookDevicesPanel } from "@/components/profile/BookDevicesPanel";
 
 interface Props {
@@ -55,11 +55,31 @@ export function OfflineBookButton({ bookId, userId }: Props) {
 
   useEffect(() => { void hydrateDeviceName(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [userId]);
 
+  const ensureCurrentDeviceRegistration = async (label?: string) => {
+    if (!userId) return;
+    const did = await getDeviceId();
+    const finalLabel = ((label ?? currentDeviceName).trim() || getDeviceLabel()).slice(0, 60);
+    setCurrentDeviceName(finalLabel);
+    await supabase.functions.invoke("issue-book-key", {
+      body: {
+        book_id: bookId,
+        device_id: did,
+        device_label: finalLabel,
+        platform: getDevicePlatform(),
+      },
+    });
+  };
+
   const onClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!userId) return;
-    if (state.status === "ready") { setDevicesDialog(true); return; }
+    if (state.status === "ready") {
+      const { primary } = await hydrateDeviceName();
+      await ensureCurrentDeviceRegistration(primary);
+      setDevicesDialog(true);
+      return;
+    }
     if (state.status === "downloading") return;
     const { names, primary } = await hydrateDeviceName();
     if (names.length > 0) {
