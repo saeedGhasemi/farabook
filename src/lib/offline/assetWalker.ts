@@ -47,32 +47,49 @@ function keyFor(url: string): string {
   return `media/${hex}${m ? "." + m[1].toLowerCase() : ""}`;
 }
 
+/** Field names on object nodes whose string values are downloadable media URLs. */
+const MEDIA_FIELDS = new Set([
+  "src", "poster", "url",
+  "image", "imageUrl", "image_url", "img",
+  "video", "videoUrl", "video_url",
+  "audio", "audioUrl", "audio_url",
+  "cover", "coverUrl", "cover_url",
+  "thumbnail", "thumb", "thumbUrl", "thumbnailUrl",
+  "background", "backgroundImage", "bg",
+
+]);
+
 /** Recursively walks an arbitrary JSON-like value and applies `visit` to
- *  every string-valued `src`/`poster`/`url` field on object nodes. */
+ *  every string-valued media field on object nodes, plus string entries inside
+ *  `images` arrays (gallery shorthand). */
 function walk(node: unknown, visit: (obj: Record<string, unknown>, field: string, value: string) => void): void {
   if (!node) return;
   if (Array.isArray(node)) { for (const item of node) walk(item, visit); return; }
   if (typeof node !== "object") return;
   const obj = node as Record<string, unknown>;
   for (const [k, v] of Object.entries(obj)) {
-    if (typeof v === "string" && (k === "src" || k === "poster" || k === "url")) {
+    if (typeof v === "string" && MEDIA_FIELDS.has(k)) {
       visit(obj, k, v);
     } else if (v && typeof v === "object") {
       walk(v, visit);
     }
   }
-  // images: string[] (gallery)
-  if (Array.isArray(obj.images)) {
-    obj.images = (obj.images as unknown[]).map((entry) => {
-      if (typeof entry === "string") {
-        const replaced = { value: entry };
-        visit(replaced as unknown as Record<string, unknown>, "value", entry);
-        return replaced.value;
-      }
-      return entry;
-    });
+  // images / gallery / slides: arrays of plain strings → rewrite in place
+  for (const arrKey of ["images", "gallery", "slides", "photos"] as const) {
+    const arr = obj[arrKey];
+    if (Array.isArray(arr)) {
+      obj[arrKey] = (arr as unknown[]).map((entry) => {
+        if (typeof entry === "string") {
+          const wrap = { value: entry };
+          visit(wrap as unknown as Record<string, unknown>, "value", entry);
+          return wrap.value;
+        }
+        return entry;
+      });
+    }
   }
 }
+
 
 export interface RewriteResult {
   /** Deep-cloned pages with downloadable URLs rewritten to offline-asset://. */
