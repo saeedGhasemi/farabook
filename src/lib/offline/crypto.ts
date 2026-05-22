@@ -9,7 +9,7 @@
 // bound to (user, book, device). Result: the encrypted DB cannot be opened
 // on another device, even if both files and the user's password are copied.
 
-import { getDeviceId } from "./deviceId";
+import { getDeviceId, getDeviceLabel, getDevicePlatform } from "./deviceId";
 import { supabase } from "@/integrations/supabase/client";
 
 const DEVICE_SALT_META_KEY = "farabook.device_salt";
@@ -37,14 +37,14 @@ async function ensureDeviceSalt(): Promise<Uint8Array> {
 }
 
 /** Fetch (or refresh) a server pepper for (user, book, device) via Edge Function. */
-export async function fetchBookPepper(bookId: string): Promise<string> {
+export async function fetchBookPepper(bookId: string, deviceLabel?: string): Promise<string> {
   const deviceId = await getDeviceId();
   const { data, error } = await supabase.functions.invoke("issue-book-key", {
     body: {
       book_id: bookId,
       device_id: deviceId,
-      device_label: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 120) : null,
-      platform: "web",
+      device_label: (deviceLabel?.trim() || getDeviceLabel()).slice(0, 120),
+      platform: getDevicePlatform(),
     },
   });
   if (error) {
