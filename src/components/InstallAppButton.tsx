@@ -168,7 +168,7 @@ export const InstallAppButton = ({ forceShow = false }: { forceShow?: boolean } 
         <Download className="w-4 h-4" />
         <span className={forceShow ? "inline" : "hidden lg:inline"}>
           {installed
-            ? (lang === "fa" ? "نصب‌شده" : "Installed")
+            ? (lang === "fa" ? "باز کردن اپ" : "Open app")
             : (lang === "fa" ? "نصب اپ" : "Install")}
         </span>
       </Button>
