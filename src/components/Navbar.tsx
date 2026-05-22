@@ -96,12 +96,12 @@ export const Navbar = () => {
           </nav>
 
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <InstallAppButton />
+            <div className="hidden md:inline-flex"><InstallAppButton /></div>
             <NotificationsBell />
             <CreditsBadge />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1.5" title={lang === "fa" ? "تم" : "Theme"}>
+                <Button variant="ghost" size="sm" className="gap-1.5 hidden md:inline-flex" title={lang === "fa" ? "تم" : "Theme"}>
                   <Palette className="w-4 h-4" />
                   <span className="hidden sm:inline w-4 h-4 rounded-full border border-border" style={{ background: themes.find(t => t.value === theme)?.swatch }} />
                 </Button>
@@ -121,7 +121,7 @@ export const Navbar = () => {
               variant="ghost"
               size="sm"
               onClick={() => setLang(lang === "fa" ? "en" : "fa")}
-              className="gap-1.5"
+              className="gap-1.5 hidden md:inline-flex"
             >
               <Languages className="w-4 h-4" />
               {lang === "fa" ? "EN" : "فا"}
@@ -209,6 +209,37 @@ export const Navbar = () => {
                     </Link>
                   );
                 })}
+
+                <div className="mt-2 pt-3 border-t border-border/40 flex items-center gap-2 px-2 flex-wrap">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLang(lang === "fa" ? "en" : "fa")}
+                    className="gap-1.5"
+                  >
+                    <Languages className="w-4 h-4" />
+                    {lang === "fa" ? "English" : "فارسی"}
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="gap-1.5" title={lang === "fa" ? "تم" : "Theme"}>
+                        <Palette className="w-4 h-4" />
+                        <span className="w-4 h-4 rounded-full border border-border" style={{ background: themes.find(t => t.value === theme)?.swatch }} />
+                        <span>{lang === "fa" ? "تم" : "Theme"}</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="glass-strong">
+                      {themes.map((th) => (
+                        <DropdownMenuItem key={th.value} onClick={() => setTheme(th.value)} className="gap-3 cursor-pointer">
+                          <span className="w-5 h-5 rounded-full border border-border shadow-soft" style={{ background: th.swatch }} />
+                          <span>{th.label}</span>
+                          {theme === th.value && <span className="ms-auto text-xs text-accent">✓</span>}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <InstallAppButton />
+                </div>
               </nav>
             </motion.div>
           )}

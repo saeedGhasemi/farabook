@@ -6,6 +6,12 @@
 // reasons — we leave their URLs intact and the reader shows a "requires
 // internet" placeholder when offline.
 
+/** Bump when the walker logic changes (new media fields, new shorthand arrays,
+ *  etc.) so previously-cached books are silently re-downloaded with the new
+ *  rewriter the next time the user is online. */
+export const ASSET_WALKER_VERSION = 3;
+
+
 export interface AssetRef {
   url: string;       // original absolute or relative URL
   assetKey: string;  // stable key used inside the encrypted store
