@@ -16,6 +16,17 @@ interface ReqBody {
 }
 
 const MODEL = "google/gemini-3.1-flash-image-preview";
+const FALLBACK_MODEL = "google/gemini-2.5-flash-image";
+
+interface AiImageAttempt { model: string; status?: number; error?: string }
+
+async function callImageModel(model: string, prompt: string, key: string) {
+  return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], modalities: ["image", "text"] }),
+  });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
