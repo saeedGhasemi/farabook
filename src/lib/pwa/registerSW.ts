@@ -1,7 +1,7 @@
-// Service worker cleanup. The app previously shipped a PWA worker that could
-// keep serving stale HTML/JS and roll users back after refresh. We now keep
-// the app network-first by not registering a runtime PWA worker at all, and
-// aggressively unregister/delete any old workers/caches left on the device.
+// Registers a minimal app-shell service worker (public/app-sw.js) so the
+// Library and other routes keep working after a refresh while offline.
+// Old PWA workers (sw.js, service-worker.js) are unregistered on sight to
+// prevent stale builds from being served.
 
 const isInIframe = (() => {
   try { return window.self !== window.top; } catch { return true; }
@@ -17,13 +17,18 @@ const isPreviewHost =
 
 export const PWA_ENABLED = !isInIframe && !isPreviewHost;
 
-async function clearRuntimeCaches(): Promise<void> {
-  if (typeof caches === "undefined") return;
-  const names = await caches.keys();
+const APP_SW_URL = "/app-sw.js";
+
+async function unregisterLegacyWorkers(): Promise<void> {
+  if (!("serviceWorker" in navigator)) return;
+  const regs = await navigator.serviceWorker.getRegistrations();
   await Promise.all(
-    names
-      .filter((name) => /workbox|precache|runtime|html|assets|media|farabook/i.test(name))
-      .map((name) => caches.delete(name)),
+    regs.map(async (r) => {
+      const scriptURL = r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || "";
+      if (!scriptURL.endsWith(APP_SW_URL)) {
+        try { await r.unregister(); } catch (_) {}
+      }
+    }),
   );
 }
 
@@ -31,14 +36,16 @@ export async function registerServiceWorker(): Promise<void> {
   if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
 
   try {
-    const regs = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(regs.map((r) => r.unregister()));
-    await clearRuntimeCaches();
+    await unregisterLegacyWorkers();
 
-    // Request persistent storage so iOS/Safari doesn't evict offline books.
     if (navigator.storage?.persist) {
       navigator.storage.persist().catch(() => {});
     }
+
+    if (!PWA_ENABLED) return;
+
+    // Register the app-shell SW so refresh-while-offline still boots the app.
+    await navigator.serviceWorker.register(APP_SW_URL, { scope: "/" });
   } catch (e) {
     console.warn("[PWA] register failed", e);
   }
