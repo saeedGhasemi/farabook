@@ -275,6 +275,7 @@ export type Database = {
           content_updated_at: string
           content_version: number
           contributors: Json
+          cover_focus: Json | null
           cover_url: string | null
           created_at: string
           description: string | null
@@ -324,6 +325,7 @@ export type Database = {
           content_updated_at?: string
           content_version?: number
           contributors?: Json
+          cover_focus?: Json | null
           cover_url?: string | null
           created_at?: string
           description?: string | null
@@ -373,6 +375,7 @@ export type Database = {
           content_updated_at?: string
           content_version?: number
           contributors?: Json
+          cover_focus?: Json | null
           cover_url?: string | null
           created_at?: string
           description?: string | null
@@ -603,6 +606,7 @@ export type Database = {
       }
       highlights: {
         Row: {
+          block_index: number | null
           book_id: string
           client_id: string | null
           color: string
@@ -611,12 +615,14 @@ export type Database = {
           id: string
           is_public: boolean
           note: string | null
+          occurrence: number | null
           page_index: number
           text: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          block_index?: number | null
           book_id: string
           client_id?: string | null
           color?: string
@@ -625,12 +631,14 @@ export type Database = {
           id?: string
           is_public?: boolean
           note?: string | null
+          occurrence?: number | null
           page_index: number
           text: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          block_index?: number | null
           book_id?: string
           client_id?: string | null
           color?: string
@@ -639,6 +647,7 @@ export type Database = {
           id?: string
           is_public?: boolean
           note?: string | null
+          occurrence?: number | null
           page_index?: number
           text?: string
           updated_at?: string
