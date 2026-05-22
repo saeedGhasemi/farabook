@@ -22,6 +22,7 @@ import EditorRequests from "./pages/EditorRequests";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound.tsx";
 import { UploadProgressPanel } from "@/components/UploadProgressPanel";
+import { SyncEngineBoot } from "@/components/SyncEngineBoot";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             <UploadProgressPanel />
+            <SyncEngineBoot />
           </BrowserRouter>
         </TooltipProvider>
       </ThemeProvider>
