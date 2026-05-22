@@ -33,11 +33,11 @@ export interface DownloadProgress {
 /** Single-flight per book to avoid duplicate parallel downloads. */
 const inflight = new Map<string, Promise<BookCacheRow>>();
 
-async function getKey(userId: string, bookId: string): Promise<CryptoKey> {
+async function getKey(userId: string, bookId: string, deviceLabel?: string): Promise<CryptoKey> {
   const adapter = await getAdapter();
   let pepper = await adapter.getMeta(`pepper:${bookId}`);
   if (!pepper) {
-    pepper = await fetchBookPepper(bookId);
+    pepper = await fetchBookPepper(bookId, deviceLabel);
     await adapter.setMeta(`pepper:${bookId}`, pepper);
   }
   return deriveBookKey(userId, bookId, pepper);
@@ -84,7 +84,7 @@ export async function readAsset(bookId: string, userId: string, assetKey: string
 export async function downloadBook(
   bookId: string,
   userId: string,
-  opts: { onProgress?: (p: DownloadProgress) => void; force?: boolean } = {},
+  opts: { onProgress?: (p: DownloadProgress) => void; force?: boolean; deviceLabel?: string } = {},
 ): Promise<BookCacheRow> {
   const existing = inflight.get(bookId);
   if (existing) return existing;
@@ -129,7 +129,7 @@ export async function downloadBook(
 
     try {
       // 3) Derive per-(user,book,device) key — also enforces 2-device cap server-side.
-      const key = await getKey(userId, bookId);
+      const key = await getKey(userId, bookId, opts.deviceLabel);
 
       const pagesArr = Array.isArray(serverBook.pages) ? (serverBook.pages as unknown[]) : [];
 
