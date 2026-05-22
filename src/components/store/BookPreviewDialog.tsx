@@ -15,6 +15,8 @@ import { resolveBookCover } from "@/lib/book-media";
 import { useAutoCover } from "@/hooks/useAutoCover";
 import { BookComments } from "@/components/BookComments";
 import { BlockRenderer, type Block } from "@/components/reader/BlockRenderer";
+import { BookDevicesPanel } from "@/components/profile/BookDevicesPanel";
+import { Smartphone } from "lucide-react";
 import { toast } from "sonner";
 
 interface PreviewBook {
@@ -286,6 +288,11 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
                     <Badge variant="outline" className="ms-1 text-[10px] h-4 px-1">{ratingCount}</Badge>
                   )}
                 </TabsTrigger>
+                {isOwned && (
+                  <TabsTrigger value="devices" className="gap-1.5">
+                    <Smartphone className="w-3.5 h-3.5" /> {fa ? "دستگاه‌ها" : "Devices"}
+                  </TabsTrigger>
+                )}
               </TabsList>
             </div>
 
@@ -363,6 +370,12 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
               <TabsContent value="comments" className="mt-0">
                 <BookComments bookId={book.id} />
               </TabsContent>
+
+              {isOwned && (
+                <TabsContent value="devices" className="mt-0">
+                  <BookDevicesPanel bookId={book.id} />
+                </TabsContent>
+              )}
             </div>
           </Tabs>
         )}
