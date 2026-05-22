@@ -254,7 +254,14 @@ const Library = () => {
                             : (lang === "fa" ? "بدون فعالیت" : "no activity")}
                         </span>
                       </div>
-                      <Progress value={r.progress} className="h-1" />
+                      <div className="flex items-center gap-1.5">
+                        <Progress value={r.progress} className="h-1 flex-1" />
+                        <span className="text-[10px] text-muted-foreground tabular-nums">
+                          {lang === "fa"
+                            ? `${Math.round(r.progress).toLocaleString("fa-IR")}٪`
+                            : `${Math.round(r.progress)}%`}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </Link>
