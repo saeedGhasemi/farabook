@@ -9,7 +9,7 @@
 /** Bump when the walker logic changes (new media fields, new shorthand arrays,
  *  etc.) so previously-cached books are silently re-downloaded with the new
  *  rewriter the next time the user is online. */
-export const ASSET_WALKER_VERSION = 3;
+export const ASSET_WALKER_VERSION = 4;
 
 
 export interface AssetRef {
@@ -55,13 +55,14 @@ function keyFor(url: string): string {
 
 /** Field names on object nodes whose string values are downloadable media URLs. */
 const MEDIA_FIELDS = new Set([
-  "src", "poster", "url",
+  "src", "poster",
   "image", "imageUrl", "image_url", "img",
   "video", "videoUrl", "video_url",
   "audio", "audioUrl", "audio_url",
   "cover", "coverUrl", "cover_url",
   "thumbnail", "thumb", "thumbUrl", "thumbnailUrl",
   "background", "backgroundImage", "bg",
+  "pendingSrc", "media", "mediaUrl", "resourceUrl",
 
 ]);
 
