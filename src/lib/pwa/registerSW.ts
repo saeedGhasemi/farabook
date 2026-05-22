@@ -57,6 +57,7 @@ export async function registerServiceWorker(): Promise<void> {
     // for every deploy was confusing.
     let reloading = false;
     const updateSW = registerSW({
+      swUrl: "/service-worker.js",
       immediate: true,
       onNeedRefresh() {
         if (reloading) return;
