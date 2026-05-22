@@ -227,12 +227,12 @@ export async function downloadBook(
         status: "ready",
         manifest_enc: manifestEnc.data,
         manifest_iv: manifestEnc.iv,
-        last_error: null,
+        last_error: partialMsg,
         key_valid: true,
       };
       await adapter.upsertBookCache(finalRow);
       await adapter.setMeta(`walker:${bookId}`, String(ASSET_WALKER_VERSION));
-      onProgress({ bookId, status: "ready", bytesWritten, totalBytes: bytesWritten });
+      onProgress({ bookId, status: "ready", bytesWritten, totalBytes: bytesWritten, message: partialMsg ?? undefined });
       return finalRow;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
