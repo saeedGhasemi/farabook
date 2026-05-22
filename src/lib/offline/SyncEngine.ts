@@ -115,6 +115,8 @@ async function pushHighlightUpsert(h: HighlightRow): Promise<void> {
     user_id: h.user_id,
     book_id: h.book_id,
     page_index: h.page_index,
+    block_index: h.block_index ?? null,
+    occurrence: h.occurrence ?? null,
     text: h.text,
     color: h.color,
     note: h.note,
