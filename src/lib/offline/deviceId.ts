@@ -27,20 +27,38 @@ function newId(): string {
   return "dev-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
+function detectBrowser(ua: string): string {
+  if (/Edg\//i.test(ua)) return "Edge";
+  if (/OPR\//i.test(ua)) return "Opera";
+  if (/Firefox\//i.test(ua)) return "Firefox";
+  if (/Chrome\//i.test(ua) && !/Edg|OPR/i.test(ua)) return "Chrome";
+  if (/Safari\//i.test(ua) && !/Chrome|Edg|OPR/i.test(ua)) return "Safari";
+  return "Browser";
+}
+
+function detectOS(ua: string): string {
+  if (/iPad/i.test(ua)) return "iPad";
+  if (/iPhone|iPod/i.test(ua)) return "iPhone";
+  if (/Android/i.test(ua)) return "Android";
+  if (/Mac/i.test(ua)) return "macOS";
+  if (/Windows/i.test(ua)) return "Windows";
+  if (/Linux/i.test(ua)) return "Linux";
+  return "Unknown";
+}
+
 function detectLabel(): string {
   if (typeof navigator === "undefined") return "Unknown";
   const ua = navigator.userAgent;
-  if (/iPhone|iPad|iPod/i.test(ua)) return "iOS";
-  if (/Android/i.test(ua)) return "Android";
-  if (/Mac/i.test(ua)) return "macOS";
-  if (/Win/i.test(ua)) return "Windows";
-  if (/Linux/i.test(ua)) return "Linux";
-  return "Web";
+  const os = detectOS(ua);
+  if (isNative()) return os;
+  const br = detectBrowser(ua);
+  return `${br} • ${os}`;
 }
 
 export function getDeviceLabel(): string {
   return detectLabel();
 }
+
 
 export function getDevicePlatform(): string {
   return isNative() ? "native" : "web";
