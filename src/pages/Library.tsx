@@ -147,13 +147,14 @@ const Library = () => {
 
   // Merge: online rows + offline-only books not already present
   const onlineIds = new Set(rows.map((r) => r.books?.id));
+  const offlineMap = new Map(offlineBooks.map((b) => [b.id, b]));
   const offlineOnlyRows: Row[] = offlineBooks
     .filter((b) => !onlineIds.has(b.id))
     .map((b) => ({
       id: `off-${b.id}`,
       status: "reading",
-      progress: 0,
-      current_page: 0,
+      progress: b.progress ?? 0,
+      current_page: b.current_page ?? 0,
       acquired_via: "offline",
       books: {
         id: b.id, title: b.title, title_en: null, author: b.author ?? "",
@@ -161,7 +162,15 @@ const Library = () => {
         status: "published", price: 0,
       },
     }));
-  const displayRows = [...rows, ...offlineOnlyRows];
+  const displayRows = [...rows, ...offlineOnlyRows].map((r) => {
+    if (!r.books) return r;
+    const local = offlineMap.get(r.books.id);
+    // Prefer the freshest progress between server and local cache.
+    const localPct = local ? Math.round((local.progress ?? 0) * 100) : 0;
+    const serverPct = Math.round(r.progress ?? 0);
+    const merged = Math.max(localPct, serverPct);
+    return { ...r, progress: merged };
+  });
 
   return (
     <main className="container py-10 md:py-16 min-h-[calc(100vh-4rem)]">
