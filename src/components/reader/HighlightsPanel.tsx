@@ -18,7 +18,7 @@ interface Props {
   open: boolean;
   highlights: HighlightItem[];
   onClose: () => void;
-  onJump: (pageIndex: number) => void;
+  onJump: (pageIndex: number, hl?: HighlightItem) => void;
   onDelete: (id: string) => void;
   onUpdateNote?: (id: string, note: string) => void;
 }
