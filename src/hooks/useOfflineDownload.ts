@@ -8,6 +8,7 @@ import {
   type DownloadProgress,
 } from "@/lib/offline/OfflineStore";
 import { getAdapter } from "@/lib/offline/db";
+import { ASSET_WALKER_VERSION } from "@/lib/offline/assetWalker";
 import type { DownloadStatus } from "@/lib/offline/types";
 
 export interface OfflineState {
