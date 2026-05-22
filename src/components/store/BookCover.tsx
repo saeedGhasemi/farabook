@@ -36,7 +36,7 @@ export function BookCover({ bookId, cover, title, width = 480, quality = 70, cla
   const large = Math.round(width * 1.5);
   const fx = Math.max(0, Math.min(100, focus?.x ?? 50));
   const fy = Math.max(0, Math.min(100, focus?.y ?? 50));
-  const style: React.CSSProperties = fit === "cover" ? { objectPosition: `${fx}% ${fy}%` } : {};
+  const style: CSSProperties = fit === "cover" ? { objectPosition: `${fx}% ${fy}%` } : {};
   return (
     <img
       src={resolveBookCover(url, { width, quality })}
