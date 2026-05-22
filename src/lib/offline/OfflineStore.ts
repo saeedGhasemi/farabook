@@ -84,7 +84,7 @@ export async function readAsset(bookId: string, userId: string, assetKey: string
 export async function downloadBook(
   bookId: string,
   userId: string,
-  opts: { onProgress?: (p: DownloadProgress) => void } = {},
+  opts: { onProgress?: (p: DownloadProgress) => void; force?: boolean } = {},
 ): Promise<BookCacheRow> {
   const existing = inflight.get(bookId);
   if (existing) return existing;
@@ -102,7 +102,9 @@ export async function downloadBook(
     if (bookErr || !serverBook) throw bookErr ?? new Error("book_not_found");
 
     const cached = await adapter.getBookCache(bookId);
-    if (cached && cached.status === "ready" && cached.content_version === serverBook.content_version && cached.key_valid) {
+    const cachedWalker = Number(await adapter.getMeta(`walker:${bookId}`)) || 0;
+    const walkerFresh = cachedWalker === ASSET_WALKER_VERSION;
+    if (!opts.force && cached && cached.status === "ready" && cached.content_version === serverBook.content_version && cached.key_valid && walkerFresh) {
       onProgress({ bookId, status: "ready", bytesWritten: cached.size_bytes, totalBytes: cached.size_bytes });
       return cached;
     }
