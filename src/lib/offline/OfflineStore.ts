@@ -148,6 +148,19 @@ export async function downloadBook(
       };
 
       let bytesWritten = 0;
+      const encoder = new TextEncoder();
+      const pageBytesEstimate = rewrittenPages.reduce((sum, page) => sum + encoder.encode(JSON.stringify(page)).byteLength, 0);
+      let totalBytesEstimate = pageBytesEstimate + encoder.encode(JSON.stringify(manifest)).byteLength + 1;
+      await Promise.all(assets.map(async (a) => {
+        try {
+          const head = await fetch(a.url, { method: "HEAD", credentials: "omit", cache: "no-store", mode: "cors" });
+          const len = Number(head.headers.get("content-length") || 0);
+          totalBytesEstimate += Number.isFinite(len) && len > 0 ? len : 250_000;
+        } catch {
+          totalBytesEstimate += 250_000;
+        }
+      }));
+      if (serverBook.cover_url) totalBytesEstimate += 250_000;
 
       // 4) Fetch + encrypt every embedded asset before writing rewritten pages.
       // This keeps older ready copies intact: pages only start pointing to the
@@ -168,7 +181,7 @@ export async function downloadBook(
             byte_len: buf.byteLength,
           });
           bytesWritten += enc.data.byteLength;
-          onProgress({ bookId, status: "downloading", bytesWritten, totalBytes: null });
+          onProgress({ bookId, status: "downloading", bytesWritten, totalBytes: totalBytesEstimate });
         } catch (assetErr) {
           failedAssets.push(a.url);
           console.warn(`[offline] asset failed (continuing)`, a.url, assetErr);
@@ -195,7 +208,7 @@ export async function downloadBook(
         };
         await adapter.putPage(row);
         bytesWritten += enc.data.byteLength;
-        onProgress({ bookId, status: "downloading", bytesWritten, totalBytes: null });
+        onProgress({ bookId, status: "downloading", bytesWritten, totalBytes: totalBytesEstimate });
       }
 
       // 6) Encrypt + cache cover (best effort) as a stable "cover" asset.
@@ -211,6 +224,7 @@ export async function downloadBook(
               bytes_enc: enc.data, bytes_iv: enc.iv, byte_len: buf.byteLength,
             });
             bytesWritten += enc.data.byteLength;
+            onProgress({ bookId, status: "downloading", bytesWritten, totalBytes: totalBytesEstimate });
           }
         } catch { /* non-fatal */ }
       }
