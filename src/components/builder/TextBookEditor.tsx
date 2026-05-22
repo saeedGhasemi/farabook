@@ -143,6 +143,10 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [author, setAuthor] = useState(initial?.author ?? "");
   const [coverUrl, setCoverUrl] = useState<string | null>(initial?.cover_url ?? null);
+  const [coverFocus, setCoverFocus] = useState<{ x: number; y: number }>({
+    x: Math.max(0, Math.min(100, initial?.cover_focus?.x ?? 50)),
+    y: Math.max(0, Math.min(100, initial?.cover_focus?.y ?? 50)),
+  });
   const coverFileRef = useRef<HTMLInputElement | null>(null);
 
   const [pages, setPages] = useState<TextPage[]>(
