@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { getDeviceId, getDeviceLabel } from "@/lib/offline/deviceId";
+import { getDeviceId, getDeviceLabel, getDevicePlatform } from "@/lib/offline/deviceId";
 import { BookDevicesPanel } from "@/components/profile/BookDevicesPanel";
 
 interface Props {
@@ -30,10 +30,11 @@ export function OfflineBookButton({ bookId, userId }: Props) {
   const [nameDialog, setNameDialog] = useState(false);
   const [devicesDialog, setDevicesDialog] = useState(false);
   const [deviceName, setDeviceName] = useState("");
+  const [currentDeviceName, setCurrentDeviceName] = useState("");
   const [knownNames, setKnownNames] = useState<string[]>([]);
 
   const hydrateDeviceName = async () => {
-    if (!userId) return;
+    if (!userId) return { names: [] as string[], primary: getDeviceLabel() };
     const did = await getDeviceId();
     const fallback = getDeviceLabel();
     const { data } = await supabase
@@ -45,29 +46,58 @@ export function OfflineBookButton({ bookId, userId }: Props) {
       .order("last_seen_at", { ascending: false });
     const names = Array.from(new Set(((data as Array<{ device_label: string | null }> | null) ?? [])
       .map((d) => d.device_label?.trim()).filter(Boolean) as string[]));
+    const primary = names[0] || fallback;
     setKnownNames(names);
-    setDeviceName(names[0] || fallback);
+    setDeviceName(primary);
+    setCurrentDeviceName(primary);
+    return { names, primary };
   };
 
   useEffect(() => { void hydrateDeviceName(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [userId]);
+
+  const ensureCurrentDeviceRegistration = async (label?: string) => {
+    if (!userId) return;
+    const did = await getDeviceId();
+    const finalLabel = ((label ?? currentDeviceName).trim() || getDeviceLabel()).slice(0, 60);
+    setCurrentDeviceName(finalLabel);
+    await supabase.functions.invoke("issue-book-key", {
+      body: {
+        book_id: bookId,
+        device_id: did,
+        device_label: finalLabel,
+        platform: getDevicePlatform(),
+      },
+    });
+  };
 
   const onClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!userId) return;
-    if (state.status === "ready") { setDevicesDialog(true); return; }
+    if (state.status === "ready") {
+      const { primary } = await hydrateDeviceName();
+      try { await ensureCurrentDeviceRegistration(primary); } catch { /* still show local status */ }
+      setDevicesDialog(true);
+      return;
+    }
     if (state.status === "downloading") return;
-    await hydrateDeviceName();
+    const { names, primary } = await hydrateDeviceName();
+    if (names.length > 0) {
+      await startDownload(primary);
+      return;
+    }
     setNameDialog(true);
   };
 
-  const startDownload = async () => {
+  const startDownload = async (preferredLabel?: string) => {
     if (!userId) return;
-    const label = (deviceName.trim() || getDeviceLabel()).slice(0, 60);
+    const label = ((preferredLabel ?? deviceName).trim() || getDeviceLabel()).slice(0, 60);
+    setCurrentDeviceName(label);
     setNameDialog(false);
     try {
       await download(label);
       toast.success(lang === "fa" ? "برای آفلاین ذخیره شد" : "Saved for offline");
+      await hydrateDeviceName();
       setDevicesDialog(true);
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
@@ -189,7 +219,7 @@ export function OfflineBookButton({ bookId, userId }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNameDialog(false)}>{lang === "fa" ? "انصراف" : "Cancel"}</Button>
-            <Button onClick={startDownload} className="gap-2">
+            <Button onClick={() => startDownload()} className="gap-2">
               {state.status === "downloading" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               {lang === "fa" ? "شروع دانلود" : "Start download"}
             </Button>
@@ -202,12 +232,16 @@ export function OfflineBookButton({ bookId, userId }: Props) {
           <DialogHeader>
             <DialogTitle>{lang === "fa" ? "وضعیت آفلاین این کتاب" : "This book's offline devices"}</DialogTitle>
             <DialogDescription>
-              {lang === "fa"
-                ? "اینجا فقط دستگاه‌های همین کتاب را می‌بینید؛ حذف، فقط نسخه آفلاین همین کتاب را آزاد می‌کند."
-                : "Only this book's devices are shown here; removing releases this book's offline slot."}
+              {state.status === "ready" && currentDeviceName
+                ? (lang === "fa"
+                  ? `نسخه آفلاین این کتاب روی «${currentDeviceName}» آماده است.`
+                  : `This offline copy is ready on “${currentDeviceName}”.`)
+                : (lang === "fa"
+                  ? "اینجا فقط دستگاه‌های همین کتاب را می‌بینید؛ حذف، فقط نسخه آفلاین همین کتاب را آزاد می‌کند."
+                  : "Only this book's devices are shown here; removing releases this book's offline slot.")}
             </DialogDescription>
           </DialogHeader>
-          <BookDevicesPanel bookId={bookId} />
+          <BookDevicesPanel bookId={bookId} currentDeviceLabel={currentDeviceName} />
           {state.status === "ready" && (
             <DialogFooter>
               <Button variant="destructive" onClick={onConfirmRemove} className="gap-2">

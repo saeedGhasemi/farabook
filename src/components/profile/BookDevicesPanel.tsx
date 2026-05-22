@@ -23,7 +23,7 @@ const MAX = 2;
 
 /** Per-book device management: shows only devices that have downloaded
  *  the offline copy of this specific book. */
-export function BookDevicesPanel({ bookId }: { bookId: string }) {
+export function BookDevicesPanel({ bookId, currentDeviceLabel }: { bookId: string; currentDeviceLabel?: string }) {
   const { user } = useAuth();
   const { lang } = useI18n();
   const fa = lang === "fa";
@@ -114,9 +114,26 @@ export function BookDevicesPanel({ bookId }: { bookId: string }) {
       {loading ? (
         <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin" /></div>
       ) : devices.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-4 text-center">
-          {fa ? "هنوز این کتاب روی هیچ دستگاهی آفلاین نشده است." : "This book is not offline on any device yet."}
-        </p>
+        currentDeviceLabel ? (
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
+            <div className="font-medium flex items-center gap-2">
+              <Smartphone className="w-4 h-4" />
+              {currentDeviceLabel}
+              <Badge className="bg-primary/15 text-primary border-0 text-[10px]">
+                {fa ? "این دستگاه" : "this device"}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {fa
+                ? "نسخه آفلاین محلی آماده است؛ ثبت وضعیت دستگاه در حال همگام‌سازی است."
+                : "The local offline copy is ready; device status is syncing."}
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground py-4 text-center">
+            {fa ? "هنوز این کتاب روی هیچ دستگاهی آفلاین نشده است." : "This book is not offline on any device yet."}
+          </p>
+        )
       ) : (
         <ul className="divide-y">
           {devices.map((d) => {
