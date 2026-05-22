@@ -36,7 +36,7 @@ const inflight = new Map<string, Promise<BookCacheRow>>();
 async function getKey(userId: string, bookId: string, deviceLabel?: string): Promise<CryptoKey> {
   const adapter = await getAdapter();
   let pepper = await adapter.getMeta(`pepper:${bookId}`);
-  if (!pepper) {
+  if (!pepper || deviceLabel?.trim()) {
     pepper = await fetchBookPepper(bookId, deviceLabel);
     await adapter.setMeta(`pepper:${bookId}`, pepper);
   }
