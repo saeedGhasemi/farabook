@@ -331,11 +331,15 @@ const HiddenCaptionImage = ({
 const Slideshow = ({
   images, autoplay = true, interval = 4500,
 }: { images: { src: string; caption?: string }[]; autoplay?: boolean; interval?: number }) => {
+  const { dir } = useI18n();
   const [i, setI] = useState(0);
   const [playing, setPlaying] = useState(autoplay);
   const [lightbox, setLightbox] = useState(false);
   const timer = useRef<number | null>(null);
   const total = images.length;
+  const PrevIcon = dir === "rtl" ? ChevronRight : ChevronLeft;
+  const NextIcon = dir === "rtl" ? ChevronLeft : ChevronRight;
+
 
   useEffect(() => {
     if (!playing || total < 2 || lightbox) return;
