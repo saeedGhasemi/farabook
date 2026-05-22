@@ -22,6 +22,14 @@ import { BookComments } from "@/components/BookComments";
 import { CopyProtection } from "@/components/reader/CopyProtection";
 import { ReadingLockOverlay } from "@/components/reader/ReadingLockOverlay";
 import { useReadingLock } from "@/hooks/useReadingLock";
+import {
+  loadOfflineBook,
+  listOfflineHighlights,
+  saveHighlightOfflineFirst,
+  updateHighlightOfflineFirst,
+  deleteHighlightOfflineFirst,
+  persistProgressOfflineFirst,
+} from "@/lib/offline/readerBridge";
 
 interface Page {
   title: string;
