@@ -155,7 +155,7 @@ export async function downloadBook(
       const failedAssets: string[] = [];
       for (const a of assets) {
         try {
-          const resp = await fetch(a.url, { credentials: "omit", cache: "no-store" });
+          const resp = await fetch(a.url, { credentials: "omit", cache: "no-store", mode: "cors" });
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           const buf = new Uint8Array(await resp.arrayBuffer());
           const enc = await encryptBytes(key, buf);
@@ -171,13 +171,17 @@ export async function downloadBook(
           onProgress({ bookId, status: "downloading", bytesWritten, totalBytes: null });
         } catch (assetErr) {
           failedAssets.push(a.url);
-          console.warn(`[offline] asset failed`, a.url, assetErr);
+          console.warn(`[offline] asset failed (continuing)`, a.url, assetErr);
         }
       }
 
-      if (failedAssets.length) {
-        throw new Error(`offline_asset_download_failed:${failedAssets.length}`);
-      }
+      // Best-effort: a few unreachable assets (CORS / 404 / dead CDN) must NOT
+      // fail the entire download. The book is still usable; missing media
+      // simply falls back to the original URL when the user is online.
+      const partialMsg = failedAssets.length
+        ? `partial:${failedAssets.length} asset(s) skipped`
+        : null;
+
 
       // 5) Encrypt + write each (rewritten) page only after assets are complete.
       for (let i = 0; i < rewrittenPages.length; i++) {
