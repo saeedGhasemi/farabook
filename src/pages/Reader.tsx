@@ -355,22 +355,16 @@ const Reader = () => {
   const saveAiAsNote = async (text: string) => {
     if (!user || !id) { toast.error(lang === "fa" ? "ابتدا وارد شوید" : "Please sign in first"); return; }
     const snippet = pageText.slice(0, 80) + (pageText.length > 80 ? "…" : "");
-    const { data, error } = await supabase
-      .from("highlights")
-      .insert({
-        user_id: user.id,
-        book_id: id,
-        page_index: pageIdx,
+    try {
+      const row = await saveHighlightOfflineFirst({
+        bookId: id, userId: user.id, pageIndex: pageIdx,
         text: snippet || (lang === "fa" ? "یادداشت هوش مصنوعی" : "AI note"),
-        color: "blue",
-        note: text,
-      })
-      .select("id, text, page_index, color, created_at, note")
-      .single();
-    if (error) { toast.error(error.message); return; }
-    if (data) {
-      setHighlights((prev) => [data as HighlightItem, ...prev]);
+        color: "blue", note: text,
+      });
+      setHighlights((prev) => [{ id: row.id, text: row.text, page_index: row.page_index, color: row.color, created_at: row.created_at, note: row.note } as HighlightItem, ...prev]);
       toast.success(lang === "fa" ? "به نشان‌ها اضافه شد" : "Saved to notes");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "save failed");
     }
   };
 
