@@ -683,7 +683,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
               />
             ) : (
               <video
-                src={block.src}
+                src={resolveImg(block.src)}
                 poster={block.poster ? resolveImg(block.poster) : undefined}
                 controls
                 playsInline
