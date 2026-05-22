@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => ({
           {
             urlPattern: ({ request }) => request.mode === "navigate",
             handler: "NetworkFirst",
-            options: { cacheName: "html", networkTimeoutSeconds: 10 },
+            options: { cacheName: "html", networkTimeoutSeconds: 3 },
           },
           // Static images & fonts
           {
