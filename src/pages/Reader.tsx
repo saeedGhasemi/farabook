@@ -449,14 +449,59 @@ const Reader = () => {
     };
   }, []);
 
+  // Compute the block_index + occurrence of the current selection so we
+  // can save a highlight that targets the exact block + Nth match — this
+  // prevents the same phrase from highlighting elsewhere on the page.
+  const computeSelectionPosition = useCallback((): { blockIndex: number | null; occurrence: number | null } => {
+    try {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return { blockIndex: null, occurrence: null };
+      const range = sel.getRangeAt(0);
+      const node = range.startContainer;
+      const el = (node.nodeType === 1 ? (node as Element) : node.parentElement)?.closest?.("[id^='book-block-']") as HTMLElement | null;
+      if (!el) return { blockIndex: null, occurrence: null };
+      // id format: book-block-{pageIndex}-{blockIndex}
+      const m = /book-block-\d+-(\d+)$/.exec(el.id);
+      const blockIndex = m ? Number(m[1]) : null;
+      const selText = sel.toString();
+      if (!selText) return { blockIndex, occurrence: null };
+      const blockText = el.textContent || "";
+      // Walk from start of block, count how many matches of selText come
+      // before the selection start.
+      const startOffsetInBlock = (() => {
+        const pre = range.cloneRange();
+        pre.selectNodeContents(el);
+        pre.setEnd(range.startContainer, range.startOffset);
+        return pre.toString().length;
+      })();
+      let occurrence = 1;
+      let from = 0;
+      while (true) {
+        const idx = blockText.indexOf(selText, from);
+        if (idx < 0 || idx >= startOffsetInBlock) break;
+        occurrence += 1;
+        from = idx + 1;
+      }
+      return { blockIndex, occurrence };
+    } catch {
+      return { blockIndex: null, occurrence: null };
+    }
+  }, []);
+
   const saveHighlight = async (color: string, note?: string) => {
     if (!savePopover || !user || !id) return;
+    const pos = computeSelectionPosition();
     try {
       const row = await saveHighlightOfflineFirst({
         bookId: id, userId: user.id, pageIndex: pageIdx,
         text: savePopover.text, color, note: note ?? null,
+        blockIndex: pos.blockIndex, occurrence: pos.occurrence,
       });
-      setHighlights((prev) => [{ id: row.id, text: row.text, page_index: row.page_index, color: row.color, created_at: row.created_at, note: row.note } as HighlightItem, ...prev]);
+      setHighlights((prev) => [{
+        id: row.id, text: row.text, page_index: row.page_index,
+        color: row.color, created_at: row.created_at, note: row.note,
+        block_index: row.block_index ?? null, occurrence: row.occurrence ?? null,
+      } as HighlightItem, ...prev]);
       toast.success(lang === "fa" ? "هایلایت ذخیره شد" : "Highlight saved");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "save failed");
@@ -464,6 +509,7 @@ const Reader = () => {
     setSavePopover(null);
     window.getSelection()?.removeAllRanges();
   };
+
 
   const updateHighlightNote = async (hid: string, note: string) => {
     const { getLocalHighlights } = await import("@/lib/offline/OfflineStore");
