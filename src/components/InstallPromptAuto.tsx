@@ -5,6 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useI18n } from "@/lib/i18n";
 import { PWA_ENABLED } from "@/lib/pwa/registerSW";
 
+import { isLikelyInstalled, isStandaloneDisplay, markInstalled, checkInstalledViaRelatedApps } from "@/lib/pwa/installState";
+
 interface BIPEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: string }>;
@@ -12,13 +14,6 @@ interface BIPEvent extends Event {
 
 const STORAGE_KEY = "farabook.installPrompt.dismissedAt";
 const REPROMPT_DAYS = 7;
-
-const isStandalone = () =>
-  (typeof window !== "undefined" &&
-    (window.matchMedia?.("(display-mode: standalone)").matches ||
-      // iOS Safari
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (navigator as any).standalone === true));
 
 const detectPlatform = (): "ios" | "android" | "windows" | "other" => {
   if (typeof navigator === "undefined") return "other";
@@ -49,17 +44,20 @@ export const InstallPromptAuto = () => {
 
   useEffect(() => {
     if (!PWA_ENABLED) return;
-    if (isStandalone()) return;
+    if (isStandaloneDisplay() || isLikelyInstalled()) return;
     if (wasRecentlyDismissed()) return;
 
     const plat = detectPlatform();
     setPlatform(plat);
 
+    // Probe for sibling installed PWA before showing anything.
+    void checkInstalledViaRelatedApps().then((yes) => { if (yes) setOpen(false); });
+
     // Android / Desktop Chrome / Edge — wait for the native event
     const bipHandler = (e: Event) => {
       e.preventDefault();
       setDeferred(e as BIPEvent);
-      setTimeout(() => setOpen(true), 1200);
+      setTimeout(() => { if (!isLikelyInstalled()) setOpen(true); }, 1200);
     };
     window.addEventListener("beforeinstallprompt", bipHandler);
 
@@ -70,6 +68,7 @@ export const InstallPromptAuto = () => {
     }
 
     const installedHandler = () => {
+      markInstalled();
       setOpen(false);
       setDeferred(null);
     };
@@ -91,7 +90,8 @@ export const InstallPromptAuto = () => {
     if (!deferred) return;
     try {
       await deferred.prompt();
-      await deferred.userChoice;
+      const choice = await deferred.userChoice;
+      if (choice.outcome === "accepted") markInstalled();
     } catch { /* ignore */ }
     setDeferred(null);
     setOpen(false);

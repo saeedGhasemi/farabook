@@ -6,16 +6,12 @@ import { useI18n } from "@/lib/i18n";
 import { PWA_ENABLED } from "@/lib/pwa/registerSW";
 import { toast } from "@/hooks/use-toast";
 
+import { isLikelyInstalled, isStandaloneDisplay, markInstalled, checkInstalledViaRelatedApps } from "@/lib/pwa/installState";
+
 interface BIPEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: string }>;
 }
-
-const isStandalone = () =>
-  typeof window !== "undefined" &&
-  (window.matchMedia?.("(display-mode: standalone)").matches ||
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (navigator as any).standalone === true);
 
 const detectPlatform = (): "ios" | "android" | "windows" | "other" => {
   if (typeof navigator === "undefined") return "other";
@@ -43,7 +39,8 @@ export const InstallAppButton = () => {
   const [pulse, setPulse] = useState(false);
 
   useEffect(() => {
-    if (!PWA_ENABLED || isStandalone()) return;
+    if (!PWA_ENABLED) return;
+    if (isStandaloneDisplay() || isLikelyInstalled()) return;
 
     const platform = detectPlatform();
     // iOS never fires beforeinstallprompt — always show
@@ -55,16 +52,20 @@ export const InstallAppButton = () => {
       setVisible(true);
     };
     const installed = () => {
+      markInstalled();
       setVisible(false);
       setDeferred(null);
     };
     window.addEventListener("beforeinstallprompt", handler);
     window.addEventListener("appinstalled", installed);
 
+    // Async probe: if a related installed app exists, hide the button.
+    void checkInstalledViaRelatedApps().then((yes) => { if (yes) setVisible(false); });
+
     // Fallback: on Android/Windows/other where the event may not fire fast,
     // still show the button after a short delay so the user can act.
     const t = window.setTimeout(() => {
-      if (!isStandalone()) setVisible(true);
+      if (!isStandaloneDisplay() && !isLikelyInstalled()) setVisible(true);
     }, 1500);
 
     return () => {
@@ -90,6 +91,7 @@ export const InstallAppButton = () => {
         await deferred.prompt();
         const choice = await deferred.userChoice;
         if (choice.outcome === "accepted") {
+          markInstalled();
           setVisible(false);
         }
       } catch { /* ignore */ }

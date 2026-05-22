@@ -17,8 +17,10 @@ import "katex/dist/katex.min.css";
 import "./index.css";
 
 import { registerServiceWorker } from "./lib/pwa/registerSW";
+import { wireInstallDetection } from "./lib/pwa/installState";
 
 createRoot(document.getElementById("root")!).render(<App />);
 
 // Fire-and-forget — register the production service worker (no-op on preview/iframe).
 registerServiceWorker();
+wireInstallDetection();

@@ -28,14 +28,14 @@ export async function loadOfflineBook(bookId: string, userId: string): Promise<O
   try {
     const manifest = await readManifest(bookId, userId);
     if (!manifest) return null;
-    // Pre-decrypt all embedded images/videos so <img>/<video> render offline.
-    await precacheBookAssets(bookId, userId);
-    const pages: unknown[] = [];
-    for (let i = 0; i < manifest.page_count; i++) {
-      const p = await readPage(bookId, userId, i);
-      if (p == null) return null;
-      pages.push(p);
-    }
+    // Decrypt asset blob URLs and pages in parallel — order-independent.
+    const pageIndexes = Array.from({ length: manifest.page_count }, (_, i) => i);
+    const [, ...pageResults] = await Promise.all([
+      precacheBookAssets(bookId, userId) as Promise<unknown>,
+      ...pageIndexes.map((i) => readPage(bookId, userId, i) as Promise<unknown>),
+    ]);
+    const pages = pageResults as unknown[];
+    if (pages.some((p) => p == null)) return null;
     return {
       id: bookId,
       title: manifest.title,
