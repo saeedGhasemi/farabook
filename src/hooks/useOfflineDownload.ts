@@ -49,8 +49,26 @@ export function useOfflineDownload(bookId: string | undefined, userId: string | 
         error: row.last_error,
         isFresh: row.status === "ready" && row.key_valid,
       });
+      // Silently re-download books cached with an older walker version
+      // (so previously-saved offline books pick up newly-supported media fields
+      // like interactive slideshow/timeline images). Only when online.
+      const cachedWalker = Number(await adapter.getMeta(`walker:${bookId}`)) || 0;
+      if (
+        row.status === "ready" &&
+        row.key_valid &&
+        cachedWalker !== ASSET_WALKER_VERSION &&
+        typeof navigator !== "undefined" &&
+        navigator.onLine
+      ) {
+        try {
+          await downloadBook(bookId, userId, { force: true, onProgress });
+        } catch (e) {
+          console.warn("[offline] walker-upgrade re-download failed", e);
+        }
+      }
     })();
     return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId, userId]);
 
   const onProgress = useCallback((p: DownloadProgress) => {
