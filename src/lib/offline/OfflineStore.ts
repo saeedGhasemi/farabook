@@ -149,7 +149,7 @@ export async function downloadBook(
 
       let bytesWritten = 0;
       const encoder = new TextEncoder();
-      const pageBytesEstimate = rewrittenPages.reduce((sum, page) => sum + encoder.encode(JSON.stringify(page)).byteLength, 0);
+      const pageBytesEstimate = rewrittenPages.reduce<number>((sum, page) => sum + encoder.encode(JSON.stringify(page)).byteLength, 0);
       let totalBytesEstimate = pageBytesEstimate + encoder.encode(JSON.stringify(manifest)).byteLength + 1;
       await Promise.all(assets.map(async (a) => {
         try {
