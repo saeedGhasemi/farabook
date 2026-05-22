@@ -849,7 +849,24 @@ const Reader = () => {
         open={highlightsOpen}
         highlights={highlights}
         onClose={() => setHighlightsOpen(false)}
-        onJump={(i) => goTo(i)}
+        onJump={(i, hl) => {
+          goTo(i);
+          // After the page renders, try to find the exact <mark> and flash it.
+          window.setTimeout(() => {
+            const id = hl?.id;
+            let el: HTMLElement | null = null;
+            if (id) el = document.querySelector(`mark[data-hl-id="${id}"]`) as HTMLElement | null;
+            if (!el && typeof hl?.block_index === "number") {
+              const block = document.getElementById(`book-block-${i}-${hl.block_index}`);
+              el = block?.querySelector("mark") as HTMLElement | null;
+            }
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth", block: "center" });
+              el.classList.add("ring-2", "ring-accent", "ring-offset-2", "transition");
+              window.setTimeout(() => el?.classList.remove("ring-2", "ring-accent", "ring-offset-2"), 1800);
+            }
+          }, 400);
+        }}
         onDelete={deleteHighlight}
         onUpdateNote={updateHighlightNote}
       />
