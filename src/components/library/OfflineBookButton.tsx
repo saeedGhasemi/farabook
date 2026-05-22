@@ -40,6 +40,14 @@ export function OfflineBookButton({ bookId, userId }: Props) {
       toast.success(lang === "fa" ? "برای آفلاین ذخیره شد" : "Saved for offline");
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : null;
+      // Log failed offline download attempts so the admin can triage them.
+      logClientError({
+        source: "offline-download",
+        message: raw,
+        stack,
+        context: { bookId, userId },
+      });
       const map: Record<string, { fa: string; en: string }> = {
         device_limit_reached: {
           fa: "سقف ۲ دستگاه آفلاین پر است. ابتدا یک دستگاه را از پروفایل → دستگاه‌های آفلاین حذف کنید.",
