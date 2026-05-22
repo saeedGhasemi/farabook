@@ -213,6 +213,9 @@ export const Navbar = () => {
                     </Link>
                   );
                 })}
+                <div className="px-4 pt-2 text-[11px] font-mono text-muted-foreground/75 tabular-nums">
+                  {lang === "fa" ? "نسخه برنامه" : "App version"}: {APP_VERSION_LABEL}
+                </div>
 
                 <div className="mt-2 pt-3 border-t border-border/40 flex items-center gap-2 px-2 flex-wrap">
                   <Button
