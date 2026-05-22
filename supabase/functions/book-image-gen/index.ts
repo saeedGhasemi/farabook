@@ -85,19 +85,42 @@ Deno.serve(async (req) => {
         modalities: ["image", "text"],
       }),
     });
-    if (r.status === 429) { await refund("rate_limit"); return new Response(JSON.stringify({ error: fa ? "محدودیت درخواست" : "Rate limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
-    if (r.status === 402) { await refund("ai_credits"); return new Response(JSON.stringify({ error: fa ? "اعتبار AI تمام شده" : "Credits exhausted" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
+    const attempts: AiImageAttempt[] = [];
+    let r = await callImageModel(MODEL, prompt, LOVABLE_API_KEY);
+    attempts.push({ model: MODEL, status: r.status });
+
+    // Retry once on transient errors (timeouts, 5xx, empty image) with fallback model
+    const shouldRetry = (status: number) => status === 408 || status === 500 || status === 502 || status === 503 || status === 504;
+    if (!r.ok && r.status !== 402 && r.status !== 429 && shouldRetry(r.status)) {
+      const r2 = await callImageModel(FALLBACK_MODEL, prompt, LOVABLE_API_KEY);
+      attempts.push({ model: FALLBACK_MODEL, status: r2.status });
+      if (r2.ok) r = r2;
+    }
+
+    if (r.status === 429) { await refund("rate_limit"); return new Response(JSON.stringify({ error: fa ? "محدودیت درخواست" : "Rate limited", attempts }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
+    if (r.status === 402) { await refund("ai_credits"); return new Response(JSON.stringify({ error: fa ? "اعتبار AI تمام شده" : "Credits exhausted", attempts }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
     if (!r.ok) {
       const txt = await r.text();
       console.error("AI image", r.status, txt);
       await refund("ai_error_" + r.status);
-      return new Response(JSON.stringify({ error: fa ? "خطای تولید تصویر" : "Image gen error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: fa ? "خطای تولید تصویر" : "Image gen error", attempts }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const data = await r.json();
-    const imgUrl: string | undefined = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    let data = await r.json();
+    let imgUrl: string | undefined = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+    // If primary model returned no image, retry with fallback
+    if (!imgUrl?.startsWith("data:") && attempts.length === 1) {
+      const r3 = await callImageModel(FALLBACK_MODEL, prompt, LOVABLE_API_KEY);
+      attempts.push({ model: FALLBACK_MODEL, status: r3.status });
+      if (r3.ok) {
+        data = await r3.json();
+        imgUrl = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      }
+    }
+
     if (!imgUrl?.startsWith("data:")) {
       await refund("no_image");
-      return new Response(JSON.stringify({ error: fa ? "تصویری برگردانده نشد" : "No image returned" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: fa ? "تصویری برگردانده نشد" : "No image returned", attempts }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const m = imgUrl.match(/^data:([^;]+);base64,(.+)$/);
     if (!m) { await refund("bad_data"); return new Response(JSON.stringify({ error: "bad data url" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
