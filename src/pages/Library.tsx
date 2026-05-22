@@ -62,6 +62,7 @@ const Library = () => {
 
   useEffect(() => {
     if (!user) return;
+    if (offline) { setRowsLoading(false); return; }
     (async () => {
       try {
         // 1) Books explicitly in the user's library
@@ -118,7 +119,7 @@ const Library = () => {
       }
     })();
 
-  }, [user]);
+  }, [user, offline]);
 
   const formatRelative = (iso: string) => {
     const diff = Date.now() - new Date(iso).getTime();

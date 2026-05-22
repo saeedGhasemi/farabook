@@ -212,7 +212,7 @@ const Profile = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="info" dir="rtl">
+      <Tabs defaultValue={(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab")) || "info"} dir="rtl">
         <TabsList className="glass">
           <TabsTrigger value="info">اطلاعات من</TabsTrigger>
           <TabsTrigger value="earnings">درآمد و هزینه</TabsTrigger>
