@@ -32,6 +32,7 @@ const detectDir = (text: string): "rtl" | "ltr" => {
 /** Horizontal interactive timeline — tap markers to reveal a detail card. */
 export const Timeline = ({ title, steps }: Props) => {
   const [active, setActive] = useState(0);
+  const { dir } = useI18n();
   if (!steps?.length) return null;
   const total = steps.length;
   const cur = steps[active];
@@ -40,6 +41,10 @@ export const Timeline = ({ title, steps }: Props) => {
   const headerDir = title ? detectDir(title) : "ltr";
 
   const go = (d: 1 | -1) => setActive((p) => (p + d + total) % total);
+  // In RTL, swap visual icons so the arrow points in the reading direction.
+  const PrevIcon = dir === "rtl" ? ChevronRight : ChevronLeft;
+  const NextIcon = dir === "rtl" ? ChevronLeft : ChevronRight;
+
 
   return (
     <figure className="my-8 select-none">
@@ -130,7 +135,7 @@ export const Timeline = ({ title, steps }: Props) => {
               className="w-9 h-9 rounded-full glass-strong flex items-center justify-center hover:bg-accent/20 transition-colors"
               aria-label="previous step"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <PrevIcon className="w-4 h-4" />
             </button>
             <span className="text-xs text-muted-foreground tabular-nums">
               {active + 1} / {total}
@@ -140,7 +145,8 @@ export const Timeline = ({ title, steps }: Props) => {
               className="w-9 h-9 rounded-full glass-strong flex items-center justify-center hover:bg-accent/20 transition-colors"
               aria-label="next step"
             >
-              <ChevronRight className="w-4 h-4" />
+              <NextIcon className="w-4 h-4" />
+
             </button>
           </div>
         )}
