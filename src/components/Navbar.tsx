@@ -238,7 +238,8 @@ export const Navbar = () => {
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <InstallAppButton />
+                  <InstallAppButton forceShow />
+
                 </div>
               </nav>
             </motion.div>
