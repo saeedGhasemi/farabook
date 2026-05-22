@@ -90,6 +90,19 @@ export const InstallAppButton = ({ forceShow = false }: { forceShow?: boolean } 
   }, [visible, installed]);
 
   const handleClick = async (e: React.MouseEvent) => {
+    // Already installed → try to open the installed app.
+    if (installed) {
+      e.preventDefault();
+      const startUrl = `${window.location.origin}/?source=pwa`;
+      // Best-effort: on Chromium with launch_handler: focus-existing, this
+      // focuses the installed app window; otherwise opens in a new tab.
+      try {
+        window.open(startUrl, "_blank", "noopener");
+      } catch {
+        window.location.href = startUrl;
+      }
+      return;
+    }
     // If we have a native prompt, run it directly — no navigation.
     if (deferred) {
       e.preventDefault();
