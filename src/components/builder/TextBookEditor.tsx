@@ -215,6 +215,8 @@ export const TextBookEditor = ({ initial }: Props) => {
         blockquote: false,
       }),
       Underline,
+      Superscript,
+      Subscript,
       TextStyle,
       Color.configure({ types: ["textStyle"] }),
       Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
