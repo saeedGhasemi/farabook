@@ -153,7 +153,11 @@ export const InstallAppButton = ({ forceShow = false }: { forceShow?: boolean } 
         title={lang === "fa" ? "نصب اپ" : "Install app"}
       >
         <Download className="w-4 h-4" />
-        <span className="hidden lg:inline">{lang === "fa" ? "نصب اپ" : "Install"}</span>
+        <span className={forceShow ? "inline" : "hidden lg:inline"}>
+          {installed
+            ? (lang === "fa" ? "نصب‌شده" : "Installed")
+            : (lang === "fa" ? "نصب اپ" : "Install")}
+        </span>
       </Button>
     </Link>
   );
