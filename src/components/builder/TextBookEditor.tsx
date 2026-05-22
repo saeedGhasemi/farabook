@@ -437,7 +437,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     } finally {
       setSaving(false);
     }
-  }, [isEdit, initial, user, pages, activeIdx, editor, title, author, typography, coverUrl, fa]);
+  }, [isEdit, initial, user, pages, activeIdx, editor, title, author, typography, coverUrl, coverFocus, fa]);
 
   const skipFirst = useRef(true);
   useEffect(() => {
