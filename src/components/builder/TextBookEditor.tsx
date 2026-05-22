@@ -99,6 +99,7 @@ interface Initial {
   author: string;
   description: string | null;
   cover_url: string | null;
+  cover_focus?: { x?: number; y?: number } | null;
   pages: any[];
   typography_preset?: string | null;
   author_user_id?: string | null;
