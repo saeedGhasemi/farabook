@@ -144,6 +144,24 @@ const Library = () => {
   const statusLabel = (s: string) =>
     s === "reading" ? t("status_reading") : s === "finished" ? t("status_finished") : t("status_unread");
 
+  // Merge: online rows + offline-only books not already present
+  const onlineIds = new Set(rows.map((r) => r.books?.id));
+  const offlineOnlyRows: Row[] = offlineBooks
+    .filter((b) => !onlineIds.has(b.id))
+    .map((b) => ({
+      id: `off-${b.id}`,
+      status: "reading",
+      progress: 0,
+      current_page: 0,
+      acquired_via: "offline",
+      books: {
+        id: b.id, title: b.title, title_en: null, author: b.author ?? "",
+        cover_url: b.cover_url, category: null, publisher_id: null,
+        status: "published", price: 0,
+      },
+    }));
+  const displayRows = [...rows, ...offlineOnlyRows];
+
   return (
     <main className="container py-10 md:py-16 min-h-[calc(100vh-4rem)]">
       <div className="flex items-center justify-between mb-10 flex-wrap gap-4">
@@ -151,9 +169,14 @@ const Library = () => {
           className="text-4xl md:text-5xl font-display font-bold">
           {t("library_title")}
         </motion.h1>
+        {offline && (
+          <span className="text-xs px-3 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+            {lang === "fa" ? `حالت آفلاین — ${offlineBooks.length} کتاب در دسترس` : `Offline — ${offlineBooks.length} books available`}
+          </span>
+        )}
       </div>
 
-      {rows.length === 0 ? (
+      {displayRows.length === 0 ? (
         <div className="glass-strong rounded-3xl p-16 text-center max-w-xl mx-auto">
           <BookOpen className="w-14 h-14 mx-auto text-muted-foreground mb-4" />
           <p className="text-lg text-muted-foreground mb-6">{t("library_empty")}</p>
