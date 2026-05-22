@@ -156,10 +156,13 @@ async function buildNativeAdapter(passphrase: string): Promise<Adapter> {
   const mod = await import("@capacitor-community/sqlite");
   const sqlite = new mod.SQLiteConnection(mod.CapacitorSQLite);
   const dbName = "farabook_offline";
+  // Register the per-device passphrase before opening; SQLCipher handles
+  // page-level encryption from that point on.
+  try { await mod.CapacitorSQLite.setEncryptionSecret({ passphrase }); } catch { /* already set */ }
   const db = await sqlite.createConnection(dbName, true, "secret", OFFLINE_SCHEMA_VERSION, false);
-  // Passphrase is bound to the connection above; SQLCipher handles at-rest encryption.
   await db.open();
   await db.execute(SQL_SCHEMA);
+
 
   const run = async (sql: string, values: unknown[] = []) => { await db.run(sql, values); };
   const query = async <T,>(sql: string, values: unknown[] = []): Promise<T[]> => {
