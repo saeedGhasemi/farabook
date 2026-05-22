@@ -420,42 +420,45 @@ const Reader = () => {
 
   const saveHighlight = async (color: string, note?: string) => {
     if (!savePopover || !user || !id) return;
-    const { data, error } = await supabase
-      .from("highlights")
-      .insert({
-        user_id: user.id,
-        book_id: id,
-        page_index: pageIdx,
-        text: savePopover.text,
-        color,
-        note: note || null,
-      })
-      .select("id, text, page_index, color, created_at, note")
-      .single();
-    if (error) { toast.error(error.message); return; }
-    if (data) {
-      setHighlights((prev) => [data as HighlightItem, ...prev]);
+    try {
+      const row = await saveHighlightOfflineFirst({
+        bookId: id, userId: user.id, pageIndex: pageIdx,
+        text: savePopover.text, color, note: note ?? null,
+      });
+      setHighlights((prev) => [{ id: row.id, text: row.text, page_index: row.page_index, color: row.color, created_at: row.created_at, note: row.note } as HighlightItem, ...prev]);
       toast.success(lang === "fa" ? "هایلایت ذخیره شد" : "Highlight saved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "save failed");
     }
     setSavePopover(null);
     window.getSelection()?.removeAllRanges();
   };
 
   const updateHighlightNote = async (hid: string, note: string) => {
-    const { error } = await supabase
-      .from("highlights")
-      .update({ note })
-      .eq("id", hid);
-    if (error) { toast.error(error.message); return; }
-    setHighlights((prev) =>
-      prev.map((h) => (h.id === hid ? { ...h, note } : h)),
-    );
+    const { getLocalHighlights } = await import("@/lib/offline/OfflineStore");
+    const all = id ? await getLocalHighlights(id) : [];
+    const existing = all.find((r) => r.id === hid);
+    if (existing) {
+      await updateHighlightOfflineFirst(existing, { note });
+    } else if (user && id) {
+      // Server-only row (pre-Phase 6) — fall back to direct update.
+      const { error } = await supabase.from("highlights").update({ note }).eq("id", hid);
+      if (error) { toast.error(error.message); return; }
+    }
+    setHighlights((prev) => prev.map((h) => (h.id === hid ? { ...h, note } : h)));
     toast.success(lang === "fa" ? "یادداشت ذخیره شد" : "Note saved");
   };
 
   const deleteHighlight = async (hid: string) => {
-    const { error } = await supabase.from("highlights").delete().eq("id", hid);
-    if (error) { toast.error(error.message); return; }
+    const { getLocalHighlights } = await import("@/lib/offline/OfflineStore");
+    const all = id ? await getLocalHighlights(id) : [];
+    const existing = all.find((r) => r.id === hid);
+    if (existing) {
+      await deleteHighlightOfflineFirst(existing);
+    } else {
+      const { error } = await supabase.from("highlights").delete().eq("id", hid);
+      if (error) { toast.error(error.message); return; }
+    }
     setHighlights((prev) => prev.filter((h) => h.id !== hid));
   };
 
