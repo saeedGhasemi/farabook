@@ -9,6 +9,7 @@ import { useOfflineDownload } from "@/hooks/useOfflineDownload";
 import { useI18n } from "@/lib/i18n";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useNavigate } from "react-router-dom";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -24,6 +25,7 @@ interface Props {
 export function OfflineBookButton({ bookId, userId }: Props) {
   const { lang } = useI18n();
   const { state, percent, download, remove } = useOfflineDownload(bookId, userId);
+  const nav = useNavigate();
   const [confirmRemove, setConfirmRemove] = useState(false);
 
   const onClick = async (e: React.MouseEvent) => {
@@ -48,7 +50,17 @@ export function OfflineBookButton({ bookId, userId }: Props) {
         missing_params: { fa: "خطای داخلی. دوباره تلاش کنید.", en: "Internal error. Please retry." },
       };
       const msg = map[raw] ? map[raw][lang] : raw;
-      toast.error(msg);
+      if (raw === "device_limit_reached") {
+        toast.error(msg, {
+          duration: 10000,
+          action: {
+            label: lang === "fa" ? "مدیریت دستگاه‌ها" : "Manage devices",
+            onClick: () => nav("/profile?tab=devices"),
+          },
+        });
+      } else {
+        toast.error(msg);
+      }
     }
   };
 
