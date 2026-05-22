@@ -3,20 +3,21 @@
 // Tapping again while downloading is a no-op (handled by single-flight in store).
 // Tapping when "ready" opens a confirm to remove the local copy.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Download, Check, Loader2, AlertTriangle, Trash2 } from "lucide-react";
 import { useOfflineDownload } from "@/hooks/useOfflineDownload";
 import { useI18n } from "@/lib/i18n";
-import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useNavigate } from "react-router-dom";
 import { logClientError } from "@/lib/error-logger";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { getDeviceId, getDeviceLabel, getDevicePlatform } from "@/lib/offline/deviceId";
+import { BookDevicesPanel } from "@/components/profile/BookDevicesPanel";
 
 interface Props {
   bookId: string;
@@ -26,18 +27,48 @@ interface Props {
 export function OfflineBookButton({ bookId, userId }: Props) {
   const { lang } = useI18n();
   const { state, percent, download, remove } = useOfflineDownload(bookId, userId);
-  const nav = useNavigate();
-  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [nameDialog, setNameDialog] = useState(false);
+  const [devicesDialog, setDevicesDialog] = useState(false);
+  const [deviceName, setDeviceName] = useState("");
+  const [knownNames, setKnownNames] = useState<string[]>([]);
+
+  const hydrateDeviceName = async () => {
+    if (!userId) return;
+    const did = await getDeviceId();
+    const fallback = getDeviceLabel();
+    const { data } = await supabase
+      .from("user_offline_devices")
+      .select("device_label")
+      .eq("user_id", userId)
+      .eq("device_id", did)
+      .not("device_label", "is", null)
+      .order("last_seen_at", { ascending: false });
+    const names = Array.from(new Set(((data as Array<{ device_label: string | null }> | null) ?? [])
+      .map((d) => d.device_label?.trim()).filter(Boolean) as string[]));
+    setKnownNames(names);
+    setDeviceName(names[0] || fallback);
+  };
+
+  useEffect(() => { void hydrateDeviceName(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [userId]);
 
   const onClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!userId) return;
-    if (state.status === "ready") { setConfirmRemove(true); return; }
+    if (state.status === "ready") { setDevicesDialog(true); return; }
     if (state.status === "downloading") return;
+    await hydrateDeviceName();
+    setNameDialog(true);
+  };
+
+  const startDownload = async () => {
+    if (!userId) return;
+    const label = (deviceName.trim() || getDeviceLabel()).slice(0, 60);
+    setNameDialog(false);
     try {
-      await download();
+      await download(label);
       toast.success(lang === "fa" ? "برای آفلاین ذخیره شد" : "Saved for offline");
+      setDevicesDialog(true);
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
       const stack = err instanceof Error ? err.stack : null;
@@ -63,8 +94,8 @@ export function OfflineBookButton({ bookId, userId }: Props) {
         toast.error(msg, {
           duration: 10000,
           action: {
-            label: lang === "fa" ? "مدیریت دستگاه‌ها" : "Manage devices",
-            onClick: () => nav("/profile?tab=devices"),
+            label: lang === "fa" ? "دستگاه‌های این کتاب" : "Book devices",
+            onClick: () => setDevicesDialog(true),
           },
         });
       } else {
@@ -73,12 +104,17 @@ export function OfflineBookButton({ bookId, userId }: Props) {
     }
   };
 
-
-
-
   const onConfirmRemove = async () => {
+    if (userId) {
+      const did = await getDeviceId();
+      await supabase.from("user_offline_devices")
+        .delete()
+        .eq("user_id", userId)
+        .eq("book_id", bookId)
+        .eq("device_id", did);
+    }
     await remove();
-    setConfirmRemove(false);
+    setDevicesDialog(false);
     toast.success(lang === "fa" ? "نسخه آفلاین حذف شد" : "Offline copy removed");
   };
 
