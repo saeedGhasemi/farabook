@@ -56,7 +56,7 @@ const MEDIA_FIELDS = new Set([
   "cover", "coverUrl", "cover_url",
   "thumbnail", "thumb", "thumbUrl", "thumbnailUrl",
   "background", "backgroundImage", "bg",
-  "href", // figure/download links (filtered by isAbsoluteUrl + extension)
+
 ]);
 
 /** Recursively walks an arbitrary JSON-like value and applies `visit` to
