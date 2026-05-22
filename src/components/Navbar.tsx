@@ -13,6 +13,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { CreditsBadge } from "@/components/CreditsBadge";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { InstallAppButton } from "@/components/InstallAppButton";
+import { APP_VERSION_LABEL } from "@/lib/version";
+
 
 export const Navbar = () => {
   const { t, lang, setLang, dir } = useI18n();
@@ -73,7 +75,9 @@ export const Navbar = () => {
               <BookOpen className="w-5 h-5 text-primary-foreground" />
             </div>
             <span className="text-lg sm:text-xl font-display font-bold gold-text truncate">{t("brand")}</span>
+            <span className="hidden sm:inline text-[10px] font-mono text-muted-foreground/70 tabular-nums ms-1" title={lang === "fa" ? "نسخه برنامه" : "App version"}>{APP_VERSION_LABEL}</span>
           </Link>
+
 
           <nav className="hidden md:flex items-center gap-1">
             {links.map(({ to, label, icon: Icon }) => {

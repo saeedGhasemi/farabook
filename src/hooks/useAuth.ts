@@ -8,9 +8,21 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
-      setUser(s?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      // Defensive: don't clear the user just because the token couldn't be
+      // refreshed (e.g. offline). Only react to an EXPLICIT sign-out, or a
+      // session being assigned. This keeps the installed app usable offline
+      // until the user logs out themselves.
+      if (event === "SIGNED_OUT") {
+        setSession(null);
+        setUser(null);
+        return;
+      }
+      if (s) {
+        setSession(s);
+        setUser(s.user ?? null);
+      }
+      // TOKEN_REFRESHED with null session → ignore (likely transient/offline).
     });
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);

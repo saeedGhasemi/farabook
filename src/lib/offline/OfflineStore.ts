@@ -287,8 +287,13 @@ export async function precacheBookAssets(bookId: string, userId: string): Promis
   const rows = await adapter.listAssetsByBook(bookId);
   if (!rows.length) return 0;
   const key = await getKey(userId, bookId);
-  // Parallel decrypt — each asset is small & independent. Browsers happily
-  // run ~8 AES-GCM ops at once; this collapses ~2s serial loops to ~250ms.
+  // Read manifest to map the cover blob URL back to the original cover_url too,
+  // so <BookCover src={original_url} /> resolves offline in the Library.
+  let originalCoverUrl: string | null = null;
+  try {
+    const m = await readManifest(bookId, userId);
+    originalCoverUrl = m?.cover_url ?? null;
+  } catch { /* manifest missing — skip cover aliasing */ }
   const results = await Promise.all(rows.map(async (r) => {
     try {
       const bytes = await decryptBytes(key, r.bytes_enc, r.bytes_iv);
@@ -297,6 +302,10 @@ export async function precacheBookAssets(bookId: string, userId: string): Promis
       const blob = new Blob([copy.buffer], { type: r.mime });
       const url = URL.createObjectURL(blob);
       registerOfflineBlobUrl(`offline-asset://${bookId}/${r.asset_key}`, url);
+      // Alias original cover URL → blob so the offline Library covers render.
+      if (r.asset_key === "cover" && originalCoverUrl) {
+        registerOfflineBlobUrl(originalCoverUrl, url);
+      }
       return 1;
     } catch (e) {
       console.warn("[offline] decrypt asset failed", r.asset_key, e);
@@ -305,6 +314,7 @@ export async function precacheBookAssets(bookId: string, userId: string): Promis
   }));
   return results.reduce((a, b) => a + b, 0);
 }
+
 
 /* ---------------- Highlights / progress / sync queue (used by SyncEngine) ---------------- */
 

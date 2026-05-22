@@ -1090,6 +1090,7 @@ export type Database = {
       }
       user_offline_devices: {
         Row: {
+          book_id: string | null
           created_at: string
           device_id: string
           device_label: string | null
@@ -1099,6 +1100,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          book_id?: string | null
           created_at?: string
           device_id: string
           device_label?: string | null
@@ -1108,6 +1110,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          book_id?: string | null
           created_at?: string
           device_id?: string
           device_label?: string | null

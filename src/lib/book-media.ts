@@ -56,9 +56,8 @@ const mediaMap: Record<string, string> = {
 
 /* ----------------- Offline asset blob-URL registry -----------------
  * The Reader pre-decrypts a book's stored assets and registers their blob
- * URLs here, keyed by the offline-asset:// URL embedded in page blocks.
- * `resolveBookMedia` then transparently swaps them in for `<img>` / `<video>`
- * tags without any caller having to know about the offline scheme. */
+ * URLs here, keyed by either the `offline-asset://<bookId>/<key>` URL OR the
+ * original remote URL (so covers in the Library also resolve offline). */
 const offlineUrlMap = new Map<string, string>();
 export const registerOfflineBlobUrl = (offlineUrl: string, blobUrl: string) => {
   offlineUrlMap.set(offlineUrl, blobUrl);
@@ -66,34 +65,28 @@ export const registerOfflineBlobUrl = (offlineUrl: string, blobUrl: string) => {
 export const unregisterOfflineBlobUrls = (bookId?: string) => {
   if (!bookId) { offlineUrlMap.clear(); return; }
   const prefix = `offline-asset://${bookId}/`;
-  for (const k of Array.from(offlineUrlMap.keys())) if (k.startsWith(prefix)) offlineUrlMap.delete(k);
+  for (const k of Array.from(offlineUrlMap.keys())) {
+    if (k.startsWith(prefix)) offlineUrlMap.delete(k);
+  }
 };
 export const hasOfflineBlobUrl = (offlineUrl: string) => offlineUrlMap.has(offlineUrl);
 
 export const resolveBookMedia = (src: string | null | undefined) => {
   if (!src) return "";
-  if (src.startsWith("offline-asset://")) {
-    return offlineUrlMap.get(src) ?? src;
-  }
+  // Direct hit (offline-asset:// scheme, original remote URL, or any aliased key).
+  const offlineHit = offlineUrlMap.get(src);
+  if (offlineHit) return offlineHit;
   return mediaMap[src] || src;
 };
 
-/**
- * For images stored in Supabase Storage, request an on-the-fly resized
- * variant via the render endpoint. This avoids downloading 1600px covers
- * for tiny card thumbnails. The transformed URL is stable (same query →
- * same response), so the browser cache works across navigations.
- *
- * For local bundled assets (mediaMap entries) or external URLs, returns
- * the resolved URL unchanged.
- */
 export const resolveBookCover = (
   src: string | null | undefined,
   opts: { width?: number; height?: number; quality?: number; resize?: "cover" | "contain" | "fill" } = {},
 ): string => {
   const resolved = resolveBookMedia(src);
   if (!resolved) return "";
-  // Only Supabase storage URLs can be transformed
+  // blob: URLs (offline cached covers) shouldn't be sent through the resize endpoint.
+  if (resolved.startsWith("blob:") || resolved.startsWith("data:")) return resolved;
   const m = resolved.match(/^(https?:\/\/[^/]+)\/storage\/v1\/object\/public\/(.+)$/);
   if (!m) return resolved;
   const [, host, rest] = m;
@@ -102,8 +95,6 @@ export const resolveBookCover = (
   if (opts.height) params.set("height", String(opts.height));
   params.set("quality", String(opts.quality ?? 70));
   params.set("resize", opts.resize ?? "cover");
-  // Strip any existing query
   const path = rest.split("?")[0];
   return `${host}/storage/v1/render/image/public/${path}?${params.toString()}`;
 };
-
