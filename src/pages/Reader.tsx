@@ -22,6 +22,14 @@ import { BookComments } from "@/components/BookComments";
 import { CopyProtection } from "@/components/reader/CopyProtection";
 import { ReadingLockOverlay } from "@/components/reader/ReadingLockOverlay";
 import { useReadingLock } from "@/hooks/useReadingLock";
+import {
+  loadOfflineBook,
+  listOfflineHighlights,
+  saveHighlightOfflineFirst,
+  updateHighlightOfflineFirst,
+  deleteHighlightOfflineFirst,
+  persistProgressOfflineFirst,
+} from "@/lib/offline/readerBridge";
 
 interface Page {
   title: string;
@@ -109,8 +117,20 @@ const Reader = () => {
     if (!id) return;
     if (authLoading) return;
     (async () => {
-      const { data } = await supabase.from("books").select("*").eq("id", id).maybeSingle();
+      const { data, error } = await supabase.from("books").select("*").eq("id", id).maybeSingle();
       if (!data) {
+        // Network down or row missing — try the encrypted local cache.
+        if (user) {
+          const off = await loadOfflineBook(id, user.id);
+          if (off) {
+            setBook({ ...(off as unknown as Book) });
+            if (off.ambient_theme && off.ambient_theme !== "paper") setAmbient(off.ambient_theme);
+            if (error) {
+              toast.info(lang === "fa" ? "حالت آفلاین: از نسخه دانلودشده می‌خوانید" : "Offline: reading from your downloaded copy");
+            }
+            return;
+          }
+        }
         toast.error(lang === "fa" ? "کتاب یافت نشد" : "Book not found");
         nav("/store");
         return;
@@ -150,26 +170,43 @@ const Reader = () => {
       });
   }, [user, id]);
 
-  // Load highlights
+  // Load highlights (server first; merge local pending). Falls back to local-only when offline.
   const loadHighlights = useCallback(async () => {
     if (!user || !id) return;
-    const { data } = await supabase
+    const local = await listOfflineHighlights(id);
+    const localById = new Map(local.map((r) => [r.id, r]));
+    const { data, error } = await supabase
       .from("highlights")
       .select("id, text, page_index, color, created_at, note")
       .eq("user_id", user.id).eq("book_id", id)
       .order("created_at", { ascending: false });
-    if (data) setHighlights(data as HighlightItem[]);
+    if (error || !data) {
+      // Offline path — show whatever we have locally.
+      setHighlights(local.map((r) => ({ id: r.id, text: r.text, page_index: r.page_index, color: r.color, created_at: r.created_at, note: r.note })) as HighlightItem[]);
+      return;
+    }
+    const serverIds = new Set(data.map((d) => d.id as string));
+    const localOnly = local.filter((r) => !serverIds.has(r.id))
+      .map((r) => ({ id: r.id, text: r.text, page_index: r.page_index, color: r.color, created_at: r.created_at, note: r.note })) as HighlightItem[];
+    setHighlights([...localOnly, ...(data as HighlightItem[])]);
+    // touch unused var to satisfy linter
+    void localById;
   }, [user, id]);
   useEffect(() => { loadHighlights(); }, [loadHighlights]);
 
-  // Persist progress
+  // Persist progress — local-first (offline safe), then server update if logged-purchased.
   useEffect(() => {
-    if (!userBookId || !book) return;
+    if (!book) return;
     const total = book.pages.length || 1;
     const progress = ((pageIdx + 1) / total) * 100;
-    const status = pageIdx >= total - 1 ? "finished" : "reading";
-    supabase.from("user_books").update({ current_page: pageIdx, progress, status }).eq("id", userBookId).then();
-  }, [pageIdx, userBookId, book]);
+    if (user && id) {
+      void persistProgressOfflineFirst(id, user.id, pageIdx, progress / 100);
+    }
+    if (userBookId) {
+      const status = pageIdx >= total - 1 ? "finished" : "reading";
+      supabase.from("user_books").update({ current_page: pageIdx, progress, status }).eq("id", userBookId).then();
+    }
+  }, [pageIdx, userBookId, book, user, id]);
 
   // Dark mode
   useEffect(() => {
@@ -318,22 +355,16 @@ const Reader = () => {
   const saveAiAsNote = async (text: string) => {
     if (!user || !id) { toast.error(lang === "fa" ? "ابتدا وارد شوید" : "Please sign in first"); return; }
     const snippet = pageText.slice(0, 80) + (pageText.length > 80 ? "…" : "");
-    const { data, error } = await supabase
-      .from("highlights")
-      .insert({
-        user_id: user.id,
-        book_id: id,
-        page_index: pageIdx,
+    try {
+      const row = await saveHighlightOfflineFirst({
+        bookId: id, userId: user.id, pageIndex: pageIdx,
         text: snippet || (lang === "fa" ? "یادداشت هوش مصنوعی" : "AI note"),
-        color: "blue",
-        note: text,
-      })
-      .select("id, text, page_index, color, created_at, note")
-      .single();
-    if (error) { toast.error(error.message); return; }
-    if (data) {
-      setHighlights((prev) => [data as HighlightItem, ...prev]);
+        color: "blue", note: text,
+      });
+      setHighlights((prev) => [{ id: row.id, text: row.text, page_index: row.page_index, color: row.color, created_at: row.created_at, note: row.note } as HighlightItem, ...prev]);
       toast.success(lang === "fa" ? "به نشان‌ها اضافه شد" : "Saved to notes");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "save failed");
     }
   };
 
@@ -389,42 +420,45 @@ const Reader = () => {
 
   const saveHighlight = async (color: string, note?: string) => {
     if (!savePopover || !user || !id) return;
-    const { data, error } = await supabase
-      .from("highlights")
-      .insert({
-        user_id: user.id,
-        book_id: id,
-        page_index: pageIdx,
-        text: savePopover.text,
-        color,
-        note: note || null,
-      })
-      .select("id, text, page_index, color, created_at, note")
-      .single();
-    if (error) { toast.error(error.message); return; }
-    if (data) {
-      setHighlights((prev) => [data as HighlightItem, ...prev]);
+    try {
+      const row = await saveHighlightOfflineFirst({
+        bookId: id, userId: user.id, pageIndex: pageIdx,
+        text: savePopover.text, color, note: note ?? null,
+      });
+      setHighlights((prev) => [{ id: row.id, text: row.text, page_index: row.page_index, color: row.color, created_at: row.created_at, note: row.note } as HighlightItem, ...prev]);
       toast.success(lang === "fa" ? "هایلایت ذخیره شد" : "Highlight saved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "save failed");
     }
     setSavePopover(null);
     window.getSelection()?.removeAllRanges();
   };
 
   const updateHighlightNote = async (hid: string, note: string) => {
-    const { error } = await supabase
-      .from("highlights")
-      .update({ note })
-      .eq("id", hid);
-    if (error) { toast.error(error.message); return; }
-    setHighlights((prev) =>
-      prev.map((h) => (h.id === hid ? { ...h, note } : h)),
-    );
+    const { getLocalHighlights } = await import("@/lib/offline/OfflineStore");
+    const all = id ? await getLocalHighlights(id) : [];
+    const existing = all.find((r) => r.id === hid);
+    if (existing) {
+      await updateHighlightOfflineFirst(existing, { note });
+    } else if (user && id) {
+      // Server-only row (pre-Phase 6) — fall back to direct update.
+      const { error } = await supabase.from("highlights").update({ note }).eq("id", hid);
+      if (error) { toast.error(error.message); return; }
+    }
+    setHighlights((prev) => prev.map((h) => (h.id === hid ? { ...h, note } : h)));
     toast.success(lang === "fa" ? "یادداشت ذخیره شد" : "Note saved");
   };
 
   const deleteHighlight = async (hid: string) => {
-    const { error } = await supabase.from("highlights").delete().eq("id", hid);
-    if (error) { toast.error(error.message); return; }
+    const { getLocalHighlights } = await import("@/lib/offline/OfflineStore");
+    const all = id ? await getLocalHighlights(id) : [];
+    const existing = all.find((r) => r.id === hid);
+    if (existing) {
+      await deleteHighlightOfflineFirst(existing);
+    } else {
+      const { error } = await supabase.from("highlights").delete().eq("id", hid);
+      if (error) { toast.error(error.message); return; }
+    }
     setHighlights((prev) => prev.filter((h) => h.id !== hid));
   };
 
