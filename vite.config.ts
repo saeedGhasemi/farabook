@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     VitePWA({
+      filename: "service-worker.js",
       registerType: "autoUpdate",
       injectRegister: false, // we register manually with iframe/preview guard
       devOptions: { enabled: false },
@@ -28,6 +29,9 @@ export default defineConfig(({ mode }) => ({
         "manifest.webmanifest",
       ],
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         // never cache OAuth or Supabase API responses
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [
@@ -41,6 +45,7 @@ export default defineConfig(({ mode }) => ({
         // include reasonably-sized assets in the precache
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2,webmanifest}"],
+        globIgnores: ["**/sw.js", "**/service-worker.js"],
         runtimeCaching: [
           // HTML — NetworkFirst so deploys propagate fast; offline falls back to cache
           {
