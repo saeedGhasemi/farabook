@@ -11,7 +11,6 @@ import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 import { BookCover } from "@/components/store/BookCover";
 import { APP_VERSION_LABEL } from "@/lib/version";
 
