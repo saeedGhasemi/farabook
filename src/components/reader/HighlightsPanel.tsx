@@ -10,6 +10,8 @@ export interface HighlightItem {
   color?: string;
   created_at?: string;
   note?: string | null;
+  block_index?: number | null;
+  occurrence?: number | null;
 }
 
 interface Props {
