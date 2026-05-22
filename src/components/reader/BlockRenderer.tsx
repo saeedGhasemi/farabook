@@ -589,7 +589,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
     case "heading":
       return (
         <motion.h3 {...fade} dir={block.dir} className="text-xl md:text-2xl font-display font-bold gold-text mt-6 mb-3 leading-tight" style={textBlockStyle(block)}>
-          {renderWithHighlights(block.text, savedHighlights, onHighlightClick)}
+          {renderWithHighlights(block.text, savedHighlights, onHighlightClick, index)}
         </motion.h3>
       );
 
@@ -604,7 +604,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
           className={`text-foreground/90 leading-loose whitespace-pre-line text-pretty ${isFirst && !isRtl ? "drop-cap" : ""}`}
           style={textBlockStyle(block, { fontSize: `${fontSize}px`, lineHeight: 1.85 })}
         >
-          {renderWithHighlights(block.text, savedHighlights, onHighlightClick)}
+          {renderWithHighlights(block.text, savedHighlights, onHighlightClick, index)}
         </motion.p>
       );
     }
@@ -619,7 +619,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
             className="pull-quote text-foreground/95 leading-relaxed text-balance"
             style={textBlockStyle(block, { fontSize: `${fontSize + 2}px` })}
           >
-            "{renderWithHighlights(block.text, savedHighlights, onHighlightClick)}"
+            "{renderWithHighlights(block.text, savedHighlights, onHighlightClick, index)}"
           </blockquote>
           {block.author && (
             <figcaption className="mt-2 text-sm text-muted-foreground">— {block.author}</figcaption>
@@ -743,14 +743,14 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
           <div className="book-table-wrap">
             <table className="book-table">
               <thead>
-                <tr>{block.headers.map((h, i) => <th key={i}>{renderWithHighlights(h, savedHighlights, onHighlightClick)}</th>)}</tr>
+                <tr>{block.headers.map((h, i) => <th key={i}>{renderWithHighlights(h, savedHighlights, onHighlightClick, index)}</th>)}</tr>
               </thead>
               <tbody>
                 {block.rows.map((row, r) => (
                   <tr key={r}>
                     {row.map((cell, c) => (
                       <td key={c} className="book-table-cell">
-                        {renderWithHighlights(cell, savedHighlights, onHighlightClick)}
+                        {renderWithHighlights(cell, savedHighlights, onHighlightClick, index)}
                       </td>
                     ))}
                   </tr>
@@ -844,7 +844,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
           >
             {block.items.map((it, i) => (
               <li key={i} className="ps-1 whitespace-pre-line" dir={block.itemAttrs?.[i]?.dir} style={textBlockStyle(block.itemAttrs?.[i] ?? {})}>
-                {renderWithHighlights(it, savedHighlights, onHighlightClick)}
+                {renderWithHighlights(it, savedHighlights, onHighlightClick, index)}
               </li>
             ))}
           </ListTag>
