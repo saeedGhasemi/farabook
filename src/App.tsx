@@ -25,6 +25,7 @@ import Install from "./pages/Install";
 import { UploadProgressPanel } from "@/components/UploadProgressPanel";
 import { SyncEngineBoot } from "@/components/SyncEngineBoot";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { InstallPromptAuto } from "@/components/InstallPromptAuto";
 
 const queryClient = new QueryClient();
 
