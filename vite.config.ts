@@ -46,12 +46,12 @@ export default defineConfig(({ mode }) => ({
           {
             urlPattern: ({ request }) => request.mode === "navigate",
             handler: "NetworkFirst",
-            options: { cacheName: "html", networkTimeoutSeconds: 3 },
+            options: { cacheName: "html", networkTimeoutSeconds: 10 },
           },
           // Static images & fonts
           {
             urlPattern: ({ request }) => ["style", "script", "worker"].includes(request.destination),
-            handler: "StaleWhileRevalidate",
+            handler: "NetworkFirst",
             options: { cacheName: "assets" },
           },
           {

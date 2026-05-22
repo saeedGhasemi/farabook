@@ -149,26 +149,13 @@ export async function downloadBook(
 
       let bytesWritten = 0;
 
-      // 4) Encrypt + write each (rewritten) page (atomic per page → resumable).
-      for (let i = 0; i < rewrittenPages.length; i++) {
-        const enc = await encryptJson(key, rewrittenPages[i]);
-        const row: BookPageRow = {
-          book_id: bookId,
-          page_index: i,
-          blocks_enc: enc.data,
-          blocks_iv: enc.iv,
-          byte_len: enc.data.byteLength,
-        };
-        await adapter.putPage(row);
-        bytesWritten += enc.data.byteLength;
-        onProgress({ bookId, status: "downloading", bytesWritten, totalBytes: null });
-      }
-
-      // 5) Fetch + encrypt every embedded asset (images, video, audio).
-      // Each failure is logged but does NOT abort the whole download.
+      // 4) Fetch + encrypt every embedded asset before writing rewritten pages.
+      // This keeps older ready copies intact: pages only start pointing to the
+      // new offline-asset:// refs after every required media file is present.
+      const failedAssets: string[] = [];
       for (const a of assets) {
         try {
-          const resp = await fetch(a.url, { credentials: "omit" });
+          const resp = await fetch(a.url, { credentials: "omit", cache: "no-store" });
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           const buf = new Uint8Array(await resp.arrayBuffer());
           const enc = await encryptBytes(key, buf);
@@ -183,9 +170,28 @@ export async function downloadBook(
           bytesWritten += enc.data.byteLength;
           onProgress({ bookId, status: "downloading", bytesWritten, totalBytes: null });
         } catch (assetErr) {
-          // continue — missing asset shows a placeholder offline
+          failedAssets.push(a.url);
           console.warn(`[offline] asset failed`, a.url, assetErr);
         }
+      }
+
+      if (failedAssets.length) {
+        throw new Error(`offline_asset_download_failed:${failedAssets.length}`);
+      }
+
+      // 5) Encrypt + write each (rewritten) page only after assets are complete.
+      for (let i = 0; i < rewrittenPages.length; i++) {
+        const enc = await encryptJson(key, rewrittenPages[i]);
+        const row: BookPageRow = {
+          book_id: bookId,
+          page_index: i,
+          blocks_enc: enc.data,
+          blocks_iv: enc.iv,
+          byte_len: enc.data.byteLength,
+        };
+        await adapter.putPage(row);
+        bytesWritten += enc.data.byteLength;
+        onProgress({ bookId, status: "downloading", bytesWritten, totalBytes: null });
       }
 
       // 6) Encrypt + cache cover (best effort) as a stable "cover" asset.
@@ -226,6 +232,12 @@ export async function downloadBook(
       return finalRow;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
+      if (cached?.status === "ready" && cached.manifest_enc && cached.manifest_iv) {
+        const preserved = { ...cached, last_error: message };
+        await adapter.upsertBookCache(preserved);
+        onProgress({ bookId, status: "ready", bytesWritten: cached.size_bytes, totalBytes: cached.size_bytes, message });
+        return preserved;
+      }
       await adapter.upsertBookCache({
         book_id: bookId, user_id: userId,
         content_version: serverBook.content_version,

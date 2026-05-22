@@ -96,6 +96,7 @@ export function useOfflineDownload(bookId: string | undefined, userId: string | 
       });
     } catch (e) {
       setState((s) => ({ ...s, status: "failed", error: e instanceof Error ? e.message : String(e) }));
+      throw e;
     }
   }, [bookId, userId, onProgress]);
 
