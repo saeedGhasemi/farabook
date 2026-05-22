@@ -259,15 +259,19 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
   const fa = lang === "fa";
   const { costs } = useAiCosts();
   const { credits, refresh: refreshCredits } = useCredits();
-  // Restore from per-chapter cache when remounting for the same chapter,
-  // but only if the chapter content fingerprint still matches. If the
-  // user has made substantial edits since the suggestions were generated,
-  // we drop the stale cache so they don't see mismatched suggestions.
+  // Restore from per-chapter cache (memory first, then localStorage fallback).
+  // We always restore — even if the doc has changed — and just filter out
+  // suggestions whose target_text no longer exists. That way a tiny edit
+  // to one paragraph doesn't blow away the whole suggestion list.
   const currentFingerprint = useMemo(() => computeDocFingerprint(editor), [editor]);
-  const rawCached = chapterKey ? suggestionCache.get(chapterKey) : undefined;
-  const cached = rawCached && rawCached.fingerprint === currentFingerprint ? rawCached : undefined;
-  if (chapterKey && rawCached && !cached) {
-    suggestionCache.delete(chapterKey);
+  const rawCached = chapterKey
+    ? (suggestionCache.get(chapterKey) ?? (loadCacheFromLs(chapterKey) || undefined))
+    : undefined;
+  const cached: CacheEntry | undefined = rawCached
+    ? { ...rawCached, suggestions: filterLiveSuggestions(editor, rawCached.suggestions || []) }
+    : undefined;
+  if (chapterKey && rawCached) {
+    suggestionCache.set(chapterKey, rawCached);
   }
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>(cached?.suggestions ?? []);
@@ -279,9 +283,6 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
   );
   const [busyIdx, setBusyIdx] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(cached?.error ?? null);
-  // Fingerprint of the doc when the current suggestion list was generated.
-  // Used to detect when the chapter content has drifted enough that the
-  // cached suggestions are no longer valid.
   const [genFingerprint, setGenFingerprint] = useState<string | null>(
     cached?.fingerprint ?? null,
   );
