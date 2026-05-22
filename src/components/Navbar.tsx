@@ -96,12 +96,12 @@ export const Navbar = () => {
           </nav>
 
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            <InstallAppButton />
+            <div className="hidden md:inline-flex"><InstallAppButton /></div>
             <NotificationsBell />
             <CreditsBadge />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-1.5" title={lang === "fa" ? "تم" : "Theme"}>
+                <Button variant="ghost" size="sm" className="gap-1.5 hidden md:inline-flex" title={lang === "fa" ? "تم" : "Theme"}>
                   <Palette className="w-4 h-4" />
                   <span className="hidden sm:inline w-4 h-4 rounded-full border border-border" style={{ background: themes.find(t => t.value === theme)?.swatch }} />
                 </Button>
@@ -121,7 +121,7 @@ export const Navbar = () => {
               variant="ghost"
               size="sm"
               onClick={() => setLang(lang === "fa" ? "en" : "fa")}
-              className="gap-1.5"
+              className="gap-1.5 hidden md:inline-flex"
             >
               <Languages className="w-4 h-4" />
               {lang === "fa" ? "EN" : "فا"}
