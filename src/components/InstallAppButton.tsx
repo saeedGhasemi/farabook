@@ -32,56 +32,62 @@ const detectBrowser = (): "chrome" | "edge" | "safari" | "firefox" | "samsung" |
   return "other";
 };
 
-export const InstallAppButton = () => {
+export const InstallAppButton = ({ forceShow = false }: { forceShow?: boolean } = {}) => {
   const { lang } = useI18n();
   const [deferred, setDeferred] = useState<BIPEvent | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(forceShow);
   const [pulse, setPulse] = useState(false);
+  const [installed, setInstalled] = useState(false);
 
   useEffect(() => {
     if (!PWA_ENABLED) return;
-    if (isStandaloneDisplay() || isLikelyInstalled()) return;
+    const alreadyInstalled = isStandaloneDisplay() || isLikelyInstalled();
+    setInstalled(alreadyInstalled);
+    if (!forceShow && alreadyInstalled) return;
 
     const platform = detectPlatform();
-    // iOS never fires beforeinstallprompt — always show
-    if (platform === "ios") setVisible(true);
+    if (platform === "ios" || forceShow) setVisible(true);
 
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferred(e as BIPEvent);
       setVisible(true);
     };
-    const installed = () => {
+    const onInstalled = () => {
       markInstalled();
-      setVisible(false);
+      setInstalled(true);
       setDeferred(null);
+      if (!forceShow) setVisible(false);
     };
     window.addEventListener("beforeinstallprompt", handler);
-    window.addEventListener("appinstalled", installed);
+    window.addEventListener("appinstalled", onInstalled);
 
-    // Async probe: if a related installed app exists, hide the button.
-    void checkInstalledViaRelatedApps().then((yes) => { if (yes) setVisible(false); });
+    void checkInstalledViaRelatedApps().then((yes) => {
+      if (yes) {
+        setInstalled(true);
+        if (!forceShow) setVisible(false);
+      }
+    });
 
-    // Fallback: on Android/Windows/other where the event may not fire fast,
-    // still show the button after a short delay so the user can act.
     const t = window.setTimeout(() => {
+      if (forceShow) { setVisible(true); return; }
       if (!isStandaloneDisplay() && !isLikelyInstalled()) setVisible(true);
     }, 1500);
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handler);
-      window.removeEventListener("appinstalled", installed);
+      window.removeEventListener("appinstalled", onInstalled);
       clearTimeout(t);
     };
-  }, []);
+  }, [forceShow]);
 
   // Pulse every refresh until the app is installed.
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || installed) return;
     setPulse(true);
-    const t = window.setTimeout(() => setPulse(false), 8000); // ~4 pulses
+    const t = window.setTimeout(() => setPulse(false), 8000);
     return () => clearTimeout(t);
-  }, [visible]);
+  }, [visible, installed]);
 
   const handleClick = async (e: React.MouseEvent) => {
     // If we have a native prompt, run it directly — no navigation.
@@ -147,7 +153,11 @@ export const InstallAppButton = () => {
         title={lang === "fa" ? "نصب اپ" : "Install app"}
       >
         <Download className="w-4 h-4" />
-        <span className="hidden lg:inline">{lang === "fa" ? "نصب اپ" : "Install"}</span>
+        <span className={forceShow ? "inline" : "hidden lg:inline"}>
+          {installed
+            ? (lang === "fa" ? "نصب‌شده" : "Installed")
+            : (lang === "fa" ? "نصب اپ" : "Install")}
+        </span>
       </Button>
     </Link>
   );

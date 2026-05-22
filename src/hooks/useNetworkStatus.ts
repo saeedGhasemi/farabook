@@ -1,29 +1,29 @@
 import { useEffect, useState } from "react";
 
+// Same-origin probe: hits a static asset the server always serves. Supabase
+// REST probes are unreliable (RLS/CORS/auth/rate-limit can return errors even
+// when the network is fine), which caused false "offline" banners.
 const probeOnline = async (): Promise<boolean> => {
   if (typeof window === "undefined") return true;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return false;
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 4500);
   try {
-    const base = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-    const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
-    const url = base
-      ? `${base}/rest/v1/books?select=id&limit=1&online_check=${Date.now()}`
-      : `/manifest.webmanifest?online_check=${Date.now()}`;
-    const resp = await fetch(url, {
+    const resp = await fetch(`/manifest.webmanifest?online_check=${Date.now()}`, {
       cache: "no-store",
       signal: controller.signal,
-      headers: key ? { apikey: key, authorization: `Bearer ${key}` } : undefined,
     });
-    return resp.ok;
+    return resp.ok || resp.status === 304;
   } catch {
+    // Network truly unreachable.
     return false;
   } finally {
     window.clearTimeout(timeout);
   }
 };
 
-/** Tracks real backend reachability; `navigator.onLine` alone is unreliable. */
+/** Tracks real reachability. Treats only confirmed failures as offline so we
+ *  don't flash false offline banners when Supabase rate-limits or CORS-blocks. */
 export function useNetworkStatus(): { online: boolean; offline: boolean } {
   const [online, setOnline] = useState<boolean>(
     typeof navigator === "undefined" ? true : navigator.onLine,
@@ -35,7 +35,7 @@ export function useNetworkStatus(): { online: boolean; offline: boolean } {
       if (alive) setOnline(ok);
     };
     const on = () => { setOnline(true); void check(); };
-    const off = () => { setOnline(false); void check(); };
+    const off = () => { setOnline(false); };
     window.addEventListener("online", on);
     window.addEventListener("offline", off);
     void check();
