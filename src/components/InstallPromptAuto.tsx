@@ -5,6 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useI18n } from "@/lib/i18n";
 import { PWA_ENABLED } from "@/lib/pwa/registerSW";
 
+import { isLikelyInstalled, isStandaloneDisplay, markInstalled, checkInstalledViaRelatedApps } from "@/lib/pwa/installState";
+
 interface BIPEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: string }>;
@@ -12,13 +14,6 @@ interface BIPEvent extends Event {
 
 const STORAGE_KEY = "farabook.installPrompt.dismissedAt";
 const REPROMPT_DAYS = 7;
-
-const isStandalone = () =>
-  (typeof window !== "undefined" &&
-    (window.matchMedia?.("(display-mode: standalone)").matches ||
-      // iOS Safari
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (navigator as any).standalone === true));
 
 const detectPlatform = (): "ios" | "android" | "windows" | "other" => {
   if (typeof navigator === "undefined") return "other";
