@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CreditsBadge } from "@/components/CreditsBadge";
 import { NotificationsBell } from "@/components/NotificationsBell";
+import { InstallAppButton } from "@/components/InstallAppButton";
 
 export const Navbar = () => {
   const { t, lang, setLang, dir } = useI18n();
@@ -95,6 +96,7 @@ export const Navbar = () => {
           </nav>
 
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <InstallAppButton />
             <NotificationsBell />
             <CreditsBadge />
             <DropdownMenu>

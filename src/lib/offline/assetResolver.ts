@@ -36,7 +36,10 @@ export async function resolveOfflineAsset(url: string, userId: string): Promise<
     p = (async () => {
       const a = await readAsset(parsed.bookId, userId, parsed.assetKey);
       if (!a) return null;
-      const blob = new Blob([a.bytes], { type: a.mime });
+      // copy into a fresh ArrayBuffer so TS' Blob types accept it across envs
+      const copy = new Uint8Array(a.bytes.byteLength);
+      copy.set(a.bytes);
+      const blob = new Blob([copy.buffer], { type: a.mime });
       const u = URL.createObjectURL(blob);
       cache.set(cacheKey, u);
       return u;
