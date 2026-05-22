@@ -6,7 +6,7 @@
 import {
   readManifest, readPage,
   saveLocalHighlight, saveLocalProgress, getLocalHighlights,
-  getCachedIfFresh,
+  getCachedIfFresh, precacheBookAssets,
 } from "./OfflineStore";
 import { triggerSync } from "./SyncEngine";
 import type { HighlightRow, ProgressRow } from "./types";
@@ -28,6 +28,8 @@ export async function loadOfflineBook(bookId: string, userId: string): Promise<O
   try {
     const manifest = await readManifest(bookId, userId);
     if (!manifest) return null;
+    // Pre-decrypt all embedded images/videos so <img>/<video> render offline.
+    await precacheBookAssets(bookId, userId);
     const pages: unknown[] = [];
     for (let i = 0; i < manifest.page_count; i++) {
       const p = await readPage(bookId, userId, i);

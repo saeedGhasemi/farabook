@@ -21,8 +21,10 @@ import Credits from "./pages/Credits";
 import EditorRequests from "./pages/EditorRequests";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound.tsx";
+import Install from "./pages/Install";
 import { UploadProgressPanel } from "@/components/UploadProgressPanel";
 import { SyncEngineBoot } from "@/components/SyncEngineBoot";
+import { OfflineBanner } from "@/components/OfflineBanner";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +37,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Navbar />
+            <OfflineBanner />
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<Auth />} />
@@ -50,6 +53,7 @@ const App = () => (
               <Route path="/credits" element={<Credits />} />
               <Route path="/editor-requests" element={<EditorRequests />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/install" element={<Install />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <UploadProgressPanel />

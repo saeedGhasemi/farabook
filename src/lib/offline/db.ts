@@ -21,6 +21,7 @@ interface Adapter {
   // assets
   putAsset(row: BookAssetRow): Promise<void>;
   getAsset(bookId: string, key: string): Promise<BookAssetRow | undefined>;
+  listAssetsByBook(bookId: string): Promise<BookAssetRow[]>;
   // highlights
   putHighlight(row: HighlightRow): Promise<void>;
   getHighlightsByBook(bookId: string): Promise<HighlightRow[]>;
@@ -108,6 +109,11 @@ const webAdapter: Adapter = {
   async getPage(b, p) { const db = await ensureWebDb(); return db.get("book_pages", [b, p]) as Promise<BookPageRow | undefined>; },
   async putAsset(r) { const db = await ensureWebDb(); await db.put("book_assets", r); },
   async getAsset(b, k) { const db = await ensureWebDb(); return db.get("book_assets", [b, k]) as Promise<BookAssetRow | undefined>; },
+  async listAssetsByBook(bookId) {
+    const db = await ensureWebDb();
+    const all = (await db.getAll("book_assets")) as BookAssetRow[];
+    return all.filter((r) => r.book_id === bookId);
+  },
   async putHighlight(r) { const db = await ensureWebDb(); await db.put("highlights_local", r); },
   async getHighlightsByBook(b) {
     const db = await ensureWebDb();
@@ -206,6 +212,7 @@ async function buildNativeAdapter(passphrase: string): Promise<Adapter> {
       );
     },
     async getAsset(b, k) { const rows = await query<BookAssetRow>("SELECT * FROM book_assets WHERE book_id=? AND asset_key=?", [b, k]); return rows[0]; },
+    async listAssetsByBook(b) { return query<BookAssetRow>("SELECT * FROM book_assets WHERE book_id=?", [b]); },
     async putHighlight(r) {
       await run(
         `INSERT INTO highlights_local(id,client_id,book_id,user_id,page_index,text,color,note,is_public,created_at,updated_at,deleted_at,synced)

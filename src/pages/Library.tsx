@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dialog";
 import { BookComments } from "@/components/BookComments";
 import { OfflineBookButton } from "@/components/library/OfflineBookButton";
+import { useOfflineLibrary } from "@/hooks/useOfflineLibrary";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 
 interface Row {
@@ -51,6 +53,8 @@ const Library = () => {
   const [confirmDelete, setConfirmDelete] = useState<Row["books"] | null>(null);
   const [commentsBook, setCommentsBook] = useState<{ id: string; title: string } | null>(null);
   const [activity, setActivity] = useState<Record<string, { count: number; last: string | null }>>({});
+  const { offline } = useNetworkStatus();
+  const { books: offlineBooks } = useOfflineLibrary(user?.id);
 
   useEffect(() => {
     if (!loading && !user) nav("/auth");
@@ -59,11 +63,12 @@ const Library = () => {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      // 1) Books explicitly in the user's library
-      const { data: ub } = await supabase.from("user_books")
-        .select("id, status, progress, current_page, acquired_via, books(id, title, title_en, author, cover_url, category, publisher_id, status, price)")
-        .eq("user_id", user.id);
-      const ownedRows = ((ub as unknown as Row[]) ?? []).filter((r) => r.books);
+      try {
+        // 1) Books explicitly in the user's library
+        const { data: ub } = await supabase.from("user_books")
+          .select("id, status, progress, current_page, acquired_via, books(id, title, title_en, author, cover_url, category, publisher_id, status, price)")
+          .eq("user_id", user.id);
+        const ownedRows = ((ub as unknown as Row[]) ?? []).filter((r) => r.books);
 
       // 2) Books the user published AND are live in the store — auto-included
       //    as virtual library entries. Drafts stay only in "My Publications"
@@ -107,7 +112,12 @@ const Library = () => {
         });
         setActivity(map);
       }
+      } catch (e) {
+        console.warn("[library] online fetch failed, offline-only", e);
+        setRowsLoading(false);
+      }
     })();
+
   }, [user]);
 
   const formatRelative = (iso: string) => {
@@ -134,6 +144,24 @@ const Library = () => {
   const statusLabel = (s: string) =>
     s === "reading" ? t("status_reading") : s === "finished" ? t("status_finished") : t("status_unread");
 
+  // Merge: online rows + offline-only books not already present
+  const onlineIds = new Set(rows.map((r) => r.books?.id));
+  const offlineOnlyRows: Row[] = offlineBooks
+    .filter((b) => !onlineIds.has(b.id))
+    .map((b) => ({
+      id: `off-${b.id}`,
+      status: "reading",
+      progress: 0,
+      current_page: 0,
+      acquired_via: "offline",
+      books: {
+        id: b.id, title: b.title, title_en: null, author: b.author ?? "",
+        cover_url: b.cover_url, category: null, publisher_id: null,
+        status: "published", price: 0,
+      },
+    }));
+  const displayRows = [...rows, ...offlineOnlyRows];
+
   return (
     <main className="container py-10 md:py-16 min-h-[calc(100vh-4rem)]">
       <div className="flex items-center justify-between mb-10 flex-wrap gap-4">
@@ -141,9 +169,14 @@ const Library = () => {
           className="text-4xl md:text-5xl font-display font-bold">
           {t("library_title")}
         </motion.h1>
+        {offline && (
+          <span className="text-xs px-3 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+            {lang === "fa" ? `حالت آفلاین — ${offlineBooks.length} کتاب در دسترس` : `Offline — ${offlineBooks.length} books available`}
+          </span>
+        )}
       </div>
 
-      {rows.length === 0 ? (
+      {displayRows.length === 0 ? (
         <div className="glass-strong rounded-3xl p-16 text-center max-w-xl mx-auto">
           <BookOpen className="w-14 h-14 mx-auto text-muted-foreground mb-4" />
           <p className="text-lg text-muted-foreground mb-6">{t("library_empty")}</p>
@@ -153,7 +186,7 @@ const Library = () => {
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {rows.map((r, i) => {
+          {displayRows.map((r, i) => {
             if (!r.books) return null;
             const title = lang === "en" && r.books.title_en ? r.books.title_en : r.books.title;
             const isOwner = !!user && r.books.publisher_id === user.id;

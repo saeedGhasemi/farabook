@@ -7,6 +7,8 @@ import { getAdapter } from "./db";
 import {
   decryptBytes, decryptJson, deriveBookKey, encryptBytes, encryptJson, fetchBookPepper, invalidateBookKey,
 } from "./crypto";
+import { rewritePagesForOffline } from "./assetWalker";
+import { registerOfflineBlobUrl, unregisterOfflineBlobUrls } from "@/lib/book-media";
 import type { BookCacheRow, BookPageRow, DownloadStatus, HighlightRow, ProgressRow, SyncQueueRow } from "./types";
 
 export interface BookManifest {
@@ -128,11 +130,16 @@ export async function downloadBook(
       const key = await getKey(userId, bookId);
 
       const pagesArr = Array.isArray(serverBook.pages) ? (serverBook.pages as unknown[]) : [];
+
+      // 3a) Walk pages — extract every downloadable asset URL and rewrite the
+      // page payload so embedded images/videos point at offline-asset:// keys.
+      const { pages: rewrittenPages, assets } = rewritePagesForOffline(pagesArr, bookId);
+
       const manifest: BookManifest = {
         title: serverBook.title,
         author: serverBook.author,
         cover_url: serverBook.cover_url,
-        page_count: pagesArr.length,
+        page_count: rewrittenPages.length,
         ambient_theme: serverBook.ambient_theme,
         typography_preset: serverBook.typography_preset,
         pages: [], // pages are stored separately; manifest holds only metadata
@@ -140,9 +147,9 @@ export async function downloadBook(
 
       let bytesWritten = 0;
 
-      // 4) Encrypt + write each page (atomic per page → resumable).
-      for (let i = 0; i < pagesArr.length; i++) {
-        const enc = await encryptJson(key, pagesArr[i]);
+      // 4) Encrypt + write each (rewritten) page (atomic per page → resumable).
+      for (let i = 0; i < rewrittenPages.length; i++) {
+        const enc = await encryptJson(key, rewrittenPages[i]);
         const row: BookPageRow = {
           book_id: bookId,
           page_index: i,
@@ -155,7 +162,31 @@ export async function downloadBook(
         onProgress({ bookId, status: "downloading", bytesWritten, totalBytes: null });
       }
 
-      // 5) Encrypt + cache cover (best effort).
+      // 5) Fetch + encrypt every embedded asset (images, video, audio).
+      // Each failure is logged but does NOT abort the whole download.
+      for (const a of assets) {
+        try {
+          const resp = await fetch(a.url, { credentials: "omit" });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const buf = new Uint8Array(await resp.arrayBuffer());
+          const enc = await encryptBytes(key, buf);
+          await adapter.putAsset({
+            book_id: bookId,
+            asset_key: a.assetKey,
+            mime: resp.headers.get("content-type") ?? "application/octet-stream",
+            bytes_enc: enc.data,
+            bytes_iv: enc.iv,
+            byte_len: buf.byteLength,
+          });
+          bytesWritten += enc.data.byteLength;
+          onProgress({ bookId, status: "downloading", bytesWritten, totalBytes: null });
+        } catch (assetErr) {
+          // continue — missing asset shows a placeholder offline
+          console.warn(`[offline] asset failed`, a.url, assetErr);
+        }
+      }
+
+      // 6) Encrypt + cache cover (best effort) as a stable "cover" asset.
       if (serverBook.cover_url) {
         try {
           const resp = await fetch(serverBook.cover_url);
@@ -172,7 +203,7 @@ export async function downloadBook(
         } catch { /* non-fatal */ }
       }
 
-      // 6) Encrypt manifest.
+      // 7) Encrypt manifest.
       const manifestEnc = await encryptJson(key, manifest);
 
       const finalRow: BookCacheRow = {
@@ -220,11 +251,38 @@ export async function removeBookLocally(bookId: string, userId: string): Promise
   await adapter.deleteBook(bookId);
   await adapter.setMeta(`pepper:${bookId}`, "");
   invalidateBookKey(userId, bookId);
+  unregisterOfflineBlobUrls(bookId);
 }
 
 export async function listLocalBooks(userId: string): Promise<BookCacheRow[]> {
   const adapter = await getAdapter();
   return adapter.listBookCache(userId);
+}
+
+/** Decrypt every stored asset for a book and register a blob: URL for each
+ *  under its `offline-asset://<bookId>/<key>` reference. Once called, any
+ *  `<img>` / `<video>` rendered via `resolveBookMedia` resolves transparently
+ *  to the local copy. Call before rendering the reader offline. */
+export async function precacheBookAssets(bookId: string, userId: string): Promise<number> {
+  const adapter = await getAdapter();
+  const rows = await adapter.listAssetsByBook(bookId);
+  if (!rows.length) return 0;
+  const key = await getKey(userId, bookId);
+  let count = 0;
+  for (const r of rows) {
+    try {
+      const bytes = await decryptBytes(key, r.bytes_enc, r.bytes_iv);
+      const copy = new Uint8Array(bytes.byteLength);
+      copy.set(bytes);
+      const blob = new Blob([copy.buffer], { type: r.mime });
+      const url = URL.createObjectURL(blob);
+      registerOfflineBlobUrl(`offline-asset://${bookId}/${r.asset_key}`, url);
+      count++;
+    } catch (e) {
+      console.warn("[offline] decrypt asset failed", r.asset_key, e);
+    }
+  }
+  return count;
 }
 
 /* ---------------- Highlights / progress / sync queue (used by SyncEngine) ---------------- */
