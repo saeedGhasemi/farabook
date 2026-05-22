@@ -90,6 +90,19 @@ export const InstallAppButton = ({ forceShow = false }: { forceShow?: boolean } 
   }, [visible, installed]);
 
   const handleClick = async (e: React.MouseEvent) => {
+    // Already installed → try to open the installed app.
+    if (installed) {
+      e.preventDefault();
+      const startUrl = `${window.location.origin}/?source=pwa`;
+      // Best-effort: on Chromium with launch_handler: focus-existing, this
+      // focuses the installed app window; otherwise opens in a new tab.
+      try {
+        window.open(startUrl, "_blank", "noopener");
+      } catch {
+        window.location.href = startUrl;
+      }
+      return;
+    }
     // If we have a native prompt, run it directly — no navigation.
     if (deferred) {
       e.preventDefault();
@@ -155,7 +168,7 @@ export const InstallAppButton = ({ forceShow = false }: { forceShow?: boolean } 
         <Download className="w-4 h-4" />
         <span className={forceShow ? "inline" : "hidden lg:inline"}>
           {installed
-            ? (lang === "fa" ? "نصب‌شده" : "Installed")
+            ? (lang === "fa" ? "باز کردن اپ" : "Open app")
             : (lang === "fa" ? "نصب اپ" : "Install")}
         </span>
       </Button>
