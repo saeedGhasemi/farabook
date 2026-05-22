@@ -59,7 +59,7 @@ export type Block =
   | { type: "scrollytelling"; title?: string; steps: ScrollyStep[] }
   | { type: "list"; ordered?: boolean; items: string[]; itemAttrs?: Array<{ textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }>; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" };
 
-interface SavedHL { id?: string; text: string; color: string }
+interface SavedHL { id?: string; text: string; color: string; block_index?: number | null; occurrence?: number | null }
 
 interface Props {
   block: Block;
