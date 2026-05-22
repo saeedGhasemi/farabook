@@ -20,6 +20,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { BookComments } from "@/components/BookComments";
+import { OfflineBookButton } from "@/components/library/OfflineBookButton";
 
 
 interface Row {
@@ -222,6 +223,7 @@ const Library = () => {
                 >
                   <MessageCircle className="w-4 h-4 text-accent" />
                 </button>
+                {!isDraft && <OfflineBookButton bookId={r.books.id} userId={user?.id} />}
               </motion.div>
             );
           })}
