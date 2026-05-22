@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Info, Sparkles, Quote as QuoteIcon, ChevronLeft, ChevronRight, Play, Pause, Plus, X, Lightbulb, AlertTriangle, CheckCircle2, ShieldAlert, Pencil, HelpCircle, BookMarked } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { resolveBookMedia } from "@/lib/book-media";
+import { useI18n } from "@/lib/i18n";
+
 import { normalizeImportedText } from "@/lib/tiptap-doc";
 import { SmartImage } from "@/components/SmartImage";
 import { Timeline, type TimelineStep } from "./Timeline";
@@ -416,14 +418,15 @@ const Slideshow = ({
           className="absolute start-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full glass-strong flex items-center justify-center hover:bg-accent/30 transition-colors"
           aria-label="previous"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <PrevIcon className="w-5 h-5" />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); go(1); }}
           className="absolute end-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full glass-strong flex items-center justify-center hover:bg-accent/30 transition-colors"
           aria-label="next"
         >
-          <ChevronRight className="w-5 h-5" />
+          <NextIcon className="w-5 h-5" />
+
         </button>
 
         {/* Play / pause */}
@@ -501,14 +504,15 @@ const Slideshow = ({
               className="absolute start-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full glass-strong flex items-center justify-center"
               aria-label="previous"
             >
-              <ChevronLeft className="w-6 h-6" />
+              <PrevIcon className="w-6 h-6" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); go(1); }}
               className="absolute end-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full glass-strong flex items-center justify-center"
               aria-label="next"
             >
-              <ChevronRight className="w-6 h-6" />
+              <NextIcon className="w-6 h-6" />
+
             </button>
             <motion.img
               key={i}
