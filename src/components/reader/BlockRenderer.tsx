@@ -59,7 +59,7 @@ export type Block =
   | { type: "scrollytelling"; title?: string; steps: ScrollyStep[] }
   | { type: "list"; ordered?: boolean; items: string[]; itemAttrs?: Array<{ textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }>; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" };
 
-interface SavedHL { id?: string; text: string; color: string }
+interface SavedHL { id?: string; text: string; color: string; block_index?: number | null; occurrence?: number | null }
 
 interface Props {
   block: Block;
@@ -155,20 +155,51 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
 /* Strip inline citation blobs and apply inline markdown formatting. */
 const cleanInlineRefs = (text: string): React.ReactNode => renderInlineMarkdown(text);
 
-/* Render text with inline colored highlight spans — clickable & vivid */
+/* Render text with inline colored highlight spans — clickable & vivid.
+   When a highlight has a `block_index`, it is only applied on that block.
+   When it has an `occurrence` (1-based index), only the Nth match in the
+   block is wrapped. Highlights without block_index (legacy) fall back to
+   the old behavior of matching everywhere. */
 const renderWithHighlights = (
   text: string,
   hls?: SavedHL[],
   onClick?: (hl: SavedHL) => void,
+  blockIndex?: number,
 ): React.ReactNode => {
   if (!hls || hls.length === 0) return cleanInlineRefs(text);
-  const sorted = [...hls].sort((a, b) => b.text.length - a.text.length);
+
+  // Filter: legacy highlights (no block_index) match everywhere; new ones
+  // only match if they target this exact block.
+  const applicable = hls.filter((h) =>
+    h.block_index === null || h.block_index === undefined || h.block_index === blockIndex,
+  );
+  if (applicable.length === 0) return cleanInlineRefs(text);
+
+  // Sort longest-first so longer phrases win over their sub-strings.
+  const sorted = [...applicable].sort((a, b) => b.text.length - a.text.length);
   const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(`(${sorted.map((h) => escape(h.text)).join("|")})`, "g");
   const parts = text.split(pattern);
+
+  // Track per-text occurrence counts so we only wrap the Nth match when
+  // the highlight specifies one.
+  const seen = new Map<string, number>();
+
   return parts.map((p, i) => {
-    const match = sorted.find((h) => h.text === p);
+    if (!p) return null;
+    const candidates = sorted.filter((h) => h.text === p);
+    if (candidates.length === 0) return <span key={i}>{cleanInlineRefs(p)}</span>;
+
+    const idx = (seen.get(p) || 0) + 1;
+    seen.set(p, idx);
+
+    // Prefer a highlight that explicitly targets this occurrence; otherwise
+    // pick the first whose occurrence is null/undefined (any match).
+    const match =
+      candidates.find((h) => h.occurrence === idx) ||
+      candidates.find((h) => h.occurrence === null || h.occurrence === undefined);
     if (!match) return <span key={i}>{cleanInlineRefs(p)}</span>;
+
     const color = match.color || "yellow";
     return (
       <mark
@@ -178,6 +209,7 @@ const renderWithHighlights = (
         onClick={onClick ? () => onClick(match) : undefined}
         onKeyDown={onClick ? (e) => { if (e.key === "Enter") onClick(match); } : undefined}
         className={`hl-${color} text-foreground`}
+        data-hl-id={match.id}
         title={onClick ? "مشاهده در نشان‌ها" : undefined}
       >
         {p}
@@ -557,7 +589,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
     case "heading":
       return (
         <motion.h3 {...fade} dir={block.dir} className="text-xl md:text-2xl font-display font-bold gold-text mt-6 mb-3 leading-tight" style={textBlockStyle(block)}>
-          {renderWithHighlights(block.text, savedHighlights, onHighlightClick)}
+          {renderWithHighlights(block.text, savedHighlights, onHighlightClick, index)}
         </motion.h3>
       );
 
@@ -572,7 +604,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
           className={`text-foreground/90 leading-loose whitespace-pre-line text-pretty ${isFirst && !isRtl ? "drop-cap" : ""}`}
           style={textBlockStyle(block, { fontSize: `${fontSize}px`, lineHeight: 1.85 })}
         >
-          {renderWithHighlights(block.text, savedHighlights, onHighlightClick)}
+          {renderWithHighlights(block.text, savedHighlights, onHighlightClick, index)}
         </motion.p>
       );
     }
@@ -587,7 +619,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
             className="pull-quote text-foreground/95 leading-relaxed text-balance"
             style={textBlockStyle(block, { fontSize: `${fontSize + 2}px` })}
           >
-            "{renderWithHighlights(block.text, savedHighlights, onHighlightClick)}"
+            "{renderWithHighlights(block.text, savedHighlights, onHighlightClick, index)}"
           </blockquote>
           {block.author && (
             <figcaption className="mt-2 text-sm text-muted-foreground">— {block.author}</figcaption>
@@ -711,14 +743,14 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
           <div className="book-table-wrap">
             <table className="book-table">
               <thead>
-                <tr>{block.headers.map((h, i) => <th key={i}>{renderWithHighlights(h, savedHighlights, onHighlightClick)}</th>)}</tr>
+                <tr>{block.headers.map((h, i) => <th key={i}>{renderWithHighlights(h, savedHighlights, onHighlightClick, index)}</th>)}</tr>
               </thead>
               <tbody>
                 {block.rows.map((row, r) => (
                   <tr key={r}>
                     {row.map((cell, c) => (
                       <td key={c} className="book-table-cell">
-                        {renderWithHighlights(cell, savedHighlights, onHighlightClick)}
+                        {renderWithHighlights(cell, savedHighlights, onHighlightClick, index)}
                       </td>
                     ))}
                   </tr>
@@ -812,7 +844,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
           >
             {block.items.map((it, i) => (
               <li key={i} className="ps-1 whitespace-pre-line" dir={block.itemAttrs?.[i]?.dir} style={textBlockStyle(block.itemAttrs?.[i] ?? {})}>
-                {renderWithHighlights(it, savedHighlights, onHighlightClick)}
+                {renderWithHighlights(it, savedHighlights, onHighlightClick, index)}
               </li>
             ))}
           </ListTag>

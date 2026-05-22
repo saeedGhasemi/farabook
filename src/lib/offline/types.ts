@@ -47,6 +47,10 @@ export interface HighlightRow {
   book_id: string;
   user_id: string;
   page_index: number;
+  /** Index of the block inside the page (paragraph, heading, …). Optional for legacy data. */
+  block_index?: number | null;
+  /** 1-based occurrence of `text` within that block. Optional for legacy data. */
+  occurrence?: number | null;
   text: string;
   color: string;
   note: string | null;

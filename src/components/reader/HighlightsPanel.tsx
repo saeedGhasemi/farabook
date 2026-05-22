@@ -10,13 +10,15 @@ export interface HighlightItem {
   color?: string;
   created_at?: string;
   note?: string | null;
+  block_index?: number | null;
+  occurrence?: number | null;
 }
 
 interface Props {
   open: boolean;
   highlights: HighlightItem[];
   onClose: () => void;
-  onJump: (pageIndex: number) => void;
+  onJump: (pageIndex: number, hl?: HighlightItem) => void;
   onDelete: (id: string) => void;
   onUpdateNote?: (id: string, note: string) => void;
 }
@@ -106,7 +108,7 @@ export const HighlightsPanel = ({
                       <div className="flex-1 min-w-0">
                         <button
                           onClick={() => {
-                            onJump(h.page_index);
+                            onJump(h.page_index, h);
                             onClose();
                           }}
                           className="text-start w-full"
