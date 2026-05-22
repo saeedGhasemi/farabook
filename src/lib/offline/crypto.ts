@@ -47,11 +47,24 @@ export async function fetchBookPepper(bookId: string): Promise<string> {
       platform: "web",
     },
   });
-  if (error) throw error;
+  if (error) {
+    // supabase-js wraps non-2xx as FunctionsHttpError with .context = Response.
+    // Pull the JSON body so the UI can show the real reason (e.g. device_limit_reached).
+    let reason = error.message || "edge_error";
+    try {
+      const ctx = (error as unknown as { context?: Response }).context;
+      if (ctx && typeof ctx.json === "function") {
+        const body = await ctx.clone().json().catch(() => null);
+        if (body?.error) reason = String(body.error);
+      }
+    } catch { /* ignore */ }
+    throw new Error(reason);
+  }
   const pepper = (data as { pepper?: string } | null)?.pepper;
   if (!pepper) throw new Error("no_pepper");
   return pepper;
 }
+
 
 const keyCache = new Map<string, CryptoKey>();
 

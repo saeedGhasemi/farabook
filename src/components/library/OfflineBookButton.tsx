@@ -36,9 +36,24 @@ export function OfflineBookButton({ bookId, userId }: Props) {
       await download();
       toast.success(lang === "fa" ? "برای آفلاین ذخیره شد" : "Saved for offline");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
+      const raw = err instanceof Error ? err.message : String(err);
+      const map: Record<string, { fa: string; en: string }> = {
+        device_limit_reached: {
+          fa: "سقف ۲ دستگاه آفلاین پر است. ابتدا یک دستگاه را از پروفایل → دستگاه‌های آفلاین حذف کنید.",
+          en: "You've reached the 2-device offline limit. Remove a device from Profile → Offline devices first.",
+        },
+        not_owned: { fa: "این کتاب در کتابخانه شما نیست.", en: "This book isn't in your library." },
+        unauthorized: { fa: "ابتدا وارد حساب خود شوید.", en: "Please sign in first." },
+        book_not_found: { fa: "کتاب پیدا نشد.", en: "Book not found." },
+        missing_params: { fa: "خطای داخلی. دوباره تلاش کنید.", en: "Internal error. Please retry." },
+      };
+      const msg = map[raw] ? map[raw][lang] : raw;
+      toast.error(msg);
     }
   };
+
+
+
 
   const onConfirmRemove = async () => {
     await remove();
