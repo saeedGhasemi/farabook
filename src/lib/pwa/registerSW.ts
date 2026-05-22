@@ -2,6 +2,15 @@
 // SW only registers on real production deploys (e.g. farabook.lovable.app or
 // a custom domain). In dev / preview we proactively unregister any leftover
 // worker so the preview is never served stale code.
+//
+// AUTO-UPDATE BEHAVIOR
+// --------------------
+// When a new build is deployed:
+//   1. The browser fetches the new sw.js (we also poll every 60s + on focus).
+//   2. As soon as a new SW reaches the "waiting" state, we call
+//      `updateSW(true)` which activates it and reloads the page — so the
+//      user sees the new version on the very next render, without needing
+//      Ctrl+F5 or a manual cache clear.
 
 const isInIframe = (() => {
   try { return window.self !== window.top; } catch { return true; }
@@ -42,8 +51,43 @@ export async function registerServiceWorker(): Promise<void> {
 
   try {
     const { registerSW } = await import("virtual:pwa-register");
-    const updateSW = registerSW({ immediate: true });
+
+    // Auto-reload as soon as a new build is ready. We don't prompt the user —
+    // updates are tiny (a fresh HTML shell + hashed JS bundles) and prompting
+    // for every deploy was confusing.
+    let reloading = false;
+    const updateSW = registerSW({
+      immediate: true,
+      onNeedRefresh() {
+        if (reloading) return;
+        reloading = true;
+        // `true` → skipWaiting + reload, picks up the new build instantly.
+        void updateSW(true);
+      },
+      onRegisteredSW(_swUrl, registration) {
+        if (!registration) return;
+        // Poll for a new SW periodically and on tab focus so deploys
+        // propagate within ~1 minute even for long-lived tabs.
+        const check = () => { registration.update().catch(() => {}); };
+        setInterval(check, 60_000);
+        window.addEventListener("focus", check);
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") check();
+        });
+      },
+    });
+
+    // Initial check.
     void updateSW(false);
+
+    // If the active controller changes (new SW took over), make sure the
+    // page reloads exactly once so the user is on the latest assets.
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    });
+
     // Request persistent storage so iOS/Safari doesn't evict offline books.
     if (navigator.storage?.persist) {
       navigator.storage.persist().catch(() => {});
