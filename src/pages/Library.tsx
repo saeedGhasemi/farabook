@@ -186,7 +186,7 @@ const Library = () => {
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {rows.map((r, i) => {
+          {displayRows.map((r, i) => {
             if (!r.books) return null;
             const title = lang === "en" && r.books.title_en ? r.books.title_en : r.books.title;
             const isOwner = !!user && r.books.publisher_id === user.id;
