@@ -76,7 +76,7 @@ export function OfflineBookButton({ bookId, userId }: Props) {
     if (!userId) return;
     if (state.status === "ready") {
       const { primary } = await hydrateDeviceName();
-      await ensureCurrentDeviceRegistration(primary);
+      try { await ensureCurrentDeviceRegistration(primary); } catch { /* still show local status */ }
       setDevicesDialog(true);
       return;
     }
