@@ -408,6 +408,7 @@ export const TextBookEditor = ({ initial }: Props) => {
             title: title || initial.title,
             author: author || initial.author,
             cover_url: coverUrl,
+            cover_focus: coverFocus,
             pages: dbPages,
             typography_preset: typography,
           })
