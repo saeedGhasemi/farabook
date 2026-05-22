@@ -221,6 +221,7 @@ export async function downloadBook(
         key_valid: true,
       };
       await adapter.upsertBookCache(finalRow);
+      await adapter.setMeta(`walker:${bookId}`, String(ASSET_WALKER_VERSION));
       onProgress({ bookId, status: "ready", bytesWritten, totalBytes: bytesWritten });
       return finalRow;
     } catch (e) {
