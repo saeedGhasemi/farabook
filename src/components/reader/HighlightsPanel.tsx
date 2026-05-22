@@ -108,7 +108,7 @@ export const HighlightsPanel = ({
                       <div className="flex-1 min-w-0">
                         <button
                           onClick={() => {
-                            onJump(h.page_index);
+                            onJump(h.page_index, h);
                             onClose();
                           }}
                           className="text-start w-full"
