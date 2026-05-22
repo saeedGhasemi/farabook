@@ -505,6 +505,9 @@ const AdminInner = () => {
             <TabsTrigger value="sms" className="gap-2 whitespace-nowrap shrink-0">
               <MessageSquare className="w-4 h-4" /> پیامک
             </TabsTrigger>
+            <TabsTrigger value="errors" className="gap-2 whitespace-nowrap shrink-0">
+              <Bug className="w-4 h-4" /> لاگ خطاها
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -515,6 +518,11 @@ const AdminInner = () => {
         <TabsContent value="sms" className="mt-4">
           <SmsSettingsPanel />
         </TabsContent>
+
+        <TabsContent value="errors" className="mt-4">
+          <ErrorLogsPanel />
+        </TabsContent>
+
 
         <TabsContent value="treasury" className="mt-4">
           <AdminTreasuryPanel />
