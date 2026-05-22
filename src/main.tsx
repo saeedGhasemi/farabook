@@ -18,9 +18,11 @@ import "./index.css";
 
 import { registerServiceWorker } from "./lib/pwa/registerSW";
 import { wireInstallDetection } from "./lib/pwa/installState";
+import { installGlobalErrorLogger } from "./lib/error-logger";
 
 createRoot(document.getElementById("root")!).render(<App />);
 
 // Fire-and-forget — register the production service worker (no-op on preview/iframe).
 registerServiceWorker();
 wireInstallDetection();
+installGlobalErrorLogger();
