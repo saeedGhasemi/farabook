@@ -208,17 +208,17 @@ const Reader = () => {
     const localById = new Map(local.map((r) => [r.id, r]));
     const { data, error } = await supabase
       .from("highlights")
-      .select("id, text, page_index, color, created_at, note")
+      .select("id, text, page_index, color, created_at, note, block_index, occurrence")
       .eq("user_id", user.id).eq("book_id", id)
       .order("created_at", { ascending: false });
     if (error || !data) {
       // Offline path — show whatever we have locally.
-      setHighlights(local.map((r) => ({ id: r.id, text: r.text, page_index: r.page_index, color: r.color, created_at: r.created_at, note: r.note })) as HighlightItem[]);
+      setHighlights(local.map((r) => ({ id: r.id, text: r.text, page_index: r.page_index, color: r.color, created_at: r.created_at, note: r.note, block_index: (r as any).block_index ?? null, occurrence: (r as any).occurrence ?? null })) as HighlightItem[]);
       return;
     }
     const serverIds = new Set(data.map((d) => d.id as string));
     const localOnly = local.filter((r) => !serverIds.has(r.id))
-      .map((r) => ({ id: r.id, text: r.text, page_index: r.page_index, color: r.color, created_at: r.created_at, note: r.note })) as HighlightItem[];
+      .map((r) => ({ id: r.id, text: r.text, page_index: r.page_index, color: r.color, created_at: r.created_at, note: r.note, block_index: (r as any).block_index ?? null, occurrence: (r as any).occurrence ?? null })) as HighlightItem[];
     setHighlights([...localOnly, ...(data as HighlightItem[])]);
     // touch unused var to satisfy linter
     void localById;
