@@ -112,27 +112,34 @@ const Reader = () => {
   const Prev = dir === "rtl" ? ArrowRight : ArrowLeft;
   const Next = dir === "rtl" ? ArrowLeft : ArrowRight;
 
-  // Load book
+  // Load book — offline-first when a local encrypted copy exists, so the
+  // reader opens instantly even with flaky/no internet. Then we refresh from
+  // the server in the background to pick up new edits.
   useEffect(() => {
     if (!id) return;
     if (authLoading) return;
+    let cancelled = false;
     (async () => {
-      const { data, error } = await supabase.from("books").select("*").eq("id", id).maybeSingle();
-      if (!data) {
-        // Network down or row missing — try the encrypted local cache.
-        if (user) {
-          const off = await loadOfflineBook(id, user.id);
-          if (off) {
-            setBook({ ...(off as unknown as Book) });
-            if (off.ambient_theme && off.ambient_theme !== "paper") setAmbient(off.ambient_theme);
-            if (error) {
-              toast.info(lang === "fa" ? "حالت آفلاین: از نسخه دانلودشده می‌خوانید" : "Offline: reading from your downloaded copy");
-            }
-            return;
-          }
+      // 1) Fast path: encrypted local copy → render immediately.
+      let renderedOffline = false;
+      if (user) {
+        const off = await loadOfflineBook(id, user.id);
+        if (off && !cancelled) {
+          setBook({ ...(off as unknown as Book) });
+          if (off.ambient_theme && off.ambient_theme !== "paper") setAmbient(off.ambient_theme);
+          renderedOffline = true;
         }
+      }
+
+      // 2) Server fetch — fresh content + ownership checks. If offline already
+      //    rendered, treat network failure silently.
+      const { data, error } = await supabase.from("books").select("*").eq("id", id).maybeSingle();
+      if (cancelled) return;
+      if (!data) {
+        if (renderedOffline) return; // offline copy is enough
         toast.error(lang === "fa" ? "کتاب یافت نشد" : "Book not found");
         nav("/store");
+        void error;
         return;
       }
       // Gate paid books: require login & ownership (publisher/editor/owner)
@@ -156,18 +163,42 @@ const Reader = () => {
         }
       }
       const pages = Array.isArray(data.pages) ? data.pages : [];
-      setBook({ ...data, pages: pages as unknown as Page[] });
-      if (data.ambient_theme && data.ambient_theme !== "paper") setAmbient(data.ambient_theme);
+      // Only replace the offline-rendered copy if we actually have newer pages
+      // (server returned non-empty pages).
+      if (!renderedOffline || pages.length > 0) {
+        setBook({ ...data, pages: pages as unknown as Page[] });
+        if (data.ambient_theme && data.ambient_theme !== "paper") setAmbient(data.ambient_theme);
+      }
     })();
+    return () => { cancelled = true; };
   }, [id, nav, user, authLoading, lang]);
 
-  // Load progress
+  // Load progress — also ensure a user_books row exists so progress for free
+  // books is tracked too (otherwise Library always shows 0%).
   useEffect(() => {
     if (!user || !id) return;
-    supabase.from("user_books").select("id, current_page").eq("user_id", user.id).eq("book_id", id).maybeSingle()
-      .then(({ data }) => {
-        if (data) { setUserBookId(data.id); setPageIdx(data.current_page ?? 0); }
-      });
+    (async () => {
+      const { data } = await supabase
+        .from("user_books")
+        .select("id, current_page")
+        .eq("user_id", user.id).eq("book_id", id).maybeSingle();
+      if (data) {
+        setUserBookId(data.id);
+        setPageIdx(data.current_page ?? 0);
+        return;
+      }
+      // No row yet — create one so progress is tracked. Best-effort: ignore
+      // failures (e.g. RLS on paid unowned books, which we wouldn't reach).
+      const { data: created } = await supabase
+        .from("user_books")
+        .insert({ user_id: user.id, book_id: id, status: "reading", current_page: 0, progress: 0, acquired_via: "free" })
+        .select("id, current_page")
+        .maybeSingle();
+      if (created) {
+        setUserBookId(created.id);
+        setPageIdx(created.current_page ?? 0);
+      }
+    })();
   }, [user, id]);
 
   // Load highlights (server first; merge local pending). Falls back to local-only when offline.
