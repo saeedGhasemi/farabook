@@ -99,6 +99,7 @@ interface Initial {
   author: string;
   description: string | null;
   cover_url: string | null;
+  cover_focus?: { x?: number; y?: number } | null;
   pages: any[];
   typography_preset?: string | null;
   author_user_id?: string | null;
@@ -142,6 +143,10 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [author, setAuthor] = useState(initial?.author ?? "");
   const [coverUrl, setCoverUrl] = useState<string | null>(initial?.cover_url ?? null);
+  const [coverFocus, setCoverFocus] = useState<{ x: number; y: number }>({
+    x: Math.max(0, Math.min(100, initial?.cover_focus?.x ?? 50)),
+    y: Math.max(0, Math.min(100, initial?.cover_focus?.y ?? 50)),
+  });
   const coverFileRef = useRef<HTMLInputElement | null>(null);
 
   const [pages, setPages] = useState<TextPage[]>(
@@ -403,6 +408,7 @@ export const TextBookEditor = ({ initial }: Props) => {
             title: title || initial.title,
             author: author || initial.author,
             cover_url: coverUrl,
+            cover_focus: coverFocus,
             pages: dbPages,
             typography_preset: typography,
           })
@@ -431,7 +437,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     } finally {
       setSaving(false);
     }
-  }, [isEdit, initial, user, pages, activeIdx, editor, title, author, typography, coverUrl, fa]);
+  }, [isEdit, initial, user, pages, activeIdx, editor, title, author, typography, coverUrl, coverFocus, fa]);
 
   const skipFirst = useRef(true);
   useEffect(() => {
@@ -440,7 +446,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     if (!dirty) return;
     const t = window.setTimeout(() => { void persist(false); }, 3500);
     return () => window.clearTimeout(t);
-  }, [pages, title, author, typography, coverUrl, dirty, isEdit, persist]);
+  }, [pages, title, author, typography, coverUrl, coverFocus, dirty, isEdit, persist]);
 
   const addChapter = () => {
     setPages((ps) => [...ps, newEmptyPage(fa ? `فصل ${ps.length + 1}` : `Chapter ${ps.length + 1}`)]);
@@ -967,9 +973,32 @@ export const TextBookEditor = ({ initial }: Props) => {
       <section className="min-w-0">
         {/* Book cover */}
         <div className="flex items-center gap-3 mb-3 p-2 rounded-lg border bg-card/50">
-          <div className="relative w-14 h-20 rounded-md overflow-hidden border bg-muted shrink-0 flex items-center justify-center">
+          <div
+            className={`relative w-14 h-20 rounded-md overflow-hidden border bg-muted shrink-0 flex items-center justify-center ${coverUrl ? "cursor-crosshair" : ""}`}
+            title={coverUrl ? (fa ? "روی نقطه‌ای کلیک کنید تا مرکز کادر بندانگشتی تنظیم شود" : "Click a point to set thumbnail focal point") : ""}
+            onClick={(e) => {
+              if (!coverUrl) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+              const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+              setCoverFocus({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+              markStructureDirty();
+            }}
+          >
             {coverUrl ? (
-              <img src={coverUrl} alt="cover" className="w-full h-full object-cover" />
+              <>
+                <img
+                  src={coverUrl}
+                  alt="cover"
+                  className="w-full h-full object-cover"
+                  style={{ objectPosition: `${coverFocus.x}% ${coverFocus.y}%` }}
+                />
+                <div
+                  className="absolute w-3 h-3 rounded-full border-2 border-white shadow-md bg-accent pointer-events-none -translate-x-1/2 -translate-y-1/2"
+                  style={{ left: `${coverFocus.x}%`, top: `${coverFocus.y}%` }}
+                  aria-hidden
+                />
+              </>
             ) : (
               <ImageIcon className="w-5 h-5 text-muted-foreground" />
             )}
@@ -977,7 +1006,7 @@ export const TextBookEditor = ({ initial }: Props) => {
           <div className="flex-1 min-w-0">
             <div className="text-xs font-semibold mb-0.5">{fa ? "کاور کتاب" : "Book cover"}</div>
             <div className="text-[11px] text-muted-foreground truncate mb-1.5">
-              {coverUrl ? (fa ? "روی تغییر کلیک کنید" : "Click change to replace") : (fa ? "هنوز کاوری انتخاب نشده" : "No cover yet")}
+              {coverUrl ? (fa ? `مرکز بندانگشتی: ${coverFocus.x}٪، ${coverFocus.y}٪ — برای تغییر روی تصویر کلیک کنید` : `Thumb focus: ${coverFocus.x}%, ${coverFocus.y}% — click image to move`) : (fa ? "هنوز کاوری انتخاب نشده" : "No cover yet")}
             </div>
             <div className="flex items-center gap-1.5">
               <input
@@ -1276,6 +1305,44 @@ export const TextBookEditor = ({ initial }: Props) => {
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Spacer pushes action buttons to the end */}
+            <div className="flex-1 min-w-2" />
+            <TbSep />
+
+            {/* Quick actions inside sticky toolbar (always visible while editing) */}
+            <button
+              type="button"
+              title={fa ? "ذخیره" : "Save"}
+              onClick={() => persist({ showToast: true, full: true })}
+              className="p-1.5 rounded-md hover:bg-muted shrink-0 flex items-center gap-1"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              <span className="text-xs hidden md:inline">{fa ? "ذخیره" : "Save"}</span>
+            </button>
+            <button
+              type="button"
+              title={fa ? `مرور تصاویر (${unreviewedCount})` : `Review images (${unreviewedCount})`}
+              onClick={() => { setShowImageReview((v) => !v); if (!showImageReview) { setShowAi(false); setShowAutoFill(false); } }}
+              disabled={totalImages === 0}
+              className={`p-1.5 rounded-md hover:bg-muted shrink-0 flex items-center gap-1 relative disabled:opacity-40 ${showImageReview ? "bg-primary/10 text-primary" : ""}`}
+            >
+              <ImageIcon className="w-4 h-4" />
+              {unreviewedCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[1.1rem] h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-semibold tabular-nums">
+                  {unreviewedCount}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              title={fa ? "دستیار هوش مصنوعی" : "AI assistant"}
+              onClick={() => setShowAi((v) => !v)}
+              className={`p-1.5 rounded-md hover:bg-muted shrink-0 flex items-center gap-1 ${showAi ? "bg-accent/15 text-accent" : "text-accent"}`}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span className="text-xs hidden md:inline">{fa ? "AI" : "AI"}</span>
+            </button>
           </div>
         </div>
 

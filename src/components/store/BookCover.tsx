@@ -2,6 +2,7 @@
 // triggers `book-auto-cover` (AI-generated illustration based on the
 // book's first pages) and caches the result. While pending, shows a
 // tasteful gradient placeholder with the title initial.
+import type { CSSProperties } from "react";
 import { useAutoCover } from "@/hooks/useAutoCover";
 import { resolveBookCover } from "@/lib/book-media";
 import { cn } from "@/lib/utils";
@@ -15,9 +16,13 @@ interface Props {
   className?: string;
   loading?: "lazy" | "eager";
   sizes?: string;
+  /** Focal point as percentages 0–100 (x = horizontal, y = vertical). Used when image is cropped (object-cover). */
+  focus?: { x?: number; y?: number } | null;
+  /** Fit mode: 'cover' crops to fill, 'contain' shows entire image (no crop). */
+  fit?: "cover" | "contain";
 }
 
-export function BookCover({ bookId, cover, title, width = 480, quality = 70, className, loading = "lazy", sizes }: Props) {
+export function BookCover({ bookId, cover, title, width = 480, quality = 70, className, loading = "lazy", sizes, focus, fit = "cover" }: Props) {
   const url = useAutoCover(bookId, cover);
   const initial = (title || "?").trim().charAt(0).toUpperCase();
   if (!url) {
@@ -29,6 +34,9 @@ export function BookCover({ bookId, cover, title, width = 480, quality = 70, cla
   }
   const small = Math.round(width * 0.7);
   const large = Math.round(width * 1.5);
+  const fx = Math.max(0, Math.min(100, focus?.x ?? 50));
+  const fy = Math.max(0, Math.min(100, focus?.y ?? 50));
+  const style: CSSProperties = fit === "cover" ? { objectPosition: `${fx}% ${fy}%` } : {};
   return (
     <img
       src={resolveBookCover(url, { width, quality })}
@@ -40,6 +48,7 @@ export function BookCover({ bookId, cover, title, width = 480, quality = 70, cla
       height={Math.round(width * 4 / 3)}
       sizes={sizes}
       className={className}
+      style={style}
     />
   );
 }

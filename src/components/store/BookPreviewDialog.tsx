@@ -213,13 +213,15 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
           <DialogHeader className="relative px-6 pt-6 pb-5">
             <div className="flex items-start gap-5">
               {cover ? (
-                <img
-                  src={cover}
-                  alt={book.title}
-                  loading="lazy"
-                  decoding="async"
-                  className="w-28 h-40 md:w-32 md:h-44 object-cover rounded-xl shadow-2xl ring-1 ring-border flex-shrink-0"
-                />
+                <div className="w-28 h-40 md:w-32 md:h-44 rounded-xl shadow-2xl ring-1 ring-border flex-shrink-0 bg-secondary/40 flex items-center justify-center overflow-hidden">
+                  <img
+                    src={cover}
+                    alt={book.title}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
               ) : (
                 <div className="w-28 h-40 md:w-32 md:h-44 rounded-xl bg-secondary flex items-center justify-center text-muted-foreground flex-shrink-0">
                   <BookOpen className="w-10 h-10" />
