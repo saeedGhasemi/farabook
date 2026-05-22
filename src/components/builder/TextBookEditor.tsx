@@ -1086,6 +1086,27 @@ export const TextBookEditor = ({ initial }: Props) => {
             <TbBtn title="Underline" active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()}>
               <UnderlineIcon className="w-4 h-4" />
             </TbBtn>
+            <TbBtn
+              title={fa ? "بالانگاشت (xⁿ)" : "Superscript"}
+              active={editor.isActive("superscript")}
+              onClick={() => editor.chain().focus().toggleSuperscript().run()}
+            >
+              <span className="text-xs font-bold leading-none">x²</span>
+            </TbBtn>
+            <TbBtn
+              title={fa ? "پایین‌نگاشت (Xₙ)" : "Subscript"}
+              active={editor.isActive("subscript")}
+              onClick={() => editor.chain().focus().toggleSubscript().run()}
+            >
+              <span className="text-xs font-bold leading-none">x₂</span>
+            </TbBtn>
+            <TbBtn
+              title={fa ? "درج نیم‌فاصله (ZWNJ)" : "Insert zero-width non-joiner"}
+              onClick={() => editor.chain().focus().insertContent("\u200C").run()}
+            >
+              <span className="text-[10px] font-bold leading-none">نیم‌</span>
+            </TbBtn>
+
 
             {/* Color */}
             <Popover>
