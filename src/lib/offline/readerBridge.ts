@@ -67,6 +67,8 @@ export interface HighlightInput {
   color: string;
   note?: string | null;
   isPublic?: boolean;
+  blockIndex?: number | null;
+  occurrence?: number | null;
 }
 
 export async function saveHighlightOfflineFirst(input: HighlightInput): Promise<HighlightRow> {
@@ -78,6 +80,8 @@ export async function saveHighlightOfflineFirst(input: HighlightInput): Promise<
     book_id: input.bookId,
     user_id: input.userId,
     page_index: input.pageIndex,
+    block_index: input.blockIndex ?? null,
+    occurrence: input.occurrence ?? null,
     text: input.text,
     color: input.color,
     note: input.note ?? null,
