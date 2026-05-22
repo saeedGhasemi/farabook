@@ -17,6 +17,16 @@ const isPreviewHost =
 
 export const PWA_ENABLED = !isInIframe && !isPreviewHost;
 
+async function clearRuntimeCaches(): Promise<void> {
+  if (typeof caches === "undefined") return;
+  const names = await caches.keys();
+  await Promise.all(
+    names
+      .filter((name) => /workbox|precache|runtime|html|assets|media|farabook/i.test(name))
+      .map((name) => caches.delete(name)),
+  );
+}
+
 export async function registerServiceWorker(): Promise<void> {
   if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
 
@@ -25,13 +35,15 @@ export async function registerServiceWorker(): Promise<void> {
     try {
       const regs = await navigator.serviceWorker.getRegistrations();
       await Promise.all(regs.map((r) => r.unregister()));
+      await clearRuntimeCaches();
     } catch { /* ignore */ }
     return;
   }
 
   try {
     const { registerSW } = await import("virtual:pwa-register");
-    registerSW({ immediate: true });
+    const updateSW = registerSW({ immediate: true });
+    void updateSW(false);
     // Request persistent storage so iOS/Safari doesn't evict offline books.
     if (navigator.storage?.persist) {
       navigator.storage.persist().catch(() => {});
