@@ -50,6 +50,9 @@ export function OfflineBookButton({ bookId, userId }: Props) {
       const msg = map[raw] ? map[raw][lang] : raw;
       toast.error(msg);
     }
+  };
+
+
 
 
   const onConfirmRemove = async () => {
