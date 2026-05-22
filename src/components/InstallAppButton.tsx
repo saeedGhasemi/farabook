@@ -91,6 +91,7 @@ export const InstallAppButton = () => {
         await deferred.prompt();
         const choice = await deferred.userChoice;
         if (choice.outcome === "accepted") {
+          markInstalled();
           setVisible(false);
         }
       } catch { /* ignore */ }
