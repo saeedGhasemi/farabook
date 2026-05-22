@@ -44,10 +44,10 @@ export function useOfflineDownload(bookId: string | undefined, userId: string | 
     }));
   }, []);
 
-  const download = useCallback(async () => {
+  const download = useCallback(async (deviceLabel?: string) => {
     if (!bookId || !userId) return;
     try {
-      const row = await downloadBook(bookId, userId, { onProgress });
+      const row = await downloadBook(bookId, userId, { onProgress, deviceLabel });
       setState({
         status: row.status,
         bytesWritten: row.size_bytes,
