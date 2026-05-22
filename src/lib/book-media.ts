@@ -54,7 +54,29 @@ const mediaMap: Record<string, string> = {
   "path-marrow-biopsy": pathMarrowBiopsy,
 };
 
-export const resolveBookMedia = (src: string | null | undefined) => (src ? mediaMap[src] || src : "");
+/* ----------------- Offline asset blob-URL registry -----------------
+ * The Reader pre-decrypts a book's stored assets and registers their blob
+ * URLs here, keyed by the offline-asset:// URL embedded in page blocks.
+ * `resolveBookMedia` then transparently swaps them in for `<img>` / `<video>`
+ * tags without any caller having to know about the offline scheme. */
+const offlineUrlMap = new Map<string, string>();
+export const registerOfflineBlobUrl = (offlineUrl: string, blobUrl: string) => {
+  offlineUrlMap.set(offlineUrl, blobUrl);
+};
+export const unregisterOfflineBlobUrls = (bookId?: string) => {
+  if (!bookId) { offlineUrlMap.clear(); return; }
+  const prefix = `offline-asset://${bookId}/`;
+  for (const k of Array.from(offlineUrlMap.keys())) if (k.startsWith(prefix)) offlineUrlMap.delete(k);
+};
+export const hasOfflineBlobUrl = (offlineUrl: string) => offlineUrlMap.has(offlineUrl);
+
+export const resolveBookMedia = (src: string | null | undefined) => {
+  if (!src) return "";
+  if (src.startsWith("offline-asset://")) {
+    return offlineUrlMap.get(src) ?? src;
+  }
+  return mediaMap[src] || src;
+};
 
 /**
  * For images stored in Supabase Storage, request an on-the-fly resized
