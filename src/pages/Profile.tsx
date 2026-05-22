@@ -14,7 +14,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserEarnings } from "@/components/profile/UserEarnings";
 import { BecomePublisher } from "@/components/profile/BecomePublisher";
-import { OfflineDevicesPanel } from "@/components/profile/OfflineDevicesPanel";
 import { toast } from "sonner";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -84,6 +83,12 @@ const toIranLocal = (raw: string): string => {
   else if (s.startsWith("98")) s = s.slice(2);
   if (s.startsWith("9") && s.length === 10) s = "0" + s;
   return s;
+};
+
+const profileTab = () => {
+  if (typeof window === "undefined") return "info";
+  const tab = new URLSearchParams(window.location.search).get("tab");
+  return tab === "earnings" || tab === "publisher" ? tab : "info";
 };
 
 const Profile = () => {
@@ -212,21 +217,17 @@ const Profile = () => {
         </div>
       </div>
 
-      <Tabs defaultValue={(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab")) || "info"} dir="rtl">
+      <Tabs defaultValue={profileTab()} dir="rtl">
         <TabsList className="glass">
           <TabsTrigger value="info">اطلاعات من</TabsTrigger>
           <TabsTrigger value="earnings">درآمد و هزینه</TabsTrigger>
           <TabsTrigger value="publisher">ناشر شدن</TabsTrigger>
-          <TabsTrigger value="devices">دستگاه‌ها</TabsTrigger>
         </TabsList>
         <TabsContent value="earnings" className="mt-4">
           {user && <UserEarnings userId={user.id} />}
         </TabsContent>
         <TabsContent value="publisher" className="mt-4">
           <BecomePublisher lang="fa" alreadyPublisher={roles.includes("publisher" as any)} />
-        </TabsContent>
-        <TabsContent value="devices" className="mt-4">
-          <OfflineDevicesPanel />
         </TabsContent>
         <TabsContent value="info" className="mt-4">
       <Card className="glass">

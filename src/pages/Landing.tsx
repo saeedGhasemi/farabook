@@ -11,8 +11,8 @@ import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
 import { BookCover } from "@/components/store/BookCover";
+import { APP_VERSION_LABEL } from "@/lib/version";
 
 interface Book {
   id: string;
@@ -168,6 +168,9 @@ const Landing = () => {
             <h1 className="text-4xl md:text-6xl font-display font-bold leading-[1.05] text-balance">
               {t("hero_title")}
             </h1>
+            <div className="text-[11px] font-mono text-muted-foreground/75 tabular-nums">
+              {APP_VERSION_LABEL}
+            </div>
             <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto text-balance">
               {t("hero_sub")}
             </p>
