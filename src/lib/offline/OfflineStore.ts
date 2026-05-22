@@ -251,11 +251,38 @@ export async function removeBookLocally(bookId: string, userId: string): Promise
   await adapter.deleteBook(bookId);
   await adapter.setMeta(`pepper:${bookId}`, "");
   invalidateBookKey(userId, bookId);
+  unregisterOfflineBlobUrls(bookId);
 }
 
 export async function listLocalBooks(userId: string): Promise<BookCacheRow[]> {
   const adapter = await getAdapter();
   return adapter.listBookCache(userId);
+}
+
+/** Decrypt every stored asset for a book and register a blob: URL for each
+ *  under its `offline-asset://<bookId>/<key>` reference. Once called, any
+ *  `<img>` / `<video>` rendered via `resolveBookMedia` resolves transparently
+ *  to the local copy. Call before rendering the reader offline. */
+export async function precacheBookAssets(bookId: string, userId: string): Promise<number> {
+  const adapter = await getAdapter();
+  const rows = await adapter.listAssetsByBook(bookId);
+  if (!rows.length) return 0;
+  const key = await getKey(userId, bookId);
+  let count = 0;
+  for (const r of rows) {
+    try {
+      const bytes = await decryptBytes(key, r.bytes_enc, r.bytes_iv);
+      const copy = new Uint8Array(bytes.byteLength);
+      copy.set(bytes);
+      const blob = new Blob([copy.buffer], { type: r.mime });
+      const url = URL.createObjectURL(blob);
+      registerOfflineBlobUrl(`offline-asset://${bookId}/${r.asset_key}`, url);
+      count++;
+    } catch (e) {
+      console.warn("[offline] decrypt asset failed", r.asset_key, e);
+    }
+  }
+  return count;
 }
 
 /* ---------------- Highlights / progress / sync queue (used by SyncEngine) ---------------- */
