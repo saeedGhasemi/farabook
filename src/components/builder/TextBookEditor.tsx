@@ -1276,6 +1276,44 @@ export const TextBookEditor = ({ initial }: Props) => {
                 ))}
               </SelectContent>
             </Select>
+
+            {/* Spacer pushes action buttons to the end */}
+            <div className="flex-1 min-w-2" />
+            <TbSep />
+
+            {/* Quick actions inside sticky toolbar (always visible while editing) */}
+            <button
+              type="button"
+              title={fa ? "ذخیره" : "Save"}
+              onClick={() => persist({ showToast: true, full: true })}
+              className="p-1.5 rounded-md hover:bg-muted shrink-0 flex items-center gap-1"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              <span className="text-xs hidden md:inline">{fa ? "ذخیره" : "Save"}</span>
+            </button>
+            <button
+              type="button"
+              title={fa ? `مرور تصاویر (${unreviewedCount})` : `Review images (${unreviewedCount})`}
+              onClick={() => { setShowImageReview((v) => !v); if (!showImageReview) { setShowAi(false); setShowAutoFill(false); } }}
+              disabled={totalImages === 0}
+              className={`p-1.5 rounded-md hover:bg-muted shrink-0 flex items-center gap-1 relative disabled:opacity-40 ${showImageReview ? "bg-primary/10 text-primary" : ""}`}
+            >
+              <ImageIcon className="w-4 h-4" />
+              {unreviewedCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[1.1rem] h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-semibold tabular-nums">
+                  {unreviewedCount}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              title={fa ? "دستیار هوش مصنوعی" : "AI assistant"}
+              onClick={() => setShowAi((v) => !v)}
+              className={`p-1.5 rounded-md hover:bg-muted shrink-0 flex items-center gap-1 ${showAi ? "bg-accent/15 text-accent" : "text-accent"}`}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span className="text-xs hidden md:inline">{fa ? "AI" : "AI"}</span>
+            </button>
           </div>
         </div>
 
