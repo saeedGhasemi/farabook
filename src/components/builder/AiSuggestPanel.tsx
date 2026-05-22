@@ -53,28 +53,37 @@ interface Props {
   chapterKey?: string;
 }
 
-// Module-level cache so suggestions survive panel unmount/remount when
-// the user collapses the AI side-panel or switches chapters.
+// Module-level cache so suggestions survive panel unmount/remount; also
+// mirrored to localStorage so a full page reload keeps them too.
 type CacheEntry = {
   suggestions: Suggestion[];
   accepted: Array<[number, number]>;
   rejected: number[];
   error: string | null;
-  /** Lightweight fingerprint of the chapter text at the time suggestions
-   *  were generated. If the current doc no longer matches, the cache is
-   *  considered stale and discarded so the user doesn't see suggestions
-   *  pointing at text that has changed substantially. */
   fingerprint?: string;
+};
+const CACHE_LS_PREFIX = "ai-suggest-cache:v2:";
+const loadCacheFromLs = (key: string): CacheEntry | null => {
+  try { const raw = localStorage.getItem(CACHE_LS_PREFIX + key); return raw ? JSON.parse(raw) : null; } catch { return null; }
+};
+const saveCacheToLs = (key: string, entry: CacheEntry) => {
+  try { localStorage.setItem(CACHE_LS_PREFIX + key, JSON.stringify(entry)); } catch { /* quota */ }
 };
 const suggestionCache: Map<string, CacheEntry> = new Map();
 
-/** Cheap, stable fingerprint: length + djb2-style hash of the plain text.
- *  Sensitive to any character change, but ignores prosemirror node ids. */
 const computeDocFingerprint = (editor: Editor): string => {
   const text = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n", " ");
   let h = 5381;
   for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
   return `${text.length}:${(h >>> 0).toString(36)}`;
+};
+
+/** Keep only suggestions whose target_text still exists verbatim in the
+ *  current doc. A small edit to ONE paragraph only invalidates its
+ *  suggestions; the rest stay visible without re-spending credits. */
+const filterLiveSuggestions = (editor: Editor, list: Suggestion[]): Suggestion[] => {
+  const docText = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n", " ");
+  return list.filter((s) => !s.target_text || docText.includes(s.target_text));
 };
 
 const opMeta: Record<SuggestionOp, { Icon: any; label_fa: string; label_en: string }> = {
@@ -250,15 +259,19 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
   const fa = lang === "fa";
   const { costs } = useAiCosts();
   const { credits, refresh: refreshCredits } = useCredits();
-  // Restore from per-chapter cache when remounting for the same chapter,
-  // but only if the chapter content fingerprint still matches. If the
-  // user has made substantial edits since the suggestions were generated,
-  // we drop the stale cache so they don't see mismatched suggestions.
+  // Restore from per-chapter cache (memory first, then localStorage fallback).
+  // We always restore — even if the doc has changed — and just filter out
+  // suggestions whose target_text no longer exists. That way a tiny edit
+  // to one paragraph doesn't blow away the whole suggestion list.
   const currentFingerprint = useMemo(() => computeDocFingerprint(editor), [editor]);
-  const rawCached = chapterKey ? suggestionCache.get(chapterKey) : undefined;
-  const cached = rawCached && rawCached.fingerprint === currentFingerprint ? rawCached : undefined;
-  if (chapterKey && rawCached && !cached) {
-    suggestionCache.delete(chapterKey);
+  const rawCached = chapterKey
+    ? (suggestionCache.get(chapterKey) ?? (loadCacheFromLs(chapterKey) || undefined))
+    : undefined;
+  const cached: CacheEntry | undefined = rawCached
+    ? { ...rawCached, suggestions: filterLiveSuggestions(editor, rawCached.suggestions || []) }
+    : undefined;
+  if (chapterKey && rawCached) {
+    suggestionCache.set(chapterKey, rawCached);
   }
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>(cached?.suggestions ?? []);
@@ -270,9 +283,6 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
   );
   const [busyIdx, setBusyIdx] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(cached?.error ?? null);
-  // Fingerprint of the doc when the current suggestion list was generated.
-  // Used to detect when the chapter content has drifted enough that the
-  // cached suggestions are no longer valid.
   const [genFingerprint, setGenFingerprint] = useState<string | null>(
     cached?.fingerprint ?? null,
   );
@@ -355,49 +365,43 @@ export const AiSuggestPanel = ({ editor, lang, onClose, bookId, chapterKey }: Pr
   }, []);
 
   // Persist current state into the per-chapter cache so it can be
-  // restored when the panel is reopened (e.g. after switching chapters).
+  // restored on remount AND on full page reload (localStorage mirror).
   useEffect(() => {
     if (!chapterKey) return;
-    suggestionCache.set(chapterKey, {
+    const entry: CacheEntry = {
       suggestions,
       accepted: Array.from(accepted.entries()),
       rejected: Array.from(rejected),
       error,
       fingerprint: genFingerprint ?? undefined,
-    });
+    };
+    suggestionCache.set(chapterKey, entry);
+    saveCacheToLs(chapterKey, entry);
   }, [chapterKey, suggestions, accepted, rejected, error, genFingerprint]);
 
-  // Watch the editor for substantial content changes after suggestions
-  // were generated. We compare the current fingerprint to the one captured
-  // at generation time, debounced so typing doesn't thrash. When they
-  // diverge, drop the cached suggestions so the user knows they need to
-  // regenerate against the new text.
+  // When the user edits, only drop suggestions whose target_text no
+  // longer exists in the doc — keep everything else. NO automatic
+  // wholesale invalidation; the user must click "Refresh" explicitly to
+  // ask for a fresh list (and spend credits).
   useEffect(() => {
-    if (!editor || !genFingerprint || suggestions.length === 0) return;
+    if (!editor || suggestions.length === 0) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const check = () => {
-      const fp = computeDocFingerprint(editor);
-      if (fp === genFingerprint) return;
-      // Content drifted — invalidate.
-      setSuggestions([]);
-      setAccepted(new Map());
-      setRejected(new Set());
-      setGenFingerprint(null);
-      setError(fa
-        ? "محتوای فصل تغییر کرده است. برای پیشنهادهای جدید روی «به‌روزرسانی» بزنید."
-        : "Chapter content changed. Click Refresh for fresh suggestions.");
-      if (chapterKey) suggestionCache.delete(chapterKey);
+      const live = filterLiveSuggestions(editor, suggestions);
+      if (live.length !== suggestions.length) {
+        setSuggestions(live);
+      }
     };
     const handler = () => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(check, 600);
+      timer = setTimeout(check, 800);
     };
     editor.on("transaction", handler);
     return () => {
       if (timer) clearTimeout(timer);
       editor.off("transaction", handler);
     };
-  }, [editor, genFingerprint, suggestions.length, chapterKey, fa]);
+  }, [editor, suggestions]);
 
   const enrichWithImages = async (s: Suggestion): Promise<Suggestion> => {
     if (s.op !== "insert_timeline" && s.op !== "insert_scrollytelling") return s;

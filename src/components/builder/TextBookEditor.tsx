@@ -12,6 +12,8 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { TextAlign } from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
+import Superscript from "@tiptap/extension-superscript";
+import Subscript from "@tiptap/extension-subscript";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bold, Italic, Underline as UnderlineIcon, Heading1, Heading2, Heading3,
@@ -213,6 +215,8 @@ export const TextBookEditor = ({ initial }: Props) => {
         blockquote: false,
       }),
       Underline,
+      Superscript,
+      Subscript,
       TextStyle,
       Color.configure({ types: ["textStyle"] }),
       Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
@@ -1082,6 +1086,27 @@ export const TextBookEditor = ({ initial }: Props) => {
             <TbBtn title="Underline" active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()}>
               <UnderlineIcon className="w-4 h-4" />
             </TbBtn>
+            <TbBtn
+              title={fa ? "بالانگاشت (xⁿ)" : "Superscript"}
+              active={editor.isActive("superscript")}
+              onClick={() => editor.chain().focus().toggleSuperscript().run()}
+            >
+              <span className="text-xs font-bold leading-none">x²</span>
+            </TbBtn>
+            <TbBtn
+              title={fa ? "پایین‌نگاشت (Xₙ)" : "Subscript"}
+              active={editor.isActive("subscript")}
+              onClick={() => editor.chain().focus().toggleSubscript().run()}
+            >
+              <span className="text-xs font-bold leading-none">x₂</span>
+            </TbBtn>
+            <TbBtn
+              title={fa ? "درج نیم‌فاصله (ZWNJ)" : "Insert zero-width non-joiner"}
+              onClick={() => editor.chain().focus().insertContent("\u200C").run()}
+            >
+              <span className="text-[10px] font-bold leading-none">نیم‌</span>
+            </TbBtn>
+
 
             {/* Color */}
             <Popover>

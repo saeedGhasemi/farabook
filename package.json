@@ -57,6 +57,8 @@
     "@tiptap/extension-image": "^3.22.4",
     "@tiptap/extension-link": "3.22.4",
     "@tiptap/extension-placeholder": "^3.22.4",
+    "@tiptap/extension-subscript": "^3.22.4",
+    "@tiptap/extension-superscript": "^3.22.4",
     "@tiptap/extension-text-align": "^3.22.4",
     "@tiptap/extension-text-style": "^3.22.4",
     "@tiptap/extension-underline": "^3.22.4",
