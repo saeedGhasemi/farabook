@@ -117,8 +117,20 @@ const Reader = () => {
     if (!id) return;
     if (authLoading) return;
     (async () => {
-      const { data } = await supabase.from("books").select("*").eq("id", id).maybeSingle();
+      const { data, error } = await supabase.from("books").select("*").eq("id", id).maybeSingle();
       if (!data) {
+        // Network down or row missing — try the encrypted local cache.
+        if (user) {
+          const off = await loadOfflineBook(id, user.id);
+          if (off) {
+            setBook({ ...(off as unknown as Book) });
+            if (off.ambient_theme && off.ambient_theme !== "paper") setAmbient(off.ambient_theme);
+            if (error) {
+              toast.info(lang === "fa" ? "حالت آفلاین: از نسخه دانلودشده می‌خوانید" : "Offline: reading from your downloaded copy");
+            }
+            return;
+          }
+        }
         toast.error(lang === "fa" ? "کتاب یافت نشد" : "Book not found");
         nav("/store");
         return;
