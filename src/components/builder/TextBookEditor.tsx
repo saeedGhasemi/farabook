@@ -973,9 +973,32 @@ export const TextBookEditor = ({ initial }: Props) => {
       <section className="min-w-0">
         {/* Book cover */}
         <div className="flex items-center gap-3 mb-3 p-2 rounded-lg border bg-card/50">
-          <div className="relative w-14 h-20 rounded-md overflow-hidden border bg-muted shrink-0 flex items-center justify-center">
+          <div
+            className={`relative w-14 h-20 rounded-md overflow-hidden border bg-muted shrink-0 flex items-center justify-center ${coverUrl ? "cursor-crosshair" : ""}`}
+            title={coverUrl ? (fa ? "روی نقطه‌ای کلیک کنید تا مرکز کادر بندانگشتی تنظیم شود" : "Click a point to set thumbnail focal point") : ""}
+            onClick={(e) => {
+              if (!coverUrl) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+              const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+              setCoverFocus({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+              markStructureDirty();
+            }}
+          >
             {coverUrl ? (
-              <img src={coverUrl} alt="cover" className="w-full h-full object-cover" />
+              <>
+                <img
+                  src={coverUrl}
+                  alt="cover"
+                  className="w-full h-full object-cover"
+                  style={{ objectPosition: `${coverFocus.x}% ${coverFocus.y}%` }}
+                />
+                <div
+                  className="absolute w-3 h-3 rounded-full border-2 border-white shadow-md bg-accent pointer-events-none -translate-x-1/2 -translate-y-1/2"
+                  style={{ left: `${coverFocus.x}%`, top: `${coverFocus.y}%` }}
+                  aria-hidden
+                />
+              </>
             ) : (
               <ImageIcon className="w-5 h-5 text-muted-foreground" />
             )}
@@ -983,7 +1006,7 @@ export const TextBookEditor = ({ initial }: Props) => {
           <div className="flex-1 min-w-0">
             <div className="text-xs font-semibold mb-0.5">{fa ? "کاور کتاب" : "Book cover"}</div>
             <div className="text-[11px] text-muted-foreground truncate mb-1.5">
-              {coverUrl ? (fa ? "روی تغییر کلیک کنید" : "Click change to replace") : (fa ? "هنوز کاوری انتخاب نشده" : "No cover yet")}
+              {coverUrl ? (fa ? `مرکز بندانگشتی: ${coverFocus.x}٪، ${coverFocus.y}٪ — برای تغییر روی تصویر کلیک کنید` : `Thumb focus: ${coverFocus.x}%, ${coverFocus.y}% — click image to move`) : (fa ? "هنوز کاوری انتخاب نشده" : "No cover yet")}
             </div>
             <div className="flex items-center gap-1.5">
               <input
