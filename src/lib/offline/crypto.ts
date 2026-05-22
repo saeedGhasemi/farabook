@@ -74,7 +74,7 @@ export async function deriveBookKey(userId: string, bookId: string, pepper: stri
     {
       name: "HKDF",
       hash: "SHA-256",
-      salt: salt,
+      salt: salt as BufferSource,
       info: enc.encode(`farabook/v1/${bookId}`),
     },
     baseKey,
@@ -82,6 +82,7 @@ export async function deriveBookKey(userId: string, bookId: string, pepper: stri
     false,
     ["encrypt", "decrypt"],
   );
+
   keyCache.set(cacheKey, key);
   return key;
 }
@@ -93,22 +94,23 @@ export function invalidateBookKey(userId: string, bookId: string) {
 export async function encryptJson(key: CryptoKey, value: unknown): Promise<{ data: Uint8Array; iv: Uint8Array }> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const plaintext = new TextEncoder().encode(JSON.stringify(value));
-  const cipher = await SUBTLE.encrypt({ name: "AES-GCM", iv }, key, plaintext);
+  const cipher = await SUBTLE.encrypt({ name: "AES-GCM", iv: iv as BufferSource }, key, plaintext as BufferSource);
   return { data: new Uint8Array(cipher), iv };
 }
 
 export async function decryptJson<T>(key: CryptoKey, data: Uint8Array, iv: Uint8Array): Promise<T> {
-  const plain = await SUBTLE.decrypt({ name: "AES-GCM", iv }, key, data);
+  const plain = await SUBTLE.decrypt({ name: "AES-GCM", iv: iv as BufferSource }, key, data as BufferSource);
   return JSON.parse(new TextDecoder().decode(plain)) as T;
 }
 
 export async function encryptBytes(key: CryptoKey, bytes: Uint8Array): Promise<{ data: Uint8Array; iv: Uint8Array }> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const cipher = await SUBTLE.encrypt({ name: "AES-GCM", iv }, key, bytes);
+  const cipher = await SUBTLE.encrypt({ name: "AES-GCM", iv: iv as BufferSource }, key, bytes as BufferSource);
   return { data: new Uint8Array(cipher), iv };
 }
 
 export async function decryptBytes(key: CryptoKey, data: Uint8Array, iv: Uint8Array): Promise<Uint8Array> {
-  const plain = await SUBTLE.decrypt({ name: "AES-GCM", iv }, key, data);
+  const plain = await SUBTLE.decrypt({ name: "AES-GCM", iv: iv as BufferSource }, key, data as BufferSource);
   return new Uint8Array(plain);
 }
+
