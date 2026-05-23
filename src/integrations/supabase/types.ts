@@ -1219,6 +1219,36 @@ export type Database = {
       }
     }
     Views: {
+      profiles_public: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          display_name: string | null
+          id: string | null
+          username: string | null
+          website: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string | null
+          username?: string | null
+          website?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          display_name?: string | null
+          id?: string | null
+          username?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       public_profiles: {
         Row: {
           avatar_url: string | null
@@ -1392,6 +1422,8 @@ export type Database = {
         Returns: undefined
       }
       find_user_by_email: { Args: { _email: string }; Returns: string }
+      get_book_content: { Args: { _book_id: string }; Returns: Json }
+      get_book_preview_content: { Args: { _book_id: string }; Returns: Json }
       get_public_fee_settings: { Args: never; Returns: Json }
       has_role: {
         Args: {
