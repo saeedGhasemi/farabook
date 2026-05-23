@@ -985,9 +985,9 @@ export const TextBookEditor = ({ initial }: Props) => {
   // currently active chapter so newly-attached pendingSrc values appear.
   const reloadPagesFromDb = useCallback(async () => {
     if (!isEdit || !initial?.id) return;
-    const { data } = await supabase.from("books").select("pages").eq("id", initial.id).maybeSingle();
-    if (!data?.pages) return;
-    const fresh = dbPagesToTextPages(data.pages);
+    const { data } = await (supabase.rpc as any)("get_book_content", { _book_id: initial.id });
+    if (!data) return;
+    const fresh = dbPagesToTextPages(data);
     setPages(fresh);
     if (editor) {
       const tgt = fresh[activeIdx]?.doc;
