@@ -14,6 +14,7 @@ import { FloatingMenu } from "@/components/reader/FloatingMenu";
 import { AiPanel } from "@/components/reader/AiPanel";
 import { ChatPanel } from "@/components/reader/ChatPanel";
 import { ChapterSidebar } from "@/components/reader/ChapterSidebar";
+import { isAutoPageTitle } from "@/lib/page-title";
 import { HighlightsPanel, type HighlightItem } from "@/components/reader/HighlightsPanel";
 import { resolveBookMedia } from "@/lib/book-media";
 import { speakSmart, stopSpeak as stopSpeakSmart } from "@/lib/tts";
@@ -561,7 +562,20 @@ const Reader = () => {
 
   const blocks: Block[] = pageToBlocks(currentPage);
 
-  const chapters = book.pages.map((p, i) => ({ index: i, title: p.title, level: (p as any).level ?? 0 }));
+  // Only real (titled) headings show in the chapter sidebar. Auto-titled
+  // pages like "صفحه 12" stay folded under their preceding chapter and
+  // keep that chapter highlighted while the reader flips through them.
+  const chapters = book.pages
+    .map((p, i) => ({ index: i, title: p.title, level: (p as any).level ?? 0 }))
+    .filter((c) => !isAutoPageTitle(c.title));
+  // Nearest preceding titled chapter is "current" for the sidebar highlight.
+  const currentChapterIndex = (() => {
+    let last = chapters[0]?.index ?? 0;
+    for (const c of chapters) {
+      if (c.index <= pageIdx) last = c.index; else break;
+    }
+    return last;
+  })();
   // Detect book content direction independently of UI language
   const sampleText = (book.pages.slice(0, 3).map((p) => p.title + " " + (pageToBlocks(p).map((b) => "text" in b ? b.text : "").join(" ") || p.content || "")).join(" ")).slice(0, 2000);
   const rtlChars = (sampleText.match(/[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length;
@@ -764,20 +778,37 @@ const Reader = () => {
             </button>
 
 
+            {/* Word page number footer */}
+            <div className="mt-10 flex items-center justify-center gap-3 text-[11px] text-muted-foreground tabular-nums select-none">
+              <span className="h-px w-12 bg-border" />
+              <span>{lang === "fa" ? "صفحه" : "Page"} {pageIdx + 1} / {total}</span>
+              <span className="h-px w-12 bg-border" />
+            </div>
+
             {/* Bottom navigation */}
-            <div className="mt-8 flex items-center justify-between gap-3 pb-32">
-              <Button variant="outline" onClick={goPrev} disabled={pageIdx === 0} className="gap-2 glass-strong">
-                <Prev className="w-4 h-4" /> {t("prev")}
-              </Button>
-              <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-2">
+            <div className="mt-4 flex items-stretch justify-between gap-3 pb-32">
+              <div className="flex flex-col items-start gap-1 min-w-0">
+                <Button variant="outline" onClick={goPrev} disabled={pageIdx === 0} className="gap-2 glass-strong">
+                  <Prev className="w-4 h-4" /> {t("prev")}
+                </Button>
+                <span className="text-[10px] text-muted-foreground tabular-nums ps-1 leading-none">
+                  {pageIdx === 0 ? "—" : `${lang === "fa" ? "ص." : "p."} ${pageIdx}`}
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-2 self-center">
                 <HlIcon className="w-3 h-3" />
                 <span>
                   {lang === "fa" ? "متن را انتخاب کنید تا رنگ هایلایت ظاهر شود" : "Select text to highlight"}
                 </span>
               </div>
-              <Button variant="outline" onClick={goNext} disabled={pageIdx >= total - 1} className="gap-2 glass-strong">
-                {t("next")} <Next className="w-4 h-4" />
-              </Button>
+              <div className="flex flex-col items-end gap-1 min-w-0">
+                <Button variant="outline" onClick={goNext} disabled={pageIdx >= total - 1} className="gap-2 glass-strong">
+                  {t("next")} <Next className="w-4 h-4" />
+                </Button>
+                <span className="text-[10px] text-muted-foreground tabular-nums pe-1 leading-none">
+                  {pageIdx >= total - 1 ? "—" : `${lang === "fa" ? "ص." : "p."} ${pageIdx + 2}`}
+                </span>
+              </div>
             </div>
             {id && pageIdx >= total - 1 && (
               <section className="pb-32">
@@ -883,7 +914,7 @@ const Reader = () => {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setChaptersOpen(false)} className="fixed inset-0 backdrop-blur-md z-40" />
             <motion.aside initial={{ x: 440, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 440, opacity: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className="fixed top-0 bottom-0 right-0 z-50 w-full sm:w-[440px] glass-strong shadow-book border-l border-glass-border flex flex-col">
-              <ChapterSidebar chapters={chapters} current={pageIdx} variant="drawer" onSelect={(i) => { goTo(i); setChaptersOpen(false); }} onClose={() => setChaptersOpen(false)} />
+              <ChapterSidebar chapters={chapters} current={currentChapterIndex} variant="drawer" onSelect={(i) => { goTo(i); setChaptersOpen(false); }} onClose={() => setChaptersOpen(false)} />
             </motion.aside>
           </>
         )}
