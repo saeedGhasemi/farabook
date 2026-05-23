@@ -206,7 +206,10 @@ export const applyTocClient = (
         for (let p = start; p < end; p += 1) {
           if (tocPageIdxs.has(p)) continue;
           const source = pages[p];
-          const title = p === start ? uniqueHinted[k].e.title.slice(0, 160) : (source.title || `Page ${p + 1}`);
+          // Hinted page = real chapter title. Sub-pages (the hidden ones nested
+          // under the chapter) just carry the bare page number so the sidebar
+          // doesn't surface fake "Page N" titles next to the real heading.
+          const title = p === start ? uniqueHinted[k].e.title.slice(0, 160) : String(p + 1);
           out.push({
             ...source,
             title,
