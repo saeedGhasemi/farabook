@@ -106,4 +106,18 @@ describe("tiptap-doc table preservation (regression)", () => {
     ]);
     expect(block?.caption).toBe("Table 7");
   });
+
+  it("preserves superscript/subscript marks through legacy roundtrip", () => {
+    const pages = dbPagesToTextPages([{ title: "chem", blocks: [{ type: "paragraph", text: "H[sub]2[/sub]O و x[sup]2[/sup]" }] }]);
+    const paragraph: any = pages[0].doc.content[0];
+    expect(paragraph.content).toEqual([
+      { type: "text", text: "H" },
+      { type: "text", text: "2", marks: [{ type: "subscript" }] },
+      { type: "text", text: "O و x" },
+      { type: "text", text: "2", marks: [{ type: "superscript" }] },
+    ]);
+
+    const saved = textPagesToDbPages(pages);
+    expect(saved[0].blocks[0].text).toBe("H[sub]2[/sub]O و x[sup]2[/sup]");
+  });
 });
