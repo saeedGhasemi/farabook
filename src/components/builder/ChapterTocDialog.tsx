@@ -318,53 +318,109 @@ export const ChapterTocDialog = ({
         </DialogHeader>
 
         {step === "pick" && (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {fa
-                ? "صفحه‌ای که فهرست مطالب کتاب در آن قرار دارد را انتخاب کنید، یا اجازه دهید هوش مصنوعی خودش پیدا کند."
-                : "Pick the page(s) that contain the TOC, or let AI find them for you."}
-            </p>
-            <div className="border rounded-lg max-h-72 overflow-y-auto divide-y">
-              {previewPages.map((p, i) => {
-                const checked = selected.has(i);
-                const preview = pageText(p).slice(0, 160).replace(/\s+/g, " ");
-                return (
-                  <label key={i} className="flex items-start gap-2 p-2 cursor-pointer hover:bg-muted/40">
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(v) => {
-                        setSelected((prev) => {
-                          const n = new Set(prev);
-                          if (v) n.add(i); else n.delete(i);
-                          return n;
-                        });
-                      }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate">
-                        <span className="text-[10px] text-muted-foreground me-1">{i + 1}.</span>
-                        {p.title || (fa ? "بدون عنوان" : "Untitled")}
+          <Tabs value={pasteMode} onValueChange={(v) => setPasteMode(v as "pages" | "paste")} className="space-y-3">
+            <TabsList className="grid grid-cols-2 w-full">
+              <TabsTrigger value="pages" className="gap-1.5">
+                <ListTree className="w-3.5 h-3.5" />
+                {fa ? "از صفحات کتاب" : "From book pages"}
+              </TabsTrigger>
+              <TabsTrigger value="paste" className="gap-1.5">
+                <ClipboardPaste className="w-3.5 h-3.5" />
+                {fa ? "وارد کردن دستی" : "Paste manually"}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="pages" className="space-y-3 mt-0">
+              <p className="text-sm text-muted-foreground">
+                {fa
+                  ? "صفحه‌ای که فهرست مطالب کتاب در آن قرار دارد را انتخاب کنید، یا اجازه دهید هوش مصنوعی خودش پیدا کند."
+                  : "Pick the page(s) that contain the TOC, or let AI find them for you."}
+              </p>
+              <div className="border rounded-lg max-h-72 overflow-y-auto divide-y">
+                {previewPages.map((p, i) => {
+                  const checked = selected.has(i);
+                  const preview = pageText(p).slice(0, 160).replace(/\s+/g, " ");
+                  return (
+                    <label key={i} className="flex items-start gap-2 p-2 cursor-pointer hover:bg-muted/40">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => {
+                          setSelected((prev) => {
+                            const n = new Set(prev);
+                            if (v) n.add(i); else n.delete(i);
+                            return n;
+                          });
+                        }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium truncate">
+                          <span className="text-[10px] text-muted-foreground me-1">{i + 1}.</span>
+                          {p.title || (fa ? "بدون عنوان" : "Untitled")}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground truncate">{preview}</div>
                       </div>
-                      <div className="text-[11px] text-muted-foreground truncate">{preview}</div>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-            <DialogFooter className="gap-2 sm:gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                {fa ? "انصراف" : "Cancel"}
-              </Button>
-              <Button variant="secondary" onClick={detectWithAi} disabled={loadingAi || loadingAuto} className="gap-1.5">
-                {loadingAi ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {fa ? "ادامه با هوش مصنوعی" : "Let AI decide"}
-              </Button>
-              <Button onClick={extractFromSelected} disabled={loadingAi || loadingAuto || selected.size === 0} className="gap-1.5">
-                {loadingAuto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fwd className="w-4 h-4" />}
-                {fa ? "استخراج فهرست" : "Extract TOC"}
-              </Button>
-            </DialogFooter>
-          </div>
+                    </label>
+                  );
+                })}
+              </div>
+              <DialogFooter className="gap-2 sm:gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  {fa ? "انصراف" : "Cancel"}
+                </Button>
+                <Button variant="secondary" onClick={detectWithAi} disabled={loadingAi || loadingAuto} className="gap-1.5">
+                  {loadingAi ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {fa ? "ادامه با هوش مصنوعی" : "Let AI decide"}
+                </Button>
+                <Button onClick={extractFromSelected} disabled={loadingAi || loadingAuto || selected.size === 0} className="gap-1.5">
+                  {loadingAuto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fwd className="w-4 h-4" />}
+                  {fa ? "استخراج فهرست" : "Extract TOC"}
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+
+            <TabsContent value="paste" className="space-y-3 mt-0">
+              <p className="text-sm text-muted-foreground">
+                {fa
+                  ? "اگر فهرست در فایل ورد درست تشخیص داده نشد، آن را از هر منبعی کپی و اینجا بچسبانید. هر سطر = یک سرفصل."
+                  : "If the Word file's TOC wasn't detected, paste it here from any source. One title per line."}
+              </p>
+              <Textarea
+                value={pasted}
+                onChange={(e) => setPasted(e.target.value)}
+                placeholder={fa
+                  ? "فصل اول: مقدمه\n۱.۱ تاریخچه\n۱.۲ اهمیت موضوع\nفصل دوم: روش‌ها\n…"
+                  : "Chapter 1: Introduction\n1.1 History\n1.2 Significance\nChapter 2: Methods\n…"}
+                className="min-h-[200px] text-sm font-mono"
+                dir="auto"
+              />
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-muted-foreground">{fa ? "تعیین سطح:" : "Levels:"}</span>
+                <Select value={pasteLevelMode} onValueChange={(v) => setPasteLevelMode(v as "ai" | "flat")}>
+                  <SelectTrigger className="h-8 w-48 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ai">{fa ? "هوش مصنوعی سطح‌بندی کند" : "AI infers nesting"}</SelectItem>
+                    <SelectItem value="flat">{fa ? "بدون تودرتو (همه سطح ۰)" : "Flat (all level 0)"}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className="text-muted-foreground ms-auto">
+                  {pasted.split(/\r?\n+/).filter((l) => l.trim().length >= 2).length} {fa ? "سطر" : "lines"}
+                </span>
+              </div>
+              <DialogFooter className="gap-2 sm:gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  {fa ? "انصراف" : "Cancel"}
+                </Button>
+                <Button onClick={extractFromPaste} disabled={loadingPaste || pasted.trim().length < 4} className="gap-1.5">
+                  {loadingPaste
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : (pasteLevelMode === "ai" ? <Sparkles className="w-4 h-4" /> : <Fwd className="w-4 h-4" />)}
+                  {fa ? "پردازش فهرست" : "Process TOC"}
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+          </Tabs>
         )}
 
         {step === "review" && (
