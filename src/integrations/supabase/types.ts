@@ -1219,36 +1219,6 @@ export type Database = {
       }
     }
     Views: {
-      profiles_public: {
-        Row: {
-          avatar_url: string | null
-          bio: string | null
-          created_at: string | null
-          display_name: string | null
-          id: string | null
-          username: string | null
-          website: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          bio?: string | null
-          created_at?: string | null
-          display_name?: string | null
-          id?: string | null
-          username?: string | null
-          website?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          bio?: string | null
-          created_at?: string | null
-          display_name?: string | null
-          id?: string | null
-          username?: string | null
-          website?: string | null
-        }
-        Relationships: []
-      }
       public_profiles: {
         Row: {
           avatar_url: string | null
@@ -1309,6 +1279,36 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "platform_fee_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_get_profile: {
+        Args: { _user_id: string }
+        Returns: {
+          avatar_url: string | null
+          bio: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          credits: number
+          display_name: string | null
+          id: string
+          is_active: boolean
+          national_id: string | null
+          phone: string | null
+          phone_verified: boolean
+          sms_notify_approvals: boolean
+          sms_notify_credit: boolean
+          sms_notify_purchase: boolean
+          sms_notify_revenue: boolean
+          updated_at: string
+          username: string | null
+          website: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -1424,6 +1424,36 @@ export type Database = {
       find_user_by_email: { Args: { _email: string }; Returns: string }
       get_book_content: { Args: { _book_id: string }; Returns: Json }
       get_book_preview_content: { Args: { _book_id: string }; Returns: Json }
+      get_my_profile: {
+        Args: never
+        Returns: {
+          avatar_url: string | null
+          bio: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          credits: number
+          display_name: string | null
+          id: string
+          is_active: boolean
+          national_id: string | null
+          phone: string | null
+          phone_verified: boolean
+          sms_notify_approvals: boolean
+          sms_notify_credit: boolean
+          sms_notify_purchase: boolean
+          sms_notify_revenue: boolean
+          updated_at: string
+          username: string | null
+          website: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_public_fee_settings: { Args: never; Returns: Json }
       has_role: {
         Args: {
