@@ -31,7 +31,7 @@ type Block =
     }
   | { type: "table"; headers: string[]; rows: string[][]; caption?: string; tableNumber?: string };
 
-interface Page { title: string; blocks: Block[]; }
+interface Page { title: string; blocks: Block[]; level?: number; }
 
 const htmlText = (s: string) =>
   s
