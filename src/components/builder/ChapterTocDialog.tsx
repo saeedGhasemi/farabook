@@ -240,6 +240,50 @@ export const ChapterTocDialog = ({
     }
   };
 
+  /** Convert pasted lines into entries, optionally letting AI infer nesting levels. */
+  const extractFromPaste = async () => {
+    const lines = pasted.split(/\r?\n+/).map((l) => l.trim()).filter((l) => l.length >= 2 && l.length <= 220);
+    if (lines.length < 2) {
+      toast.info(fa ? "حداقل دو خط (دو سرفصل) وارد کنید" : "Enter at least two lines");
+      return;
+    }
+    setLoadingPaste(true);
+    try {
+      let ents: TocEntry[] = [];
+      if (pasteLevelMode === "ai") {
+        // Ask the AI to infer nesting levels from the pasted lines.
+        const sample = [{ index: 0, title: fa ? "فهرست مطالب (دستی)" : "Manual TOC", text: lines.join("\n") }];
+        const { data, error } = await supabase.functions.invoke("book-toc-detect", {
+          body: { pages: sample, mode: "pages", lang, book_id: bookId },
+        });
+        if (error) throw error;
+        const aiEntries: TocEntry[] = Array.isArray(data?.entries) ? data.entries : [];
+        if (aiEntries.length) ents = aiEntries;
+      }
+      if (!ents.length) {
+        // Flat fallback: regex level inference from numbering (1.1.1 → level 2).
+        ents = lines.map((title) => {
+          let level = 0;
+          const m = /^([\d\u06F0-\u06F9\u0660-\u0669]+(?:[.\-][\d\u06F0-\u06F9\u0660-\u0669]+){0,4})\b/u.exec(title);
+          if (m) level = Math.min(4, Math.max(0, m[1].split(/[.\-]/).length - 1));
+          return { title, level };
+        });
+      }
+      if (ents.length < 2) {
+        toast.error(fa ? "هیچ سرفصلی استخراج نشد" : "No entries extracted");
+        return;
+      }
+      // Paste mode → no TOC pages to skip; clear selection so applier keeps all pages.
+      setSelected(new Set());
+      setEntries(ents);
+      setStep("review");
+    } catch (e: any) {
+      toast.error(e?.message || (fa ? "خطای پردازش" : "Processing error"));
+    } finally {
+      setLoadingPaste(false);
+    }
+  };
+
   const apply = () => {
     if (!entries.length) return;
     setStep("applying");
