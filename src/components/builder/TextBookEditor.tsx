@@ -1012,7 +1012,7 @@ export const TextBookEditor = ({ initial }: Props) => {
       {/* ============ Chapter sidebar (collapsible) ============ */}
       <aside className="lg:sticky lg:top-20 lg:self-start space-y-2">
         {chaptersCollapsed ? (
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-2 rounded-xl border bg-card p-2 shadow-sm">
             <Button
               size="icon"
               variant="ghost"
@@ -1027,10 +1027,11 @@ export const TextBookEditor = ({ initial }: Props) => {
             </div>
           </div>
         ) : (
-          <>
-            <div className="flex items-center justify-between mb-1 gap-1">
+          <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between gap-1 px-3 py-2 border-b bg-gradient-to-b from-card to-muted/20">
               <h3 className="text-sm font-semibold flex items-center gap-1.5 min-w-0 truncate">
                 <BookOpen className="w-4 h-4 text-accent shrink-0" /> {fa ? "فصل‌ها" : "Chapters"}
+                <span className="text-[10px] font-normal text-muted-foreground ms-1 tabular-nums">({pages.length})</span>
               </h3>
               <div className="flex items-center gap-0.5 shrink-0">
                 <Button
@@ -1065,21 +1066,27 @@ export const TextBookEditor = ({ initial }: Props) => {
                 </Button>
               </div>
             </div>
-            <div className="space-y-0.5 max-h-[60vh] overflow-y-auto pe-1">
+            <div className="space-y-0.5 max-h-[60vh] overflow-y-auto p-1.5">
               {pages.map((p, i) => {
                 if (hiddenSet.has(i)) return null;
                 const lvl = getLevel(p);
                 const isParent = hasChildren(i);
                 const isCollapsed = collapsedSet.has(i);
+                const isActive = i === activeIdx;
                 return (
                   <div
                     key={i}
-                    ref={i === activeIdx ? activeChapterRef : undefined}
-                    className={`group flex items-center gap-0.5 rounded-lg border px-1 py-1 transition ${
-                      i === activeIdx ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/40"
+                    ref={isActive ? activeChapterRef : undefined}
+                    className={`group relative flex items-center gap-0.5 rounded-lg px-1 py-1 transition ${
+                      isActive
+                        ? "bg-primary/10 ring-1 ring-primary/30 shadow-sm"
+                        : "hover:bg-muted/50"
                     }`}
                     style={{ paddingInlineStart: 4 + lvl * 14 }}
                   >
+                    {isActive && (
+                      <span className="absolute inset-y-1 start-0 w-0.5 rounded-full bg-primary" />
+                    )}
                     {isParent ? (
                       <button
                         type="button"
@@ -1097,8 +1104,8 @@ export const TextBookEditor = ({ initial }: Props) => {
                       onClick={() => setActiveIdx(i)}
                       className="flex-1 min-w-0 text-start text-sm truncate"
                     >
-                      <span className="text-[10px] text-muted-foreground me-1">{i + 1}.</span>
-                      <span className={lvl === 0 ? "font-medium" : ""}>
+                      <span className="text-[10px] text-muted-foreground me-1 tabular-nums">{i + 1}.</span>
+                      <span className={lvl === 0 ? "font-medium" : "text-foreground/80"}>
                         {p.title || (fa ? "بدون عنوان" : "Untitled")}
                       </span>
                     </button>
@@ -1152,8 +1159,7 @@ export const TextBookEditor = ({ initial }: Props) => {
                 );
               })}
             </div>
-
-          </>
+          </div>
         )}
       </aside>
 
