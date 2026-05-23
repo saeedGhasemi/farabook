@@ -476,25 +476,43 @@ function extractTocEntries(pages: Page[]): { entries: TocEntry[]; tocPageIdx: nu
     const headingIsToc = p.blocks.some((b: any) => b?.type === "heading" && looksLikeTocHeader(b.text));
     if (!titleIsToc && !headingIsToc) continue;
     const entries: TocEntry[] = [];
-    for (const b of p.blocks as any[]) {
-      const raw = String(b?.text || "").trim();
-      if (!raw || raw.length > 220) continue;
-      if (looksLikeTocHeader(raw)) continue;
+    const pushFromText = (raw0: string) => {
+      const raw = String(raw0 || "").trim();
+      if (!raw || raw.length > 220) return;
+      if (looksLikeTocHeader(raw)) return;
       // Strip trailing dot-leaders + page number ("..... 23" or "  ۲۳")
       const cleaned = raw
         .replace(/[\s.·…\-\u2013\u2014_]+[\d\u06F0-\u06F9\u0660-\u0669]+\s*$/u, "")
         .trim();
-      if (!cleaned || cleaned.length < 2) continue;
-      // Skip lines that are pure numbers / dates / page words
-      if (/^[\d\u06F0-\u06F9\u0660-\u0669\s.\-]+$/.test(cleaned)) continue;
-      // Determine nesting level from numeric prefix like "1.2.3" or
-      // "فصل اول → بخش دوم" indents. Default to 0.
+      if (!cleaned || cleaned.length < 2) return;
+      if (/^[\d\u06F0-\u06F9\u0660-\u0669\s.\-]+$/.test(cleaned)) return;
       let level = 0;
       const numMatch = /^([\d\u06F0-\u06F9\u0660-\u0669]+(?:[.\-][\d\u06F0-\u06F9\u0660-\u0669]+){0,4})\b/u.exec(cleaned);
       if (numMatch) {
         level = Math.min(4, Math.max(0, numMatch[1].split(/[.\-]/).length - 1));
       }
       entries.push({ title: cleaned, level, norm: normTitle(cleaned) });
+    };
+    for (const b of p.blocks as any[]) {
+      if (b?.type === "table") {
+        // TOC often lives inside a 2-col table: [title, page]. Pick the
+        // longest non-numeric cell from each row as the entry title.
+        const rows: string[][] = [];
+        if (Array.isArray(b.headers) && b.headers.length) rows.push(b.headers);
+        if (Array.isArray(b.rows)) for (const r of b.rows) if (Array.isArray(r)) rows.push(r);
+        for (const row of rows) {
+          let best = "";
+          for (const c of row) {
+            const s = String(c || "").trim();
+            if (!s) continue;
+            if (/^[\d\u06F0-\u06F9\u0660-\u0669\s.\-]+$/.test(s)) continue;
+            if (s.length > best.length) best = s;
+          }
+          if (best) pushFromText(best);
+        }
+        continue;
+      }
+      pushFromText(b?.text);
     }
     if (entries.length >= 3) return { entries, tocPageIdx: i };
   }
