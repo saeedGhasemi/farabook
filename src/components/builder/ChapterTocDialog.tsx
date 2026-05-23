@@ -548,11 +548,18 @@ export const ChapterTocDialog = ({
 
         {step === "review" && (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {fa
-                ? `${entries.length} سرفصل استخراج شد. روی هر عنوان کلیک کنید تا صفحهٔ تطبیق‌شده در ورد و دو سطر اول آن را ببینید. در صورت اشتباه می‌توانید صفحهٔ درست را انتخاب کنید.`
-                : `${entries.length} entries extracted. Click any entry to see its matched Word page and a 2-line preview. Override the page if wrong.`}
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground flex-1">
+                {fa
+                  ? `${entries.length} سرفصل استخراج شد. روی هر عنوان کلیک کنید تا صفحهٔ تطبیق‌شده در ورد و دو سطر اول آن را ببینید. در صورت اشتباه می‌توانید صفحهٔ درست را انتخاب کنید.`
+                  : `${entries.length} entries extracted. Click any entry to see its matched Word page and a 2-line preview. Override the page if wrong.`}
+              </p>
+              {overrides.size > 0 && (
+                <span className="text-[11px] px-2 py-1 rounded-md bg-primary/10 text-primary border border-primary/30 shrink-0">
+                  {fa ? `${overrides.size} تطبیق دستی` : `${overrides.size} manual`}
+                </span>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               {/* Entry list */}
