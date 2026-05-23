@@ -93,12 +93,16 @@ export async function downloadBook(
     const adapter = await getAdapter();
     const onProgress = opts.onProgress ?? (() => {});
 
-    // 1) Fetch authoritative version from server.
-    const { data: serverBook, error: bookErr } = await supabase
-      .from("books")
-      .select("id,title,author,cover_url,ambient_theme,typography_preset,pages,content_version,content_updated_at")
-      .eq("id", bookId)
-      .maybeSingle();
+    // 1) Fetch authoritative version from server (metadata only — pages are
+    // fetched through the ownership-checked RPC below).
+    const [{ data: serverBook, error: bookErr }, { data: pagesData }] = await Promise.all([
+      supabase
+        .from("books")
+        .select("id,title,author,cover_url,ambient_theme,typography_preset,content_version,content_updated_at")
+        .eq("id", bookId)
+        .maybeSingle(),
+      (supabase.rpc as any)("get_book_content", { _book_id: bookId }),
+    ]);
     if (bookErr || !serverBook) throw bookErr ?? new Error("book_not_found");
 
     const cached = await adapter.getBookCache(bookId);
@@ -131,7 +135,7 @@ export async function downloadBook(
       // 3) Derive per-(user,book,device) key — also enforces 2-device cap server-side.
       const key = await getKey(userId, bookId, opts.deviceLabel);
 
-      const pagesArr = Array.isArray(serverBook.pages) ? (serverBook.pages as unknown[]) : [];
+      const pagesArr = Array.isArray(pagesData) ? (pagesData as unknown[]) : [];
 
       // 3a) Walk pages — extract every downloadable asset URL and rewrite the
       // page payload so embedded images/videos point at offline-asset:// keys.

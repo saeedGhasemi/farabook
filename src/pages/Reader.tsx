@@ -133,7 +133,13 @@ const Reader = () => {
 
       // 2) Server fetch — fresh content + ownership checks. If offline already
       //    rendered, treat network failure silently.
-      const { data, error } = await supabase.from("books").select("*").eq("id", id).maybeSingle();
+      // `pages` is column-restricted; fetch metadata without it, then load
+      // page content through the ownership-checked RPC.
+      const { data, error } = await supabase
+        .from("books")
+        .select("id, title, author, cover_url, cover_focus, description, price, publisher_id, status, review_status, typography_preset, ambient_theme, preview_pages, language, isbn, publication_year, edition, page_count, subtitle, book_type, original_title, original_language, series_name, series_index, categories, subjects, contributors, content_version, content_updated_at, comments_enabled, ai_summary")
+        .eq("id", id)
+        .maybeSingle();
       if (cancelled) return;
       if (!data) {
         if (renderedOffline) return; // offline copy is enough
@@ -162,7 +168,8 @@ const Reader = () => {
           }
         }
       }
-      const pages = Array.isArray(data.pages) ? data.pages : [];
+      const { data: pagesData } = await (supabase.rpc as any)("get_book_content", { _book_id: id });
+      const pages = Array.isArray(pagesData) ? pagesData : [];
       // Only replace the offline-rendered copy if we actually have newer pages
       // (server returned non-empty pages).
       if (!renderedOffline || pages.length > 0) {

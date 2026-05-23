@@ -34,11 +34,14 @@ const Edit = () => {
       return;
     }
     (async () => {
-      const { data, error } = await supabase
-        .from("books")
-        .select("id, title, author, description, cover_url, cover_focus, pages, publisher_id, status, typography_preset, author_user_id, category, price")
-        .eq("id", id)
-        .maybeSingle();
+      const [{ data, error }, { data: pagesData }] = await Promise.all([
+        supabase
+          .from("books")
+          .select("id, title, author, description, cover_url, cover_focus, publisher_id, status, typography_preset, author_user_id, category, price")
+          .eq("id", id)
+          .maybeSingle(),
+        (supabase.rpc as any)("get_book_content", { _book_id: id }),
+      ]);
       if (error || !data) {
         toast.error(lang === "fa" ? "کتاب یافت نشد" : "Book not found");
         nav("/library");
@@ -71,7 +74,7 @@ const Edit = () => {
         cover_focus: (data as any).cover_focus ?? null,
         // Pass raw DB pages straight through — TextBookEditor handles
         // both new (`doc`) and legacy (`blocks`) shapes via dbPagesToTextPages.
-        pages: (data.pages as any[]) ?? [],
+        pages: (Array.isArray(pagesData) ? pagesData : []) as any[],
         typography_preset: data.typography_preset,
         author_user_id: (data as any).author_user_id ?? null,
       });
