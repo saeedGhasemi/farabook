@@ -65,6 +65,27 @@ const normTitle = (s: string): string =>
     .trim()
     .toLowerCase();
 
+const cleanManualTocLine = (raw: string): string =>
+  String(raw ?? "")
+    .replace(/^[\s•●▪▫*-]+/u, "")
+    .replace(/[\s.·…_\-\u2013\u2014]+[\d\u06F0-\u06F9\u0660-\u0669]+\s*$/u, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const pageSearchLines = (p: TextPage): string[] => {
+  const out: string[] = [];
+  if (p.title) out.push(p.title);
+  for (const node of (p.doc?.content ?? [])) {
+    const t = nodeText(node);
+    if (!t) continue;
+    for (const line of t.split(/\r?\n+/)) {
+      const s = line.trim();
+      if (s) out.push(s);
+    }
+  }
+  return out;
+};
+
 /** Extract entries from a page using regex heuristics (mirrors server). */
 const regexExtract = (text: string): Array<{ title: string; level: number }> => {
   const lines = text.split(/\r?\n+/).map((l) => l.trim()).filter(Boolean);
@@ -85,9 +106,8 @@ const regexExtract = (text: string): Array<{ title: string; level: number }> => 
 
 interface TocEntry { title: string; level: number; }
 
-/** For each entry, find the Word page index where it most likely starts.
- *  Search is monotonic (cursor advances), starts after the last TOC page,
- *  and considers both page titles and block-level texts. */
+/** For each pasted/manual entry, suggest the first Word page where that
+ *  complete line appears. TOC pages are skipped when the user selected them. */
 const computeMatches = (
   pages: TextPage[],
   tocSet: Set<number>,
@@ -96,30 +116,64 @@ const computeMatches = (
   const sorted = [...tocSet].sort((a, b) => a - b);
   const start = sorted.length ? Math.max(...sorted) + 1 : 0;
   const matches: Array<number | null> = new Array(entries.length).fill(null);
-  let cursor = start;
+  const index = pages.map((p) => {
+    const lines = pageSearchLines(p).map(normTitle).filter(Boolean);
+    return { lines, full: normTitle(pageText(p)) };
+  });
   for (let i = 0; i < entries.length; i += 1) {
-    const norm = normTitle(entries[i].title);
+    const norm = normTitle(cleanManualTocLine(entries[i].title));
     if (!norm) continue;
     let found = -1;
-    for (let p = cursor; p < pages.length; p += 1) {
+    for (let p = start; p < pages.length; p += 1) {
       if (tocSet.has(p)) continue;
-      const candidates: string[] = [];
-      if (pages[p].title) candidates.push(normTitle(pages[p].title));
-      for (const n of (pages[p].doc?.content ?? [])) {
-        const t = normTitle(nodeText(n));
-        if (t && t.length >= 2 && t.length <= 220) candidates.push(t);
-        if (candidates.length > 8) break;
-      }
-      const hit = candidates.some((c) =>
+      const hit = index[p].lines.some((c) =>
         c === norm ||
         c.startsWith(norm + " ") ||
         (norm.length >= 8 && c.startsWith(norm)) ||
         (c.length >= 8 && norm.startsWith(c)),
-      );
+      ) || (norm.length >= 10 && index[p].full.includes(norm));
       if (hit) { found = p; break; }
     }
-    if (found >= 0) { matches[i] = found; cursor = found + 1; }
+    if (found >= 0) matches[i] = found;
   }
+  return matches;
+};
+
+const yieldToBrowser = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+const computeMatchesAsync = async (
+  pages: TextPage[],
+  tocSet: Set<number>,
+  entries: TocEntry[],
+  onProgress?: (done: number) => void,
+): Promise<Array<number | null>> => {
+  const sorted = [...tocSet].sort((a, b) => a - b);
+  const start = sorted.length ? Math.max(...sorted) + 1 : 0;
+  const matches: Array<number | null> = new Array(entries.length).fill(null);
+  const index = pages.map((p) => {
+    const lines = pageSearchLines(p).map(normTitle).filter(Boolean);
+    return { lines, full: normTitle(pageText(p)) };
+  });
+  for (let i = 0; i < entries.length; i += 1) {
+    const norm = normTitle(cleanManualTocLine(entries[i].title));
+    if (norm) {
+      for (let p = start; p < pages.length; p += 1) {
+        if (tocSet.has(p)) continue;
+        const hit = index[p].lines.some((c) =>
+          c === norm ||
+          c.startsWith(norm + " ") ||
+          (norm.length >= 8 && c.startsWith(norm)) ||
+          (c.length >= 8 && norm.startsWith(c)),
+        ) || (norm.length >= 10 && index[p].full.includes(norm));
+        if (hit) { matches[i] = p; break; }
+      }
+    }
+    if (i % 8 === 7) {
+      onProgress?.(i + 1);
+      await yieldToBrowser();
+    }
+  }
+  onProgress?.(entries.length);
   return matches;
 };
 
@@ -138,26 +192,28 @@ export const applyTocClient = (
   /* ---------- Hint-based slicing (preferred when hints exist) ---------- */
   if (pageHints && pageHints.some((h) => typeof h === "number")) {
     const hinted = entries
-      .map((e, i) => ({ e, h: pageHints[i] ?? null }))
-      .filter((x) => typeof x.h === "number") as Array<{ e: TocEntry; h: number }>;
-    hinted.sort((a, b) => a.h - b.h);
-    if (hinted.length >= 2) {
-      const firstHint = hinted[0].h;
+      .map((e, i) => ({ e, h: pageHints[i] ?? null, pos: i }))
+      .filter((x) => typeof x.h === "number") as Array<{ e: TocEntry; h: number; pos: number }>;
+    hinted.sort((a, b) => a.h - b.h || a.pos - b.pos);
+    const uniqueHinted = hinted.filter((x, i) => i === 0 || x.h !== hinted[i - 1].h);
+    if (uniqueHinted.length >= 1) {
+      const firstHint = uniqueHinted[0].h;
       const before = pages.slice(0, firstHint).filter((_, k) => !tocPageIdxs.has(k));
       const out: TextPage[] = [];
-      for (let k = 0; k < hinted.length; k += 1) {
-        const start = hinted[k].h;
-        const end = k + 1 < hinted.length ? hinted[k + 1].h : pages.length;
-        const content: any[] = [];
+      for (let k = 0; k < uniqueHinted.length; k += 1) {
+        const start = uniqueHinted[k].h;
+        const end = k + 1 < uniqueHinted.length ? uniqueHinted[k + 1].h : pages.length;
         for (let p = start; p < end; p += 1) {
           if (tocPageIdxs.has(p)) continue;
-          for (const n of (pages[p].doc?.content ?? [])) content.push(n);
+          const source = pages[p];
+          const title = p === start ? uniqueHinted[k].e.title.slice(0, 160) : (source.title || `Page ${p + 1}`);
+          out.push({
+            ...source,
+            title,
+            level: p === start ? uniqueHinted[k].e.level : uniqueHinted[k].e.level + 1,
+            doc: { type: "doc", content: [...(source.doc?.content ?? [])] },
+          });
         }
-        out.push({
-          title: hinted[k].e.title.slice(0, 160),
-          level: hinted[k].e.level,
-          doc: { type: "doc", content },
-        });
       }
       return [...before, ...out];
     }
@@ -245,9 +301,13 @@ export const ChapterTocDialog = ({
   const [loadingAi, setLoadingAi] = useState(false);
   const [loadingAuto, setLoadingAuto] = useState(false);
   const [loadingPaste, setLoadingPaste] = useState(false);
+  const [searchingMatches, setSearchingMatches] = useState(false);
+  const [matchProgress, setMatchProgress] = useState(0);
   const [pasted, setPasted] = useState("");
   const [pasteMode, setPasteMode] = useState<"pages" | "paste">("pages");
   const [pasteLevelMode, setPasteLevelMode] = useState<"ai" | "flat">("ai");
+
+  const matchedCount = useMemo(() => matches.filter((m) => typeof m === "number").length, [matches]);
 
   useEffect(() => {
     if (!open) return;
@@ -258,8 +318,10 @@ export const ChapterTocDialog = ({
     setPicked(new Set());
     setSelectedEntryIdx(null);
     setPasted("");
+    setSearchingMatches(false);
+    setMatchProgress(0);
     setPasteMode("pages");
-    setPasteLevelMode("ai");
+    setPasteLevelMode("flat");
     const guess = new Set<number>();
     pages.slice(0, 8).forEach((p, i) => {
       if (/فهرست\s*(?:مطالب|کتاب)?|contents|table\s+of\s+contents/i.test(p.title || "")) guess.add(i);
@@ -267,17 +329,33 @@ export const ChapterTocDialog = ({
     setSelected(guess);
   }, [open, pages]);
 
-  /** Recompute matches whenever entries or TOC-page selection change. */
   useEffect(() => {
-    if (step !== "review" || entries.length === 0) return;
-    setMatches((prev) => {
-      // Preserve user-overridden matches; only auto-fill the rest.
-      const fresh = computeMatches(pages, selected, entries);
-      if (prev.length !== entries.length) return fresh;
-      return fresh.map((m, i) => (overrides.has(i) && prev[i] != null ? prev[i] : m));
-    });
+    if (step !== "review") return;
     setSelectedEntryIdx((i) => (i != null && i < entries.length ? i : null));
-  }, [step, entries, pages, selected, overrides]);
+  }, [step, entries.length]);
+
+  const runMatchSearch = async (
+    targetEntries: TocEntry[] = entries,
+    targetSelected: Set<number> = selected,
+    preserveOverrides = true,
+  ) => {
+    if (!targetEntries.length) return;
+    const previous = matches;
+    setSearchingMatches(true);
+    setMatchProgress(0);
+    try {
+      const fresh = await computeMatchesAsync(pages, targetSelected, targetEntries, setMatchProgress);
+      setMatches(fresh.map((m, i) => (preserveOverrides && overrides.has(i) && previous[i] != null ? previous[i] : m)));
+      const count = fresh.filter((m) => typeof m === "number").length;
+      toast.success(
+        fa
+          ? `${count} صفحه پیشنهادی از ${targetEntries.length} سرفصل پیدا شد`
+          : `${count} suggested pages found for ${targetEntries.length} entries`,
+      );
+    } finally {
+      setSearchingMatches(false);
+    }
+  };
 
   const detectWithAi = async () => {
     setLoadingAi(true);
@@ -295,9 +373,12 @@ export const ChapterTocDialog = ({
         toast.info(fa ? "هوش مصنوعی فهرست را پیدا نکرد. صفحات فهرست را دستی انتخاب کنید." : "AI couldn't find a TOC. Pick pages manually.");
         return;
       }
-      setSelected(new Set(idxs));
+      const nextSelected = new Set(idxs);
+      setSelected(nextSelected);
+      setMatches(new Array(ents.length).fill(null));
       setEntries(ents);
       setStep("review");
+      await runMatchSearch(ents, nextSelected, false);
     } catch (e: any) {
       toast.error(e?.message || (fa ? "خطای تشخیص" : "Detection error"));
     } finally {
@@ -329,8 +410,10 @@ export const ChapterTocDialog = ({
         toast.error(fa ? "هیچ سرفصلی استخراج نشد" : "No entries extracted");
         return;
       }
+      setMatches(new Array(ents.length).fill(null));
       setEntries(ents);
       setStep("review");
+      await runMatchSearch(ents, selected, false);
     } catch (e: any) {
       toast.error(e?.message || (fa ? "خطای استخراج" : "Extraction error"));
     } finally {
@@ -339,7 +422,7 @@ export const ChapterTocDialog = ({
   };
 
   const extractFromPaste = async () => {
-    const lines = pasted.split(/\r?\n+/).map((l) => l.trim()).filter((l) => l.length >= 2 && l.length <= 220);
+    const lines = pasted.split(/\r?\n+/).map(cleanManualTocLine).filter((l) => l.length >= 2 && l.length <= 220);
     if (lines.length < 2) {
       toast.info(fa ? "حداقل دو خط (دو سرفصل) وارد کنید" : "Enter at least two lines");
       return;
@@ -381,8 +464,11 @@ export const ChapterTocDialog = ({
         } catch { /* fall back silently */ }
       }
       setSelected(new Set());
+      setMatches(new Array(ents.length).fill(null));
+      setMatchProgress(0);
       setEntries(ents);
       setStep("review");
+      await runMatchSearch(ents, new Set(), false);
     } catch (e: any) {
       toast.error(e?.message || (fa ? "خطای پردازش" : "Processing error"));
     } finally {
@@ -390,14 +476,26 @@ export const ChapterTocDialog = ({
     }
   };
 
-  const apply = () => {
+  const apply = async () => {
     if (!entries.length) return;
+    if (searchingMatches) return;
     setStep("applying");
+    await yieldToBrowser();
     try {
+      const matchedCount = matches.filter((m) => typeof m === "number").length;
+      if (matchedCount === 0) {
+        toast.error(
+          fa
+            ? "هیچ صفحه پیشنهادی برای سرفصل‌ها پیدا نشده است. اول «جستجوی سطرها» را بزنید یا برای چند سرفصل، صفحه درست را دستی انتخاب کنید."
+            : "No suggested page was found. Run “Search lines” first or manually pick the right page for a few entries.",
+          { duration: 10000 },
+        );
+        setStep("review");
+        return;
+      }
       const next = applyTocClient(pages, selected, entries, matches);
       if (next === pages) {
         // Diagnose: how many entries actually got matched to a page?
-        const matchedCount = matches.filter((m) => typeof m === "number").length;
         const missing = entries.length - matchedCount;
         const msg = fa
           ? `از ${entries.length} سرفصل فقط ${matchedCount} مورد در متن کتاب پیدا شد (کمتر از ۳۰٪). برای حل این مشکل: ۱) روی سرفصل‌هایی که نشانگر «؟» قرمز دارند کلیک کنید و صفحهٔ درست را از پیش‌نمایش انتخاب کنید. ۲) عناوین فهرست را با عنوان واقعی فصل در ورد یکسان کنید. ۳) اگر چند سرفصل پشت سر هم دستی تعیین کنید، بقیه به‌صورت خودکار بین آن‌ها برش می‌خورد. (${missing} سرفصل بدون تطبیق)`
@@ -472,7 +570,7 @@ export const ChapterTocDialog = ({
   }, [selectedEntryIdx, matches, pages, entries]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!searchingMatches) onOpenChange(nextOpen); }}>
       <DialogContent className="max-w-4xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -592,9 +690,19 @@ export const ChapterTocDialog = ({
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm text-muted-foreground flex-1">
                 {fa
-                  ? `${entries.length} سرفصل استخراج شد. روی هر عنوان کلیک کنید تا صفحهٔ تطبیق‌شده در ورد و دو سطر اول آن را ببینید. در صورت اشتباه می‌توانید صفحهٔ درست را انتخاب کنید.`
-                  : `${entries.length} entries extracted. Click any entry to see its matched Word page and a 2-line preview. Override the page if wrong.`}
+                  ? `${entries.length} سرفصل آماده شد. «جستجوی سطرها» اولین صفحه‌ای را که متن کامل هر سطر در کتاب دیده می‌شود به‌عنوان صفحه پیشنهادی می‌گذارد.`
+                  : `${entries.length} entries ready. “Search lines” suggests the first page where each complete line appears in the book.`}
               </p>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => runMatchSearch()}
+                disabled={searchingMatches || !entries.length}
+                className="h-8 gap-1.5 shrink-0"
+              >
+                {searchingMatches ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSearch className="w-3.5 h-3.5" />}
+                {fa ? "جستجوی سطرها" : "Search lines"}
+              </Button>
               {overrides.size > 0 && (
                 <span className="text-[11px] px-2 py-1 rounded-md bg-primary/10 text-primary border border-primary/30 shrink-0">
                   {fa ? `${overrides.size} تطبیق دستی` : `${overrides.size} manual`}
@@ -604,6 +712,17 @@ export const ChapterTocDialog = ({
 
             {/* Bulk-action toolbar */}
             <div className="flex items-center gap-2 flex-wrap rounded-lg border bg-muted/30 px-2 py-1.5">
+              {searchingMatches && (
+                <span className="inline-flex items-center gap-1 text-xs text-primary">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  {fa ? `جستجو در کتاب… ${matchProgress}/${entries.length}` : `Searching book… ${matchProgress}/${entries.length}`}
+                </span>
+              )}
+              {!searchingMatches && matches.length > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {fa ? `${matchedCount} صفحه پیشنهادی` : `${matchedCount} suggested pages`}
+                </span>
+              )}
               <button
                 type="button"
                 onClick={toggleAllPicked}
@@ -872,7 +991,7 @@ export const ChapterTocDialog = ({
                 <Back className="w-4 h-4" />
                 {fa ? "بازگشت" : "Back"}
               </Button>
-              <Button onClick={apply} disabled={entries.length < 2} className="gap-1.5">
+                <Button onClick={apply} disabled={entries.length < 2 || searchingMatches} className="gap-1.5">
                 {fa ? "اعمال فصل‌بندی" : "Apply chaptering"}
               </Button>
             </DialogFooter>
