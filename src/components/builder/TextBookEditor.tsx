@@ -493,6 +493,121 @@ export const TextBookEditor = ({ initial }: Props) => {
     markPageDirty(idx);
   };
 
+  /* ---------------- Chapter tree (nested headings) ---------------- */
+  // Each page has an optional `level` (0 = top-level). Children are the
+  // contiguous following pages with strictly greater level. Move/indent
+  // operate on the page + its subtree.
+  const MAX_LEVEL = 5;
+  const getLevel = useCallback((p?: TextPage) => Math.max(0, Math.min(MAX_LEVEL, Math.floor(p?.level ?? 0))), []);
+  // End index (exclusive) of the subtree rooted at `idx`.
+  const subtreeEnd = useCallback((ps: TextPage[], idx: number) => {
+    const lvl = getLevel(ps[idx]);
+    let j = idx + 1;
+    while (j < ps.length && getLevel(ps[j]) > lvl) j += 1;
+    return j;
+  }, [getLevel]);
+
+  const [collapsedSet, setCollapsedSet] = useState<Set<number>>(new Set());
+  const toggleCollapse = (idx: number) => {
+    setCollapsedSet((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      return next;
+    });
+  };
+
+  // Hide rows whose any ancestor is collapsed.
+  const hiddenSet = useMemo(() => {
+    const hidden = new Set<number>();
+    for (let i = 0; i < pages.length; i += 1) {
+      if (!collapsedSet.has(i)) continue;
+      const end = subtreeEnd(pages, i);
+      for (let k = i + 1; k < end; k += 1) hidden.add(k);
+    }
+    return hidden;
+  }, [pages, collapsedSet, subtreeEnd]);
+
+  const hasChildren = useCallback(
+    (idx: number) => subtreeEnd(pages, idx) > idx + 1,
+    [pages, subtreeEnd],
+  );
+
+  const indentChapter = (idx: number) => {
+    if (idx === 0) {
+      toast.info(fa ? "اولین فصل را نمی‌توان زیرفصل کرد" : "Can't indent the first chapter");
+      return;
+    }
+    setPages((ps) => {
+      const prevLvl = getLevel(ps[idx - 1]);
+      const curLvl = getLevel(ps[idx]);
+      if (curLvl > prevLvl) {
+        toast.info(fa ? "بیش از این نمی‌توان فرورفت" : "Already nested under previous");
+        return ps;
+      }
+      if (curLvl >= MAX_LEVEL) return ps;
+      const end = subtreeEnd(ps, idx);
+      return ps.map((p, i) =>
+        (i >= idx && i < end) ? { ...p, level: Math.min(MAX_LEVEL, getLevel(p) + 1) } : p,
+      );
+    });
+    markStructureDirty();
+  };
+
+  const outdentChapter = (idx: number) => {
+    setPages((ps) => {
+      const curLvl = getLevel(ps[idx]);
+      if (curLvl <= 0) return ps;
+      const end = subtreeEnd(ps, idx);
+      return ps.map((p, i) =>
+        (i >= idx && i < end) ? { ...p, level: Math.max(0, getLevel(p) - 1) } : p,
+      );
+    });
+    markStructureDirty();
+  };
+
+  // Move the subtree rooted at idx up or down past the adjacent sibling
+  // (which may itself be a subtree at the same or lower level).
+  const moveChapter = (idx: number, dir: -1 | 1) => {
+    setPages((ps) => {
+      const end = subtreeEnd(ps, idx);
+      const block = ps.slice(idx, end);
+      if (dir === -1) {
+        if (idx === 0) return ps;
+        // Find the start of the previous sibling/block at level <= cur.
+        const curLvl = getLevel(ps[idx]);
+        let prevStart = idx - 1;
+        while (prevStart > 0 && getLevel(ps[prevStart]) > curLvl) prevStart -= 1;
+        const before = ps.slice(0, prevStart);
+        const prevBlock = ps.slice(prevStart, idx);
+        const after = ps.slice(end);
+        const next = [...before, ...block, ...prevBlock, ...after];
+        // Update active index
+        setActiveIdx((a) => {
+          if (a >= idx && a < end) return a - prevBlock.length;
+          if (a >= prevStart && a < idx) return a + block.length;
+          return a;
+        });
+        return next;
+      } else {
+        if (end >= ps.length) return ps;
+        const nextEnd = subtreeEnd(ps, end);
+        const before = ps.slice(0, idx);
+        const nextBlock = ps.slice(end, nextEnd);
+        const after = ps.slice(nextEnd);
+        const next = [...before, ...nextBlock, ...block, ...after];
+        setActiveIdx((a) => {
+          if (a >= idx && a < end) return a + nextBlock.length;
+          if (a >= end && a < nextEnd) return a - block.length;
+          return a;
+        });
+        return next;
+      }
+    });
+    markStructureDirty();
+  };
+
+
+
   // Merge auto-paginated tiny chapters (e.g. "صفحه 12" with one sentence)
   // into the previous chapter. Lets the user clean up legacy imports
   // without re-uploading the Word file.
