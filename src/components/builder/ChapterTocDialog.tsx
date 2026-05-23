@@ -329,24 +329,33 @@ export const ChapterTocDialog = ({
     setSelected(guess);
   }, [open, pages]);
 
-  /** Recompute matches whenever entries or TOC-page selection change. */
   useEffect(() => {
-    if (step !== "review" || entries.length === 0) return;
-    let cancelled = false;
+    if (step !== "review") return;
+    setSelectedEntryIdx((i) => (i != null && i < entries.length ? i : null));
+  }, [step, entries.length]);
+
+  const runMatchSearch = async (
+    targetEntries: TocEntry[] = entries,
+    targetSelected: Set<number> = selected,
+    preserveOverrides = true,
+  ) => {
+    if (!targetEntries.length) return;
+    const previous = matches;
     setSearchingMatches(true);
     setMatchProgress(0);
-    const previous = matches;
-    computeMatchesAsync(pages, selected, entries, (done) => {
-      if (!cancelled) setMatchProgress(done);
-    }).then((fresh) => {
-      if (cancelled) return;
-      setMatches(fresh.map((m, i) => (overrides.has(i) && previous[i] != null ? previous[i] : m)));
-    }).finally(() => {
-      if (!cancelled) setSearchingMatches(false);
-    });
-    setSelectedEntryIdx((i) => (i != null && i < entries.length ? i : null));
-    return () => { cancelled = true; };
-  }, [step, entries, pages, selected, overrides]);
+    try {
+      const fresh = await computeMatchesAsync(pages, targetSelected, targetEntries, setMatchProgress);
+      setMatches(fresh.map((m, i) => (preserveOverrides && overrides.has(i) && previous[i] != null ? previous[i] : m)));
+      const count = fresh.filter((m) => typeof m === "number").length;
+      toast.success(
+        fa
+          ? `${count} صفحه پیشنهادی از ${targetEntries.length} سرفصل پیدا شد`
+          : `${count} suggested pages found for ${targetEntries.length} entries`,
+      );
+    } finally {
+      setSearchingMatches(false);
+    }
+  };
 
   const detectWithAi = async () => {
     setLoadingAi(true);
