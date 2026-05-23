@@ -22,9 +22,10 @@ import {
   Palette, Type as TypeIcon, SplitSquareVertical, Film, GalleryHorizontal,
   ListOrdered, Layers, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Undo2, Redo2, X, ArrowLeftRight, ChevronsLeft, ChevronsRight, Scissors,
-  Eraser, Info, Combine,
+  Eraser, Info, Combine, ListTree,
   ChevronRight, ChevronDown, ArrowUp, ArrowDown, IndentIncrease, IndentDecrease,
 } from "lucide-react";
+import { ChapterTocDialog } from "./ChapterTocDialog";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -198,6 +199,7 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [showAutoFill, setShowAutoFill] = useState(false);
   const [importId, setImportId] = useState<string | undefined>(undefined);
   const [chaptersCollapsed, setChaptersCollapsed] = useState(false);
+  const [showTocDialog, setShowTocDialog] = useState(false);
   const activeChapterRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (chaptersCollapsed) return;
@@ -1035,6 +1037,15 @@ export const TextBookEditor = ({ initial }: Props) => {
                   size="icon"
                   variant="ghost"
                   className="h-7 w-7"
+                  onClick={() => setShowTocDialog(true)}
+                  title={fa ? "فصل‌بندی از روی فهرست مطالب" : "Re-chapter from TOC"}
+                >
+                  <ListTree className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
                   onClick={rebuildChapters}
                   title={fa ? "ادغام فصل‌های کوتاه (بازسازی)" : "Merge tiny chapters"}
                 >
@@ -1692,6 +1703,21 @@ export const TextBookEditor = ({ initial }: Props) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* TOC-based chaptering dialog */}
+      <ChapterTocDialog
+        open={showTocDialog}
+        onOpenChange={setShowTocDialog}
+        pages={pages}
+        bookId={initial?.id ?? null}
+        onApply={(next) => {
+          setPages(next);
+          setActiveIdx(0);
+          // Force editor re-sync to the new active page
+          lastLoadedIdxRef.current = -1;
+          markStructureDirty();
+        }}
+      />
     </div>
   );
 };
