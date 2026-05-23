@@ -1,9 +1,10 @@
 // Dialog that lets the user configure chapter boundaries from a Table
 // of Contents. Used by the editor for both fresh imports and
 // re-conversions when auto TOC detection didn't kick in. Workflow:
-//   1. Pick which page(s) contain the TOC (or "Let AI decide").
+//   1. Pick which page(s) contain the TOC (or "Let AI decide") OR paste manually.
 //   2. Extract entries (regex first, AI fallback).
-//   3. Review/edit titles + nesting levels.
+//   3. Review/edit titles + nesting levels, AND see which Word page each entry
+//      was matched to (with a 2-line preview). User can override the page.
 //   4. Apply → re-chapter the book in-place.
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -15,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Sparkles, Loader2, Trash2, ChevronRight, ChevronLeft, ListTree, ClipboardPaste } from "lucide-react";
+import { Sparkles, Loader2, Trash2, ChevronRight, ChevronLeft, ListTree, ClipboardPaste, FileSearch, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +39,18 @@ const pageText = (p: TextPage): string => {
     if (t) parts.push(t);
   }
   return parts.join("\n");
+};
+
+/** First N non-empty lines of a page (title + block texts), trimmed. */
+const pageFirstLines = (p: TextPage, n: number = 2): string[] => {
+  const out: string[] = [];
+  if (p.title) out.push(p.title.trim());
+  for (const node of (p.doc?.content ?? [])) {
+    if (out.length >= n) break;
+    const t = nodeText(node).trim().replace(/\s+/g, " ");
+    if (t) out.push(t);
+  }
+  return out.slice(0, n);
 };
 
 const normTitle = (s: string): string =>
@@ -72,22 +85,90 @@ const regexExtract = (text: string): Array<{ title: string; level: number }> => 
 
 interface TocEntry { title: string; level: number; }
 
-/** Re-split pages using a TOC entry list. */
+/** For each entry, find the Word page index where it most likely starts.
+ *  Search is monotonic (cursor advances), starts after the last TOC page,
+ *  and considers both page titles and block-level texts. */
+const computeMatches = (
+  pages: TextPage[],
+  tocSet: Set<number>,
+  entries: TocEntry[],
+): Array<number | null> => {
+  const sorted = [...tocSet].sort((a, b) => a - b);
+  const start = sorted.length ? Math.max(...sorted) + 1 : 0;
+  const matches: Array<number | null> = new Array(entries.length).fill(null);
+  let cursor = start;
+  for (let i = 0; i < entries.length; i += 1) {
+    const norm = normTitle(entries[i].title);
+    if (!norm) continue;
+    let found = -1;
+    for (let p = cursor; p < pages.length; p += 1) {
+      if (tocSet.has(p)) continue;
+      const candidates: string[] = [];
+      if (pages[p].title) candidates.push(normTitle(pages[p].title));
+      for (const n of (pages[p].doc?.content ?? [])) {
+        const t = normTitle(nodeText(n));
+        if (t && t.length >= 2 && t.length <= 220) candidates.push(t);
+        if (candidates.length > 8) break;
+      }
+      const hit = candidates.some((c) =>
+        c === norm ||
+        c.startsWith(norm + " ") ||
+        (norm.length >= 8 && c.startsWith(norm)) ||
+        (c.length >= 8 && norm.startsWith(c)),
+      );
+      if (hit) { found = p; break; }
+    }
+    if (found >= 0) { matches[i] = found; cursor = found + 1; }
+  }
+  return matches;
+};
+
+/** Re-split pages using a TOC entry list. When `pageHints` is provided
+ *  (one optional hint per entry), we slice the book at those page boundaries
+ *  instead of fuzzy-matching block-by-block. Otherwise the original
+ *  block-walking algorithm is used. */
 export const applyTocClient = (
   pages: TextPage[],
   tocPageIdxs: Set<number>,
   entries: TocEntry[],
+  pageHints?: Array<number | null>,
 ): TextPage[] => {
   if (!entries.length) return pages;
+
+  /* ---------- Hint-based slicing (preferred when hints exist) ---------- */
+  if (pageHints && pageHints.some((h) => typeof h === "number")) {
+    const hinted = entries
+      .map((e, i) => ({ e, h: pageHints[i] ?? null }))
+      .filter((x) => typeof x.h === "number") as Array<{ e: TocEntry; h: number }>;
+    hinted.sort((a, b) => a.h - b.h);
+    if (hinted.length >= 2) {
+      const firstHint = hinted[0].h;
+      const before = pages.slice(0, firstHint).filter((_, k) => !tocPageIdxs.has(k));
+      const out: TextPage[] = [];
+      for (let k = 0; k < hinted.length; k += 1) {
+        const start = hinted[k].h;
+        const end = k + 1 < hinted.length ? hinted[k + 1].h : pages.length;
+        const content: any[] = [];
+        for (let p = start; p < end; p += 1) {
+          if (tocPageIdxs.has(p)) continue;
+          for (const n of (pages[p].doc?.content ?? [])) content.push(n);
+        }
+        out.push({
+          title: hinted[k].e.title.slice(0, 160),
+          level: hinted[k].e.level,
+          doc: { type: "doc", content },
+        });
+      }
+      return [...before, ...out];
+    }
+  }
+
+  /* ---------- Fallback: block-walking fuzzy match ---------- */
   const sorted = [...tocPageIdxs].sort((a, b) => a - b);
   const firstToc = sorted[0] ?? 0;
-  // Keep pages before the first TOC page intact (front-matter).
   const before = pages.slice(0, firstToc);
-  // Skip the TOC pages, consume the rest as candidate content.
   const restPages = pages.slice(firstToc).filter((_, k) => !tocPageIdxs.has(firstToc + k));
 
-  // Flatten into a single linear node list, prefixing each page's title
-  // as a synthetic heading so titles can also anchor against the TOC.
   type FlatNode = { __pageTitle?: boolean; node?: any; text: string };
   const flat: FlatNode[] = [];
   for (const p of restPages) {
@@ -133,7 +214,6 @@ export const applyTocClient = (
   }
   if (cur && (cur.doc.content?.length ?? 0) > 0) out.push(cur);
 
-  // Too few matches → keep the original chaptering to avoid making things worse.
   if (out.length < Math.max(2, Math.floor(entries.length * 0.3))) return pages;
   return [...before, ...out];
 };
@@ -156,6 +236,8 @@ export const ChapterTocDialog = ({
   const [step, setStep] = useState<Step>("pick");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [entries, setEntries] = useState<TocEntry[]>([]);
+  const [matches, setMatches] = useState<Array<number | null>>([]);
+  const [selectedEntryIdx, setSelectedEntryIdx] = useState<number | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [loadingAuto, setLoadingAuto] = useState(false);
   const [loadingPaste, setLoadingPaste] = useState(false);
@@ -167,10 +249,11 @@ export const ChapterTocDialog = ({
     if (!open) return;
     setStep("pick");
     setEntries([]);
+    setMatches([]);
+    setSelectedEntryIdx(null);
     setPasted("");
     setPasteMode("pages");
     setPasteLevelMode("ai");
-    // Pre-select pages whose title looks like "فهرست مطالب"
     const guess = new Set<number>();
     pages.slice(0, 8).forEach((p, i) => {
       if (/فهرست\s*(?:مطالب|کتاب)?|contents|table\s+of\s+contents/i.test(p.title || "")) guess.add(i);
@@ -178,7 +261,18 @@ export const ChapterTocDialog = ({
     setSelected(guess);
   }, [open, pages]);
 
-  /** Use AI to both find TOC pages AND extract entries. */
+  /** Recompute matches whenever entries or TOC-page selection change. */
+  useEffect(() => {
+    if (step !== "review" || entries.length === 0) return;
+    setMatches((prev) => {
+      // Preserve any user-overridden matches when entry list hasn't shifted in length.
+      const fresh = computeMatches(pages, selected, entries);
+      if (prev.length !== entries.length) return fresh;
+      return fresh.map((m, i) => (prev[i] != null ? prev[i] : m));
+    });
+    setSelectedEntryIdx((i) => (i != null && i < entries.length ? i : null));
+  }, [step, entries, pages, selected]);
+
   const detectWithAi = async () => {
     setLoadingAi(true);
     try {
@@ -205,7 +299,6 @@ export const ChapterTocDialog = ({
     }
   };
 
-  /** Extract entries from currently-selected pages (regex first, AI fallback). */
   const extractFromSelected = async () => {
     if (!selected.size) {
       toast.info(fa ? "ابتدا صفحات فهرست را انتخاب کنید" : "Select TOC pages first");
@@ -216,7 +309,6 @@ export const ChapterTocDialog = ({
       const text = [...selected].sort((a, b) => a - b).map((i) => pageText(pages[i])).join("\n");
       let ents = regexExtract(text);
       if (ents.length < 3) {
-        // Ask the AI to parse the user-picked TOC pages.
         const sample = [...selected].sort((a, b) => a - b).map((i) => ({
           index: i, title: pages[i]?.title || "", text: pageText(pages[i]).slice(0, 4000),
         }));
@@ -240,10 +332,6 @@ export const ChapterTocDialog = ({
     }
   };
 
-  /** Convert pasted lines into entries, optionally letting AI infer nesting levels.
-   *  IMPORTANT: we ALWAYS keep one entry per pasted line — the AI is only used
-   *  to suggest nesting levels. This avoids the model deduping/rewriting/dropping
-   *  titles and ending up with fewer chapters than the user pasted. */
   const extractFromPaste = async () => {
     const lines = pasted.split(/\r?\n+/).map((l) => l.trim()).filter((l) => l.length >= 2 && l.length <= 220);
     if (lines.length < 2) {
@@ -252,16 +340,12 @@ export const ChapterTocDialog = ({
     }
     setLoadingPaste(true);
     try {
-      // Regex-based baseline level for every line (works for "1.1.2 ..." etc.).
       const regexLevel = (title: string): number => {
         const m = /^([\d\u06F0-\u06F9\u0660-\u0669]+(?:[.\-][\d\u06F0-\u06F9\u0660-\u0669]+){0,4})\b/u.exec(title);
         if (!m) return 0;
         return Math.min(4, Math.max(0, m[1].split(/[.\-]/).length - 1));
       };
-
-      // Always start from the user's exact lines (one entry per line, preserves order).
       const ents: TocEntry[] = lines.map((title) => ({ title, level: regexLevel(title) }));
-
       if (pasteLevelMode === "ai") {
         try {
           const sample = [{ index: 0, title: fa ? "فهرست مطالب (دستی)" : "Manual TOC", text: lines.join("\n") }];
@@ -272,8 +356,6 @@ export const ChapterTocDialog = ({
             const aiEntries: Array<{ title: string; level?: number }> =
               Array.isArray(data?.entries) ? data.entries : [];
             if (aiEntries.length) {
-              // Map AI-returned levels back to our lines by normalized-title match.
-              // Anything the AI didn't return keeps its regex-inferred level.
               const aiByNorm = new Map<string, number>();
               for (const a of aiEntries) {
                 const n = normTitle(a.title || "");
@@ -284,19 +366,14 @@ export const ChapterTocDialog = ({
               for (const e of ents) {
                 const n = normTitle(e.title);
                 if (aiByNorm.has(n)) { e.level = aiByNorm.get(n)!; continue; }
-                // Fuzzy: startsWith match against any AI key.
                 for (const [k, v] of aiByNorm) {
                   if (k.length >= 6 && (n.startsWith(k) || k.startsWith(n))) { e.level = v; break; }
                 }
               }
             }
           }
-        } catch {
-          // AI level-inference is optional — fall back silently to regex levels.
-        }
+        } catch { /* fall back silently */ }
       }
-
-      // Paste mode → no TOC pages to skip; clear selection so applier keeps all pages.
       setSelected(new Set());
       setEntries(ents);
       setStep("review");
@@ -311,7 +388,7 @@ export const ChapterTocDialog = ({
     if (!entries.length) return;
     setStep("applying");
     try {
-      const next = applyTocClient(pages, selected, entries);
+      const next = applyTocClient(pages, selected, entries, matches);
       if (next === pages) {
         toast.error(fa ? "تعداد تطبیق کافی نبود — تغییری اعمال نشد." : "Not enough matches — no changes applied.");
         setStep("review");
@@ -330,9 +407,29 @@ export const ChapterTocDialog = ({
   const Fwd  = fa ? ChevronLeft : ChevronRight;
   const previewPages = useMemo(() => pages.slice(0, 12), [pages]);
 
+  const previewBlock = useMemo(() => {
+    if (selectedEntryIdx == null) return null;
+    const pageIdx = matches[selectedEntryIdx];
+    if (pageIdx == null) {
+      return {
+        pageIdx: null as number | null,
+        title: entries[selectedEntryIdx]?.title || "",
+        lines: [],
+        notFound: true,
+      };
+    }
+    const p = pages[pageIdx];
+    return {
+      pageIdx,
+      title: entries[selectedEntryIdx]?.title || "",
+      lines: pageFirstLines(p, 2),
+      notFound: false,
+    };
+  }, [selectedEntryIdx, matches, pages, entries]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ListTree className="w-4 h-4 text-accent" />
@@ -450,53 +547,182 @@ export const ChapterTocDialog = ({
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               {fa
-                ? `${entries.length} سرفصل استخراج شد. عنوان‌ها و سطح تودرتویی را بررسی/ویرایش کنید و اعمال کنید.`
-                : `${entries.length} entries extracted. Review titles + nesting levels and apply.`}
+                ? `${entries.length} سرفصل استخراج شد. روی هر عنوان کلیک کنید تا صفحهٔ تطبیق‌شده در ورد و دو سطر اول آن را ببینید. در صورت اشتباه می‌توانید صفحهٔ درست را انتخاب کنید.`
+                : `${entries.length} entries extracted. Click any entry to see its matched Word page and a 2-line preview. Override the page if wrong.`}
             </p>
-            <div className="border rounded-lg max-h-80 overflow-y-auto divide-y">
-              {entries.map((e, i) => (
-                <div key={i} className="flex items-center gap-2 p-2" style={{ paddingInlineStart: 8 + e.level * 14 }}>
-                  <span className="text-[10px] text-muted-foreground w-5 shrink-0 tabular-nums">{i + 1}</span>
-                  <Input
-                    value={e.title}
-                    onChange={(ev) =>
-                      setEntries((es) => es.map((x, k) => (k === i ? { ...x, title: ev.target.value } : x)))
-                    }
-                    className="h-8 text-sm"
-                    dir="auto"
-                  />
-                  <Select
-                    value={String(e.level)}
-                    onValueChange={(v) =>
-                      setEntries((es) => es.map((x, k) => (k === i ? { ...x, level: Number(v) } : x)))
-                    }
-                  >
-                    <SelectTrigger className="h-8 w-20 shrink-0 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[0, 1, 2, 3, 4].map((l) => (
-                        <SelectItem key={l} value={String(l)}>
-                          {fa ? "سطح" : "Level"} {l}
-                        </SelectItem>
+
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+              {/* Entry list */}
+              <div className="md:col-span-3 border rounded-lg max-h-[22rem] overflow-y-auto divide-y">
+                {entries.map((e, i) => {
+                  const m = matches[i];
+                  const active = selectedEntryIdx === i;
+                  return (
+                    <div
+                      key={i}
+                      className={`flex items-center gap-2 p-2 ${active ? "bg-accent/10" : "hover:bg-muted/40"}`}
+                      style={{ paddingInlineStart: 8 + e.level * 14 }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEntryIdx(i)}
+                        className="text-[10px] text-muted-foreground w-5 shrink-0 tabular-nums text-start"
+                        title={fa ? "پیش‌نمایش" : "Preview"}
+                      >
+                        {i + 1}
+                      </button>
+                      <Input
+                        value={e.title}
+                        onFocus={() => setSelectedEntryIdx(i)}
+                        onChange={(ev) =>
+                          setEntries((es) => es.map((x, k) => (k === i ? { ...x, title: ev.target.value } : x)))
+                        }
+                        className="h-8 text-sm"
+                        dir="auto"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEntryIdx(i)}
+                        className={`text-[10px] shrink-0 px-1.5 py-0.5 rounded border tabular-nums ${
+                          m == null
+                            ? "text-destructive border-destructive/40 bg-destructive/5"
+                            : "text-muted-foreground border-border bg-muted/40 hover:bg-muted"
+                        }`}
+                        title={fa ? "صفحهٔ ورد" : "Word page"}
+                      >
+                        {m == null ? (fa ? "—" : "—") : (fa ? `ص ${m + 1}` : `p${m + 1}`)}
+                      </button>
+                      <Select
+                        value={String(e.level)}
+                        onValueChange={(v) =>
+                          setEntries((es) => es.map((x, k) => (k === i ? { ...x, level: Number(v) } : x)))
+                        }
+                      >
+                        <SelectTrigger className="h-8 w-16 shrink-0 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[0, 1, 2, 3, 4].map((l) => (
+                            <SelectItem key={l} value={String(l)}>
+                              L{l}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0"
+                        onClick={() => {
+                          setEntries((es) => es.filter((_, k) => k !== i));
+                          setMatches((ms) => ms.filter((_, k) => k !== i));
+                        }}
+                        title={fa ? "حذف" : "Remove"}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  );
+                })}
+                {!entries.length && (
+                  <div className="p-4 text-sm text-muted-foreground text-center">
+                    {fa ? "هیچ سرفصلی باقی نمانده است." : "No entries left."}
+                  </div>
+                )}
+              </div>
+
+              {/* Preview panel */}
+              <div className="md:col-span-2 border rounded-lg p-3 bg-muted/20 max-h-[22rem] overflow-y-auto">
+                <div className="flex items-center gap-1.5 text-xs font-medium mb-2">
+                  <FileSearch className="w-3.5 h-3.5 text-accent" />
+                  {fa ? "پیش‌نمایش صفحهٔ ورد" : "Word page preview"}
+                </div>
+                {previewBlock == null && (
+                  <div className="text-[11px] text-muted-foreground">
+                    {fa ? "روی یک سرفصل کلیک کنید." : "Click an entry to preview."}
+                  </div>
+                )}
+                {previewBlock?.notFound && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5 text-[11px] text-destructive">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      {fa ? "تطبیق پیدا نشد." : "No match found."}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {fa ? "صفحهٔ درست را از لیست زیر انتخاب کنید:" : "Pick the correct page:"}
+                    </div>
+                    <Select
+                      value=""
+                      onValueChange={(v) => {
+                        const idx = selectedEntryIdx;
+                        if (idx == null) return;
+                        setMatches((ms) => ms.map((x, k) => (k === idx ? Number(v) : x)));
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder={fa ? "انتخاب صفحه…" : "Pick a page…"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {pages.map((p, k) => (
+                          <SelectItem key={k} value={String(k)} disabled={selected.has(k)}>
+                            {fa ? `ص ${k + 1}` : `p${k + 1}`} — {(p.title || pageFirstLines(p, 1)[0] || "").slice(0, 40)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {previewBlock && !previewBlock.notFound && (
+                  <div className="space-y-2">
+                    <div className="text-[11px] text-muted-foreground">
+                      {fa ? "صفحهٔ ورد" : "Word page"}{" "}
+                      <span className="font-mono text-foreground">
+                        {(previewBlock.pageIdx ?? 0) + 1}
+                      </span>{" "}
+                      / {pages.length}
+                    </div>
+                    <div className="text-sm font-medium leading-snug" dir="auto">
+                      {previewBlock.title}
+                    </div>
+                    <div className="border-t pt-2 space-y-1">
+                      {previewBlock.lines.length === 0 && (
+                        <div className="text-[11px] text-muted-foreground italic">
+                          {fa ? "این صفحه متنی ندارد." : "This page has no text."}
+                        </div>
+                      )}
+                      {previewBlock.lines.map((ln, k) => (
+                        <div key={k} className="text-[12px] leading-relaxed text-foreground/90 line-clamp-3" dir="auto">
+                          {ln}
+                        </div>
                       ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0"
-                    onClick={() => setEntries((es) => es.filter((_, k) => k !== i))}
-                    title={fa ? "حذف" : "Remove"}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              ))}
-              {!entries.length && (
-                <div className="p-4 text-sm text-muted-foreground text-center">
-                  {fa ? "هیچ سرفصلی باقی نمانده است." : "No entries left."}
-                </div>
-              )}
+                    </div>
+                    <div className="border-t pt-2 space-y-1">
+                      <div className="text-[11px] text-muted-foreground">
+                        {fa ? "اگر اشتباه است، صفحهٔ درست را انتخاب کنید:" : "Wrong page? Override:"}
+                      </div>
+                      <Select
+                        value={previewBlock.pageIdx != null ? String(previewBlock.pageIdx) : ""}
+                        onValueChange={(v) => {
+                          const idx = selectedEntryIdx;
+                          if (idx == null) return;
+                          setMatches((ms) => ms.map((x, k) => (k === idx ? Number(v) : x)));
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {pages.map((p, k) => (
+                            <SelectItem key={k} value={String(k)} disabled={selected.has(k)}>
+                              {fa ? `ص ${k + 1}` : `p${k + 1}`} — {(p.title || pageFirstLines(p, 1)[0] || "").slice(0, 40)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
+
             <DialogFooter className="gap-2 sm:gap-2">
               <Button variant="outline" onClick={() => setStep("pick")} className="gap-1.5">
                 <Back className="w-4 h-4" />
