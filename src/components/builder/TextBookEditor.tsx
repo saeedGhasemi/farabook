@@ -1703,6 +1703,21 @@ export const TextBookEditor = ({ initial }: Props) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* TOC-based chaptering dialog */}
+      <ChapterTocDialog
+        open={showTocDialog}
+        onOpenChange={setShowTocDialog}
+        pages={pages}
+        bookId={initial?.id ?? null}
+        onApply={(next) => {
+          setPages(next);
+          setActiveIdx(0);
+          // Force editor re-sync to the new active page
+          lastLoadedIdxRef.current = -1;
+          markStructureDirty();
+        }}
+      />
     </div>
   );
 };
