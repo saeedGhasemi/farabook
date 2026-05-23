@@ -45,7 +45,7 @@ import {
   ImportedTable, useImageUpload,
 } from "./tiptap-nodes";
 import {
-  dbPagesToTextPages, textPagesToDbPages, type TextPage,
+  dbPagesToTextPages, textPagesToDbPages, nodesToPlainText, type TextPage,
 } from "@/lib/tiptap-doc";
 import { AiSuggestPanel } from "./AiSuggestPanel";
 import { ImageAutoPlacementPanel } from "./ImageAutoPlacementPanel";
