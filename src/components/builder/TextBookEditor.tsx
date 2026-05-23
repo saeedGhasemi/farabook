@@ -1124,7 +1124,7 @@ export const TextBookEditor = ({ initial }: Props) => {
                         onClick={() => indentChapter(i)}
                         className="p-1 text-muted-foreground hover:text-foreground"
                         title={fa ? "تنزل (تبدیل به زیرفصل)" : "Indent"}
-                        disabled={i === 0 || lvl >= Math.min(MAX_LEVEL, getLevel(pages[i - 1]) + 1) - 0 && lvl > getLevel(pages[i - 1])}
+                        disabled={i === 0 || lvl > getLevel(pages[i - 1]) || lvl >= MAX_LEVEL}
                       >
                         {fa ? <IndentDecrease className="w-3 h-3" /> : <IndentIncrease className="w-3 h-3" />}
                       </button>
