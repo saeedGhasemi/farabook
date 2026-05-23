@@ -554,7 +554,7 @@ const Reader = () => {
 
   const blocks: Block[] = pageToBlocks(currentPage);
 
-  const chapters = book.pages.map((p, i) => ({ index: i, title: p.title }));
+  const chapters = book.pages.map((p, i) => ({ index: i, title: p.title, level: (p as any).level ?? 0 }));
   // Detect book content direction independently of UI language
   const sampleText = (book.pages.slice(0, 3).map((p) => p.title + " " + (pageToBlocks(p).map((b) => "text" in b ? b.text : "").join(" ") || p.content || "")).join(" ")).slice(0, 2000);
   const rtlChars = (sampleText.match(/[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length;

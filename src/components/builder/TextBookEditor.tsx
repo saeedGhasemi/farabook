@@ -23,7 +23,9 @@ import {
   ListOrdered, Layers, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Undo2, Redo2, X, ArrowLeftRight, ChevronsLeft, ChevronsRight, Scissors,
   Eraser, Info, Combine,
+  ChevronRight, ChevronDown, ArrowUp, ArrowDown, IndentIncrease, IndentDecrease,
 } from "lucide-react";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/lib/i18n";
@@ -491,6 +493,121 @@ export const TextBookEditor = ({ initial }: Props) => {
     markPageDirty(idx);
   };
 
+  /* ---------------- Chapter tree (nested headings) ---------------- */
+  // Each page has an optional `level` (0 = top-level). Children are the
+  // contiguous following pages with strictly greater level. Move/indent
+  // operate on the page + its subtree.
+  const MAX_LEVEL = 5;
+  const getLevel = useCallback((p?: TextPage) => Math.max(0, Math.min(MAX_LEVEL, Math.floor(p?.level ?? 0))), []);
+  // End index (exclusive) of the subtree rooted at `idx`.
+  const subtreeEnd = useCallback((ps: TextPage[], idx: number) => {
+    const lvl = getLevel(ps[idx]);
+    let j = idx + 1;
+    while (j < ps.length && getLevel(ps[j]) > lvl) j += 1;
+    return j;
+  }, [getLevel]);
+
+  const [collapsedSet, setCollapsedSet] = useState<Set<number>>(new Set());
+  const toggleCollapse = (idx: number) => {
+    setCollapsedSet((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx); else next.add(idx);
+      return next;
+    });
+  };
+
+  // Hide rows whose any ancestor is collapsed.
+  const hiddenSet = useMemo(() => {
+    const hidden = new Set<number>();
+    for (let i = 0; i < pages.length; i += 1) {
+      if (!collapsedSet.has(i)) continue;
+      const end = subtreeEnd(pages, i);
+      for (let k = i + 1; k < end; k += 1) hidden.add(k);
+    }
+    return hidden;
+  }, [pages, collapsedSet, subtreeEnd]);
+
+  const hasChildren = useCallback(
+    (idx: number) => subtreeEnd(pages, idx) > idx + 1,
+    [pages, subtreeEnd],
+  );
+
+  const indentChapter = (idx: number) => {
+    if (idx === 0) {
+      toast.info(fa ? "اولین فصل را نمی‌توان زیرفصل کرد" : "Can't indent the first chapter");
+      return;
+    }
+    setPages((ps) => {
+      const prevLvl = getLevel(ps[idx - 1]);
+      const curLvl = getLevel(ps[idx]);
+      if (curLvl > prevLvl) {
+        toast.info(fa ? "بیش از این نمی‌توان فرورفت" : "Already nested under previous");
+        return ps;
+      }
+      if (curLvl >= MAX_LEVEL) return ps;
+      const end = subtreeEnd(ps, idx);
+      return ps.map((p, i) =>
+        (i >= idx && i < end) ? { ...p, level: Math.min(MAX_LEVEL, getLevel(p) + 1) } : p,
+      );
+    });
+    markStructureDirty();
+  };
+
+  const outdentChapter = (idx: number) => {
+    setPages((ps) => {
+      const curLvl = getLevel(ps[idx]);
+      if (curLvl <= 0) return ps;
+      const end = subtreeEnd(ps, idx);
+      return ps.map((p, i) =>
+        (i >= idx && i < end) ? { ...p, level: Math.max(0, getLevel(p) - 1) } : p,
+      );
+    });
+    markStructureDirty();
+  };
+
+  // Move the subtree rooted at idx up or down past the adjacent sibling
+  // (which may itself be a subtree at the same or lower level).
+  const moveChapter = (idx: number, dir: -1 | 1) => {
+    setPages((ps) => {
+      const end = subtreeEnd(ps, idx);
+      const block = ps.slice(idx, end);
+      if (dir === -1) {
+        if (idx === 0) return ps;
+        // Find the start of the previous sibling/block at level <= cur.
+        const curLvl = getLevel(ps[idx]);
+        let prevStart = idx - 1;
+        while (prevStart > 0 && getLevel(ps[prevStart]) > curLvl) prevStart -= 1;
+        const before = ps.slice(0, prevStart);
+        const prevBlock = ps.slice(prevStart, idx);
+        const after = ps.slice(end);
+        const next = [...before, ...block, ...prevBlock, ...after];
+        // Update active index
+        setActiveIdx((a) => {
+          if (a >= idx && a < end) return a - prevBlock.length;
+          if (a >= prevStart && a < idx) return a + block.length;
+          return a;
+        });
+        return next;
+      } else {
+        if (end >= ps.length) return ps;
+        const nextEnd = subtreeEnd(ps, end);
+        const before = ps.slice(0, idx);
+        const nextBlock = ps.slice(end, nextEnd);
+        const after = ps.slice(nextEnd);
+        const next = [...before, ...nextBlock, ...block, ...after];
+        setActiveIdx((a) => {
+          if (a >= idx && a < end) return a + nextBlock.length;
+          if (a >= end && a < nextEnd) return a - block.length;
+          return a;
+        });
+        return next;
+      }
+    });
+    markStructureDirty();
+  };
+
+
+
   // Merge auto-paginated tiny chapters (e.g. "صفحه 12" with one sentence)
   // into the previous chapter. Lets the user clean up legacy imports
   // without re-uploading the Word file.
@@ -937,34 +1054,94 @@ export const TextBookEditor = ({ initial }: Props) => {
                 </Button>
               </div>
             </div>
-            <div className="space-y-1 max-h-[60vh] overflow-y-auto pe-1">
-              {pages.map((p, i) => (
-                <div
-                  key={i}
-                  ref={i === activeIdx ? activeChapterRef : undefined}
-                  className={`group flex items-center gap-1 rounded-lg border px-2 py-1.5 transition ${
-                    i === activeIdx ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/40"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setActiveIdx(i)}
-                    className="flex-1 min-w-0 text-start text-sm truncate"
+            <div className="space-y-0.5 max-h-[60vh] overflow-y-auto pe-1">
+              {pages.map((p, i) => {
+                if (hiddenSet.has(i)) return null;
+                const lvl = getLevel(p);
+                const isParent = hasChildren(i);
+                const isCollapsed = collapsedSet.has(i);
+                return (
+                  <div
+                    key={i}
+                    ref={i === activeIdx ? activeChapterRef : undefined}
+                    className={`group flex items-center gap-0.5 rounded-lg border px-1 py-1 transition ${
+                      i === activeIdx ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/40"
+                    }`}
+                    style={{ paddingInlineStart: 4 + lvl * 14 }}
                   >
-                    <span className="text-[10px] text-muted-foreground me-1">{i + 1}.</span>
-                    {p.title || (fa ? "بدون عنوان" : "Untitled")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPendingDelete(i)}
-                    className="opacity-0 group-hover:opacity-100 transition text-destructive p-1"
-                    title={fa ? "حذف فصل" : "Delete chapter"}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+                    {isParent ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleCollapse(i)}
+                        className="p-0.5 text-muted-foreground hover:text-foreground shrink-0"
+                        title={isCollapsed ? (fa ? "باز کردن" : "Expand") : (fa ? "بستن" : "Collapse")}
+                      >
+                        {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      </button>
+                    ) : (
+                      <span className="w-4 shrink-0" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setActiveIdx(i)}
+                      className="flex-1 min-w-0 text-start text-sm truncate"
+                    >
+                      <span className="text-[10px] text-muted-foreground me-1">{i + 1}.</span>
+                      <span className={lvl === 0 ? "font-medium" : ""}>
+                        {p.title || (fa ? "بدون عنوان" : "Untitled")}
+                      </span>
+                    </button>
+                    <div className="flex items-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => moveChapter(i, -1)}
+                        className="p-1 text-muted-foreground hover:text-foreground"
+                        title={fa ? "انتقال به بالا" : "Move up"}
+                        disabled={i === 0}
+                      >
+                        <ArrowUp className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveChapter(i, 1)}
+                        className="p-1 text-muted-foreground hover:text-foreground"
+                        title={fa ? "انتقال به پایین" : "Move down"}
+                        disabled={subtreeEnd(pages, i) >= pages.length}
+                      >
+                        <ArrowDown className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => outdentChapter(i)}
+                        className="p-1 text-muted-foreground hover:text-foreground"
+                        title={fa ? "ارتقا (خروج از زیرفصل)" : "Outdent"}
+                        disabled={lvl === 0}
+                      >
+                        {fa ? <IndentIncrease className="w-3 h-3" /> : <IndentDecrease className="w-3 h-3" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => indentChapter(i)}
+                        className="p-1 text-muted-foreground hover:text-foreground"
+                        title={fa ? "تنزل (تبدیل به زیرفصل)" : "Indent"}
+                        disabled={i === 0 || lvl > getLevel(pages[i - 1]) || lvl >= MAX_LEVEL}
+                      >
+                        {fa ? <IndentDecrease className="w-3 h-3" /> : <IndentIncrease className="w-3 h-3" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPendingDelete(i)}
+                        className="p-1 text-destructive"
+                        title={fa ? "حذف فصل" : "Delete chapter"}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
           </>
         )}
       </aside>
