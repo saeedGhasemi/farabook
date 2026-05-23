@@ -396,7 +396,13 @@ export const ChapterTocDialog = ({
     try {
       const next = applyTocClient(pages, selected, entries, matches);
       if (next === pages) {
-        toast.error(fa ? "تعداد تطبیق کافی نبود — تغییری اعمال نشد." : "Not enough matches — no changes applied.");
+        // Diagnose: how many entries actually got matched to a page?
+        const matchedCount = matches.filter((m) => typeof m === "number").length;
+        const missing = entries.length - matchedCount;
+        const msg = fa
+          ? `از ${entries.length} سرفصل فقط ${matchedCount} مورد در متن کتاب پیدا شد (کمتر از ۳۰٪). برای حل این مشکل: ۱) روی سرفصل‌هایی که نشانگر «؟» قرمز دارند کلیک کنید و صفحهٔ درست را از پیش‌نمایش انتخاب کنید. ۲) عناوین فهرست را با عنوان واقعی فصل در ورد یکسان کنید. ۳) اگر چند سرفصل پشت سر هم دستی تعیین کنید، بقیه به‌صورت خودکار بین آن‌ها برش می‌خورد. (${missing} سرفصل بدون تطبیق)`
+          : `Only ${matchedCount} of ${entries.length} entries were matched in the book text (under 30%). Fixes: 1) click entries marked with a red "?" and pick the right page from the preview. 2) make TOC titles match real chapter headings in Word. 3) once you manually pin 2+ entries, the rest are sliced between them automatically. (${missing} unmatched)`;
+        toast.error(msg, { duration: 12000 });
         setStep("review");
         return;
       }
@@ -407,6 +413,38 @@ export const ChapterTocDialog = ({
       toast.error(e?.message || (fa ? "خطا در اعمال" : "Apply error"));
       setStep("review");
     }
+  };
+
+  /* ---------- Level helpers (per-row + bulk) ---------- */
+  const clampLvl = (n: number) => Math.max(0, Math.min(4, n));
+  const bumpLevel = (idx: number, delta: number) => {
+    setEntries((es) => es.map((x, k) => (k === idx ? { ...x, level: clampLvl(x.level + delta) } : x)));
+  };
+  const bulkBumpLevel = (delta: number) => {
+    if (!picked.size) return;
+    setEntries((es) => es.map((x, k) => (picked.has(k) ? { ...x, level: clampLvl(x.level + delta) } : x)));
+  };
+  const bulkDelete = () => {
+    if (!picked.size) return;
+    const remove = picked;
+    setEntries((es) => es.filter((_, k) => !remove.has(k)));
+    setMatches((ms) => ms.filter((_, k) => !remove.has(k)));
+    setOverrides((ov) => {
+      const sorted = [...remove].sort((a, b) => a - b);
+      const n = new Set<number>();
+      for (const v of ov) {
+        if (remove.has(v)) continue;
+        const shift = sorted.filter((s) => s < v).length;
+        n.add(v - shift);
+      }
+      return n;
+    });
+    setPicked(new Set());
+    setSelectedEntryIdx(null);
+  };
+  const toggleAllPicked = () => {
+    if (picked.size === entries.length) setPicked(new Set());
+    else setPicked(new Set(entries.map((_, i) => i)));
   };
 
   const Back = fa ? ChevronRight : ChevronLeft;
