@@ -1072,7 +1072,7 @@ export const TextBookEditor = ({ initial }: Props) => {
         i === activeIdx && editor ? { ...p, doc: editor.getJSON() as TextPage["doc"] } : p
       ));
       const dirtyIdx = new Set<number>();
-      const nextPages = sourcePages.map((p, pageIdx) => {
+      const nextPages: TextPage[] = sourcePages.map((p, pageIdx) => {
         if (!p?.doc || !Array.isArray(p.doc.content)) return p;
         const content = p.doc.content.map((node: any) => {
           if (!node || (node.type !== "paragraph" && node.type !== "heading")) return node;
@@ -1085,7 +1085,7 @@ export const TextBookEditor = ({ initial }: Props) => {
           dirtyIdx.add(pageIdx);
           return { ...node, content: rep.content };
         });
-        return { ...p, doc: { type: "doc", content } };
+        return { ...p, doc: { type: "doc" as const, content: content as any } };
       });
       setPages(nextPages);
       if (editor) {
