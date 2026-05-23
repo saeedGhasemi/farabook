@@ -589,13 +589,19 @@ export const ChapterTocDialog = ({
                         className={`text-xs font-semibold shrink-0 px-2 py-1 rounded-md border tabular-nums min-w-[3.5rem] text-center ${
                           m == null
                             ? "text-destructive border-destructive/50 bg-destructive/10"
-                            : "text-accent-foreground border-accent/40 bg-accent/15 hover:bg-accent/25"
+                            : overrides.has(i)
+                              ? "text-primary-foreground border-primary bg-primary hover:opacity-90"
+                              : "text-accent-foreground border-accent/40 bg-accent/15 hover:bg-accent/25"
                         }`}
-                        title={fa ? "شمارهٔ صفحه در فایل ورد" : "Word page number"}
+                        title={
+                          overrides.has(i)
+                            ? (fa ? "صفحه به‌صورت دستی توسط شما تعیین شده است" : "Manually set by you")
+                            : (fa ? "شمارهٔ صفحه در فایل ورد" : "Word page number")
+                        }
                       >
                         {m == null
                           ? (fa ? "؟" : "?")
-                          : (fa ? `ص ${m + 1}` : `p ${m + 1}`)}
+                          : (fa ? `${overrides.has(i) ? "✓ " : ""}ص ${m + 1}` : `${overrides.has(i) ? "✓ " : ""}p ${m + 1}`)}
                       </button>
                       <Select
                         value={String(e.level)}
