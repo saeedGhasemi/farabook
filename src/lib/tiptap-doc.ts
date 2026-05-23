@@ -24,6 +24,8 @@ export type Mark =
   | { type: "bold" }
   | { type: "italic" }
   | { type: "underline" }
+  | { type: "superscript" }
+  | { type: "subscript" }
   | { type: "textStyle"; attrs?: { color?: string } }
   | { type: "link"; attrs?: { href?: string } };
 
@@ -156,17 +158,23 @@ export const normalizeImportedText = (text: string): string =>
     })
     .replace(/(\[[^\]\n]+\]\([^)]+\))(?:%3D|=)+/gi, "$1");
 
-/** Convert plain text (with light **bold** / *italic* / __under__ / [link](url)) to text nodes. */
+/** Convert plain text (with light **bold** / *italic* / __under__ / [link](url) / [sup|sub]) to text nodes. */
 export const textToNodes = (text: string): TextNode[] => {
   text = normalizeImportedText(text);
   if (!text) return [];
   const out: TextNode[] = [];
-  const re = /(\[[^\]\n]+\]\([^\)\s]+\)|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*)/g;
+  const re = /(\[sup\][\s\S]*?\[\/sup\]|\[sub\][\s\S]*?\[\/sub\]|\[[^\]\n]+\]\([^\)\s]+\)|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*)/g;
   const parts = text.split(re);
   for (const p of parts) {
     if (!p) continue;
+    const supM = /^\[sup\]([\s\S]*?)\[\/sup\]$/.exec(p);
+    const subM = /^\[sub\]([\s\S]*?)\[\/sub\]$/.exec(p);
     const linkM = /^\[([^\]\n]+)\]\(([^\)\s]+)\)$/.exec(p);
-    if (linkM) {
+    if (supM) {
+      out.push({ type: "text", text: supM[1], marks: [{ type: "superscript" }] });
+    } else if (subM) {
+      out.push({ type: "text", text: subM[1], marks: [{ type: "subscript" }] });
+    } else if (linkM) {
       out.push({ type: "text", text: linkM[1], marks: [{ type: "link", attrs: { href: linkM[2] } }] });
     } else if (p.startsWith("**") && p.endsWith("**") && p.length > 4) {
       out.push({ type: "text", text: p.slice(2, -2), marks: [{ type: "bold" }] });
