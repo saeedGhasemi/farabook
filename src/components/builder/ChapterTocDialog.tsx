@@ -11,9 +11,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, Loader2, Trash2, ChevronRight, ChevronLeft, ListTree } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Sparkles, Loader2, Trash2, ChevronRight, ChevronLeft, ListTree, ClipboardPaste } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
@@ -156,11 +158,18 @@ export const ChapterTocDialog = ({
   const [entries, setEntries] = useState<TocEntry[]>([]);
   const [loadingAi, setLoadingAi] = useState(false);
   const [loadingAuto, setLoadingAuto] = useState(false);
+  const [loadingPaste, setLoadingPaste] = useState(false);
+  const [pasted, setPasted] = useState("");
+  const [pasteMode, setPasteMode] = useState<"pages" | "paste">("pages");
+  const [pasteLevelMode, setPasteLevelMode] = useState<"ai" | "flat">("ai");
 
   useEffect(() => {
     if (!open) return;
     setStep("pick");
     setEntries([]);
+    setPasted("");
+    setPasteMode("pages");
+    setPasteLevelMode("ai");
     // Pre-select pages whose title looks like "فهرست مطالب"
     const guess = new Set<number>();
     pages.slice(0, 8).forEach((p, i) => {
@@ -231,6 +240,50 @@ export const ChapterTocDialog = ({
     }
   };
 
+  /** Convert pasted lines into entries, optionally letting AI infer nesting levels. */
+  const extractFromPaste = async () => {
+    const lines = pasted.split(/\r?\n+/).map((l) => l.trim()).filter((l) => l.length >= 2 && l.length <= 220);
+    if (lines.length < 2) {
+      toast.info(fa ? "حداقل دو خط (دو سرفصل) وارد کنید" : "Enter at least two lines");
+      return;
+    }
+    setLoadingPaste(true);
+    try {
+      let ents: TocEntry[] = [];
+      if (pasteLevelMode === "ai") {
+        // Ask the AI to infer nesting levels from the pasted lines.
+        const sample = [{ index: 0, title: fa ? "فهرست مطالب (دستی)" : "Manual TOC", text: lines.join("\n") }];
+        const { data, error } = await supabase.functions.invoke("book-toc-detect", {
+          body: { pages: sample, mode: "pages", lang, book_id: bookId },
+        });
+        if (error) throw error;
+        const aiEntries: TocEntry[] = Array.isArray(data?.entries) ? data.entries : [];
+        if (aiEntries.length) ents = aiEntries;
+      }
+      if (!ents.length) {
+        // Flat fallback: regex level inference from numbering (1.1.1 → level 2).
+        ents = lines.map((title) => {
+          let level = 0;
+          const m = /^([\d\u06F0-\u06F9\u0660-\u0669]+(?:[.\-][\d\u06F0-\u06F9\u0660-\u0669]+){0,4})\b/u.exec(title);
+          if (m) level = Math.min(4, Math.max(0, m[1].split(/[.\-]/).length - 1));
+          return { title, level };
+        });
+      }
+      if (ents.length < 2) {
+        toast.error(fa ? "هیچ سرفصلی استخراج نشد" : "No entries extracted");
+        return;
+      }
+      // Paste mode → no TOC pages to skip; clear selection so applier keeps all pages.
+      setSelected(new Set());
+      setEntries(ents);
+      setStep("review");
+    } catch (e: any) {
+      toast.error(e?.message || (fa ? "خطای پردازش" : "Processing error"));
+    } finally {
+      setLoadingPaste(false);
+    }
+  };
+
   const apply = () => {
     if (!entries.length) return;
     setStep("applying");
@@ -265,53 +318,109 @@ export const ChapterTocDialog = ({
         </DialogHeader>
 
         {step === "pick" && (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {fa
-                ? "صفحه‌ای که فهرست مطالب کتاب در آن قرار دارد را انتخاب کنید، یا اجازه دهید هوش مصنوعی خودش پیدا کند."
-                : "Pick the page(s) that contain the TOC, or let AI find them for you."}
-            </p>
-            <div className="border rounded-lg max-h-72 overflow-y-auto divide-y">
-              {previewPages.map((p, i) => {
-                const checked = selected.has(i);
-                const preview = pageText(p).slice(0, 160).replace(/\s+/g, " ");
-                return (
-                  <label key={i} className="flex items-start gap-2 p-2 cursor-pointer hover:bg-muted/40">
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(v) => {
-                        setSelected((prev) => {
-                          const n = new Set(prev);
-                          if (v) n.add(i); else n.delete(i);
-                          return n;
-                        });
-                      }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate">
-                        <span className="text-[10px] text-muted-foreground me-1">{i + 1}.</span>
-                        {p.title || (fa ? "بدون عنوان" : "Untitled")}
+          <Tabs value={pasteMode} onValueChange={(v) => setPasteMode(v as "pages" | "paste")} className="space-y-3">
+            <TabsList className="grid grid-cols-2 w-full">
+              <TabsTrigger value="pages" className="gap-1.5">
+                <ListTree className="w-3.5 h-3.5" />
+                {fa ? "از صفحات کتاب" : "From book pages"}
+              </TabsTrigger>
+              <TabsTrigger value="paste" className="gap-1.5">
+                <ClipboardPaste className="w-3.5 h-3.5" />
+                {fa ? "وارد کردن دستی" : "Paste manually"}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="pages" className="space-y-3 mt-0">
+              <p className="text-sm text-muted-foreground">
+                {fa
+                  ? "صفحه‌ای که فهرست مطالب کتاب در آن قرار دارد را انتخاب کنید، یا اجازه دهید هوش مصنوعی خودش پیدا کند."
+                  : "Pick the page(s) that contain the TOC, or let AI find them for you."}
+              </p>
+              <div className="border rounded-lg max-h-72 overflow-y-auto divide-y">
+                {previewPages.map((p, i) => {
+                  const checked = selected.has(i);
+                  const preview = pageText(p).slice(0, 160).replace(/\s+/g, " ");
+                  return (
+                    <label key={i} className="flex items-start gap-2 p-2 cursor-pointer hover:bg-muted/40">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => {
+                          setSelected((prev) => {
+                            const n = new Set(prev);
+                            if (v) n.add(i); else n.delete(i);
+                            return n;
+                          });
+                        }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium truncate">
+                          <span className="text-[10px] text-muted-foreground me-1">{i + 1}.</span>
+                          {p.title || (fa ? "بدون عنوان" : "Untitled")}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground truncate">{preview}</div>
                       </div>
-                      <div className="text-[11px] text-muted-foreground truncate">{preview}</div>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-            <DialogFooter className="gap-2 sm:gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                {fa ? "انصراف" : "Cancel"}
-              </Button>
-              <Button variant="secondary" onClick={detectWithAi} disabled={loadingAi || loadingAuto} className="gap-1.5">
-                {loadingAi ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {fa ? "ادامه با هوش مصنوعی" : "Let AI decide"}
-              </Button>
-              <Button onClick={extractFromSelected} disabled={loadingAi || loadingAuto || selected.size === 0} className="gap-1.5">
-                {loadingAuto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fwd className="w-4 h-4" />}
-                {fa ? "استخراج فهرست" : "Extract TOC"}
-              </Button>
-            </DialogFooter>
-          </div>
+                    </label>
+                  );
+                })}
+              </div>
+              <DialogFooter className="gap-2 sm:gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  {fa ? "انصراف" : "Cancel"}
+                </Button>
+                <Button variant="secondary" onClick={detectWithAi} disabled={loadingAi || loadingAuto} className="gap-1.5">
+                  {loadingAi ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {fa ? "ادامه با هوش مصنوعی" : "Let AI decide"}
+                </Button>
+                <Button onClick={extractFromSelected} disabled={loadingAi || loadingAuto || selected.size === 0} className="gap-1.5">
+                  {loadingAuto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fwd className="w-4 h-4" />}
+                  {fa ? "استخراج فهرست" : "Extract TOC"}
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+
+            <TabsContent value="paste" className="space-y-3 mt-0">
+              <p className="text-sm text-muted-foreground">
+                {fa
+                  ? "اگر فهرست در فایل ورد درست تشخیص داده نشد، آن را از هر منبعی کپی و اینجا بچسبانید. هر سطر = یک سرفصل."
+                  : "If the Word file's TOC wasn't detected, paste it here from any source. One title per line."}
+              </p>
+              <Textarea
+                value={pasted}
+                onChange={(e) => setPasted(e.target.value)}
+                placeholder={fa
+                  ? "فصل اول: مقدمه\n۱.۱ تاریخچه\n۱.۲ اهمیت موضوع\nفصل دوم: روش‌ها\n…"
+                  : "Chapter 1: Introduction\n1.1 History\n1.2 Significance\nChapter 2: Methods\n…"}
+                className="min-h-[200px] text-sm font-mono"
+                dir="auto"
+              />
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-muted-foreground">{fa ? "تعیین سطح:" : "Levels:"}</span>
+                <Select value={pasteLevelMode} onValueChange={(v) => setPasteLevelMode(v as "ai" | "flat")}>
+                  <SelectTrigger className="h-8 w-48 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ai">{fa ? "هوش مصنوعی سطح‌بندی کند" : "AI infers nesting"}</SelectItem>
+                    <SelectItem value="flat">{fa ? "بدون تودرتو (همه سطح ۰)" : "Flat (all level 0)"}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className="text-muted-foreground ms-auto">
+                  {pasted.split(/\r?\n+/).filter((l) => l.trim().length >= 2).length} {fa ? "سطر" : "lines"}
+                </span>
+              </div>
+              <DialogFooter className="gap-2 sm:gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  {fa ? "انصراف" : "Cancel"}
+                </Button>
+                <Button onClick={extractFromPaste} disabled={loadingPaste || pasted.trim().length < 4} className="gap-1.5">
+                  {loadingPaste
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : (pasteLevelMode === "ai" ? <Sparkles className="w-4 h-4" /> : <Fwd className="w-4 h-4" />)}
+                  {fa ? "پردازش فهرست" : "Process TOC"}
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+          </Tabs>
         )}
 
         {step === "review" && (
