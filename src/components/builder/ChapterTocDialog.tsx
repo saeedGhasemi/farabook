@@ -65,6 +65,27 @@ const normTitle = (s: string): string =>
     .trim()
     .toLowerCase();
 
+const cleanManualTocLine = (raw: string): string =>
+  String(raw ?? "")
+    .replace(/^[\s•●▪▫*-]+/u, "")
+    .replace(/[\s.·…_\-\u2013\u2014]+[\d\u06F0-\u06F9\u0660-\u0669]+\s*$/u, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const pageSearchLines = (p: TextPage): string[] => {
+  const out: string[] = [];
+  if (p.title) out.push(p.title);
+  for (const node of (p.doc?.content ?? [])) {
+    const t = nodeText(node);
+    if (!t) continue;
+    for (const line of t.split(/\r?\n+/)) {
+      const s = line.trim();
+      if (s) out.push(s);
+    }
+  }
+  return out;
+};
+
 /** Extract entries from a page using regex heuristics (mirrors server). */
 const regexExtract = (text: string): Array<{ title: string; level: number }> => {
   const lines = text.split(/\r?\n+/).map((l) => l.trim()).filter(Boolean);
@@ -85,9 +106,8 @@ const regexExtract = (text: string): Array<{ title: string; level: number }> => 
 
 interface TocEntry { title: string; level: number; }
 
-/** For each entry, find the Word page index where it most likely starts.
- *  Search is monotonic (cursor advances), starts after the last TOC page,
- *  and considers both page titles and block-level texts. */
+/** For each pasted/manual entry, suggest the first Word page where that
+ *  complete line appears. TOC pages are skipped when the user selected them. */
 const computeMatches = (
   pages: TextPage[],
   tocSet: Set<number>,
@@ -96,29 +116,25 @@ const computeMatches = (
   const sorted = [...tocSet].sort((a, b) => a - b);
   const start = sorted.length ? Math.max(...sorted) + 1 : 0;
   const matches: Array<number | null> = new Array(entries.length).fill(null);
-  let cursor = start;
+  const index = pages.map((p) => {
+    const lines = pageSearchLines(p).map(normTitle).filter(Boolean);
+    return { lines, full: normTitle(pageText(p)) };
+  });
   for (let i = 0; i < entries.length; i += 1) {
-    const norm = normTitle(entries[i].title);
+    const norm = normTitle(cleanManualTocLine(entries[i].title));
     if (!norm) continue;
     let found = -1;
-    for (let p = cursor; p < pages.length; p += 1) {
+    for (let p = start; p < pages.length; p += 1) {
       if (tocSet.has(p)) continue;
-      const candidates: string[] = [];
-      if (pages[p].title) candidates.push(normTitle(pages[p].title));
-      for (const n of (pages[p].doc?.content ?? [])) {
-        const t = normTitle(nodeText(n));
-        if (t && t.length >= 2 && t.length <= 220) candidates.push(t);
-        if (candidates.length > 8) break;
-      }
-      const hit = candidates.some((c) =>
+      const hit = index[p].lines.some((c) =>
         c === norm ||
         c.startsWith(norm + " ") ||
         (norm.length >= 8 && c.startsWith(norm)) ||
         (c.length >= 8 && norm.startsWith(c)),
-      );
+      ) || (norm.length >= 10 && index[p].full.includes(norm));
       if (hit) { found = p; break; }
     }
-    if (found >= 0) { matches[i] = found; cursor = found + 1; }
+    if (found >= 0) matches[i] = found;
   }
   return matches;
 };
