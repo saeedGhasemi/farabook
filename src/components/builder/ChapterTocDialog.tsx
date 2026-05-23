@@ -373,9 +373,12 @@ export const ChapterTocDialog = ({
         toast.info(fa ? "هوش مصنوعی فهرست را پیدا نکرد. صفحات فهرست را دستی انتخاب کنید." : "AI couldn't find a TOC. Pick pages manually.");
         return;
       }
-      setSelected(new Set(idxs));
+      const nextSelected = new Set(idxs);
+      setSelected(nextSelected);
+      setMatches(new Array(ents.length).fill(null));
       setEntries(ents);
       setStep("review");
+      await runMatchSearch(ents, nextSelected, false);
     } catch (e: any) {
       toast.error(e?.message || (fa ? "خطای تشخیص" : "Detection error"));
     } finally {
@@ -407,8 +410,10 @@ export const ChapterTocDialog = ({
         toast.error(fa ? "هیچ سرفصلی استخراج نشد" : "No entries extracted");
         return;
       }
+      setMatches(new Array(ents.length).fill(null));
       setEntries(ents);
       setStep("review");
+      await runMatchSearch(ents, selected, false);
     } catch (e: any) {
       toast.error(e?.message || (fa ? "خطای استخراج" : "Extraction error"));
     } finally {
@@ -463,6 +468,7 @@ export const ChapterTocDialog = ({
       setMatchProgress(0);
       setEntries(ents);
       setStep("review");
+      await runMatchSearch(ents, new Set(), false);
     } catch (e: any) {
       toast.error(e?.message || (fa ? "خطای پردازش" : "Processing error"));
     } finally {
