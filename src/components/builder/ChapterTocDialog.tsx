@@ -240,7 +240,10 @@ export const ChapterTocDialog = ({
     }
   };
 
-  /** Convert pasted lines into entries, optionally letting AI infer nesting levels. */
+  /** Convert pasted lines into entries, optionally letting AI infer nesting levels.
+   *  IMPORTANT: we ALWAYS keep one entry per pasted line — the AI is only used
+   *  to suggest nesting levels. This avoids the model deduping/rewriting/dropping
+   *  titles and ending up with fewer chapters than the user pasted. */
   const extractFromPaste = async () => {
     const lines = pasted.split(/\r?\n+/).map((l) => l.trim()).filter((l) => l.length >= 2 && l.length <= 220);
     if (lines.length < 2) {
@@ -249,30 +252,50 @@ export const ChapterTocDialog = ({
     }
     setLoadingPaste(true);
     try {
-      let ents: TocEntry[] = [];
+      // Regex-based baseline level for every line (works for "1.1.2 ..." etc.).
+      const regexLevel = (title: string): number => {
+        const m = /^([\d\u06F0-\u06F9\u0660-\u0669]+(?:[.\-][\d\u06F0-\u06F9\u0660-\u0669]+){0,4})\b/u.exec(title);
+        if (!m) return 0;
+        return Math.min(4, Math.max(0, m[1].split(/[.\-]/).length - 1));
+      };
+
+      // Always start from the user's exact lines (one entry per line, preserves order).
+      const ents: TocEntry[] = lines.map((title) => ({ title, level: regexLevel(title) }));
+
       if (pasteLevelMode === "ai") {
-        // Ask the AI to infer nesting levels from the pasted lines.
-        const sample = [{ index: 0, title: fa ? "فهرست مطالب (دستی)" : "Manual TOC", text: lines.join("\n") }];
-        const { data, error } = await supabase.functions.invoke("book-toc-detect", {
-          body: { pages: sample, mode: "pages", lang, book_id: bookId },
-        });
-        if (error) throw error;
-        const aiEntries: TocEntry[] = Array.isArray(data?.entries) ? data.entries : [];
-        if (aiEntries.length) ents = aiEntries;
+        try {
+          const sample = [{ index: 0, title: fa ? "فهرست مطالب (دستی)" : "Manual TOC", text: lines.join("\n") }];
+          const { data, error } = await supabase.functions.invoke("book-toc-detect", {
+            body: { pages: sample, mode: "pages", lang, book_id: bookId },
+          });
+          if (!error) {
+            const aiEntries: Array<{ title: string; level?: number }> =
+              Array.isArray(data?.entries) ? data.entries : [];
+            if (aiEntries.length) {
+              // Map AI-returned levels back to our lines by normalized-title match.
+              // Anything the AI didn't return keeps its regex-inferred level.
+              const aiByNorm = new Map<string, number>();
+              for (const a of aiEntries) {
+                const n = normTitle(a.title || "");
+                if (!n) continue;
+                const lvl = Math.max(0, Math.min(4, Math.floor(Number(a.level) || 0)));
+                if (!aiByNorm.has(n)) aiByNorm.set(n, lvl);
+              }
+              for (const e of ents) {
+                const n = normTitle(e.title);
+                if (aiByNorm.has(n)) { e.level = aiByNorm.get(n)!; continue; }
+                // Fuzzy: startsWith match against any AI key.
+                for (const [k, v] of aiByNorm) {
+                  if (k.length >= 6 && (n.startsWith(k) || k.startsWith(n))) { e.level = v; break; }
+                }
+              }
+            }
+          }
+        } catch {
+          // AI level-inference is optional — fall back silently to regex levels.
+        }
       }
-      if (!ents.length) {
-        // Flat fallback: regex level inference from numbering (1.1.1 → level 2).
-        ents = lines.map((title) => {
-          let level = 0;
-          const m = /^([\d\u06F0-\u06F9\u0660-\u0669]+(?:[.\-][\d\u06F0-\u06F9\u0660-\u0669]+){0,4})\b/u.exec(title);
-          if (m) level = Math.min(4, Math.max(0, m[1].split(/[.\-]/).length - 1));
-          return { title, level };
-        });
-      }
-      if (ents.length < 2) {
-        toast.error(fa ? "هیچ سرفصلی استخراج نشد" : "No entries extracted");
-        return;
-      }
+
       // Paste mode → no TOC pages to skip; clear selection so applier keeps all pages.
       setSelected(new Set());
       setEntries(ents);
