@@ -1348,6 +1348,22 @@ export const TextBookEditor = ({ initial }: Props) => {
               size="sm"
               variant="outline"
               className="h-8 gap-1"
+              onClick={() => { void repairFormulasFromSource(); }}
+              disabled={repairingFormulas}
+              title={fa ? "استخراج بالانویس/زیرنویس و فرمول‌ها از فایل ورد اصلی" : "Repair sup/sub & formulas from source Word file"}
+            >
+              {repairingFormulas
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <FunctionSquare className="w-3.5 h-3.5" />}
+              {fa ? "ترمیم فرمول‌ها" : "Repair formulas"}
+            </Button>
+          )}
+          {isEdit && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1"
               onClick={() => setShowMeta(true)}
               title={fa ? "ویرایش شناسنامه و مشخصات کتاب" : "Edit book identity & metadata"}
             >
