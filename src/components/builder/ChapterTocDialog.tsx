@@ -625,6 +625,14 @@ export const ChapterTocDialog = ({
                         onClick={() => {
                           setEntries((es) => es.filter((_, k) => k !== i));
                           setMatches((ms) => ms.filter((_, k) => k !== i));
+                          setOverrides((ov) => {
+                            const n = new Set<number>();
+                            for (const v of ov) {
+                              if (v < i) n.add(v);
+                              else if (v > i) n.add(v - 1);
+                            }
+                            return n;
+                          });
                         }}
                         title={fa ? "حذف" : "Remove"}
                       >
@@ -666,6 +674,8 @@ export const ChapterTocDialog = ({
                         const idx = selectedEntryIdx;
                         if (idx == null) return;
                         setMatches((ms) => ms.map((x, k) => (k === idx ? Number(v) : x)));
+                        setOverrides((ov) => new Set(ov).add(idx));
+                        toast.success(fa ? `سرفصل به صفحهٔ ${Number(v) + 1} منتقل شد` : `Entry moved to page ${Number(v) + 1}`);
                       }}
                     >
                       <SelectTrigger className="h-8 text-xs">
@@ -715,6 +725,8 @@ export const ChapterTocDialog = ({
                           const idx = selectedEntryIdx;
                           if (idx == null) return;
                           setMatches((ms) => ms.map((x, k) => (k === idx ? Number(v) : x)));
+                          setOverrides((ov) => new Set(ov).add(idx));
+                          toast.success(fa ? `سرفصل به صفحهٔ ${Number(v) + 1} منتقل شد` : `Entry moved to page ${Number(v) + 1}`);
                         }}
                       >
                         <SelectTrigger className="h-8 text-xs">
