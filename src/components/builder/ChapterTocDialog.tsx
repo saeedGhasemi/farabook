@@ -307,6 +307,8 @@ export const ChapterTocDialog = ({
   const [pasteMode, setPasteMode] = useState<"pages" | "paste">("pages");
   const [pasteLevelMode, setPasteLevelMode] = useState<"ai" | "flat">("ai");
 
+  const matchedCount = useMemo(() => matches.filter((m) => typeof m === "number").length, [matches]);
+
   useEffect(() => {
     if (!open) return;
     setStep("pick");
@@ -319,7 +321,7 @@ export const ChapterTocDialog = ({
     setSearchingMatches(false);
     setMatchProgress(0);
     setPasteMode("pages");
-    setPasteLevelMode("ai");
+    setPasteLevelMode("flat");
     const guess = new Set<number>();
     pages.slice(0, 8).forEach((p, i) => {
       if (/فهرست\s*(?:مطالب|کتاب)?|contents|table\s+of\s+contents/i.test(p.title || "")) guess.add(i);
@@ -406,7 +408,7 @@ export const ChapterTocDialog = ({
   };
 
   const extractFromPaste = async () => {
-    const lines = pasted.split(/\r?\n+/).map((l) => l.trim()).filter((l) => l.length >= 2 && l.length <= 220);
+    const lines = pasted.split(/\r?\n+/).map(cleanManualTocLine).filter((l) => l.length >= 2 && l.length <= 220);
     if (lines.length < 2) {
       toast.info(fa ? "حداقل دو خط (دو سرفصل) وارد کنید" : "Enter at least two lines");
       return;
@@ -448,6 +450,8 @@ export const ChapterTocDialog = ({
         } catch { /* fall back silently */ }
       }
       setSelected(new Set());
+      setMatches(new Array(ents.length).fill(null));
+      setMatchProgress(0);
       setEntries(ents);
       setStep("review");
     } catch (e: any) {
