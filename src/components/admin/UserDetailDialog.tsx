@@ -68,7 +68,7 @@ export const UserDetailDialog = ({ userId, open, onOpenChange, onChanged }: Prop
       { data: hl },
       { data: pp },
     ] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+      (supabase.rpc as any)("admin_get_profile", { _user_id: userId }).then((r: any) => ({ data: r.data ?? null })),
       supabase.from("user_roles").select("role").eq("user_id", userId),
       supabase.from("credit_transactions").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
       supabase.from("user_books").select("*, books(id, title, author, cover_url)").eq("user_id", userId).order("created_at", { ascending: false }),

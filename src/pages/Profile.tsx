@@ -121,7 +121,7 @@ const Profile = () => {
     (async () => {
       setLoading(true);
       const [{ data: p }, { data: tx }] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+        (supabase.rpc as any)("get_my_profile").then((r: any) => ({ data: r.data ?? null })),
         supabase.from("credit_transactions").select("amount").eq("user_id", user.id),
       ]);
       if (p) {

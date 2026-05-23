@@ -130,12 +130,12 @@ const updateDocNode = (page: any, blockIdx: number, mut: (node: any) => void) =>
 };
 
 const fillVectorImagesInBrowser = async (bookId: string, importId: string) => {
-  const [{ data: imp }, { data: book }] = await Promise.all([
+  const [{ data: imp }, { data: pagesData }] = await Promise.all([
     supabase.from("word_imports").select("file_path").eq("id", importId).maybeSingle(),
-    supabase.from("books").select("pages").eq("id", bookId).maybeSingle(),
+    (supabase.rpc as any)("get_book_content", { _book_id: bookId }),
   ]);
   const filePath = (imp as any)?.file_path;
-  const pages = (book as any)?.pages;
+  const pages = pagesData as any[] | null;
   if (!filePath || !Array.isArray(pages)) return { filled: 0, total: 0 };
 
   const targets: Array<{ pageIdx: number; blockIdx: number; slot: number; originalPath: string }> = [];

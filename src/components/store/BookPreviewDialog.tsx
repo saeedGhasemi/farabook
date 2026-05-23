@@ -104,20 +104,21 @@ export const BookPreviewDialog = ({ book, open, onOpenChange, isOwned, isOwner, 
     if (!open || !book) return;
     setSummary(null); setPages([]); setLoading(true); setTtsError(null); setIdentity(null);
     (async () => {
-      const [{ data }, { data: cs }] = await Promise.all([
-        supabase.from("books").select("pages, ai_summary, description, preview_pages, subtitle, book_type, contributors, publisher, publication_year, edition, isbn, page_count, language, original_title, original_language, series_name, series_index, categories, subjects").eq("id", book.id).maybeSingle(),
+      const [{ data }, { data: cs }, { data: previewPagesData }] = await Promise.all([
+        supabase.from("books").select("ai_summary, description, preview_pages, subtitle, book_type, contributors, publisher, publication_year, edition, isbn, page_count, language, original_title, original_language, series_name, series_index, categories, subjects").eq("id", book.id).maybeSingle(),
         supabase.from("book_comments").select("rating").eq("book_id", book.id).not("rating", "is", null),
+        (supabase.rpc as any)("get_book_preview_content", { _book_id: book.id }),
       ]);
-      const all = (data?.pages as unknown as PageRow[]) ?? [];
+      const all = (Array.isArray(previewPagesData) ? previewPagesData : []) as unknown as PageRow[];
       setPages(all);
       setSummary((data?.ai_summary as string | null) ?? null);
       // Hydrate description on the (slim) book object so the dialog body shows it.
       if (book && (data as { description?: string | null } | null)?.description != null) {
         (book as { description: string | null }).description = (data as { description: string | null }).description;
       }
-      const pi = (data?.preview_pages as number[] | null) ?? [0];
-      const preview = pi && pi.length ? pi : [0, 1];
-      setPreviewIdx(preview.filter((i) => i < all.length));
+      // Preview RPC already returns only the preview-indexed pages in order,
+      // so the visible range is simply all of them.
+      setPreviewIdx(all.map((_, i) => i));
       const ratings = ((cs as Array<{ rating: number | null }>) || []).map((r) => r.rating).filter((r): r is number => !!r);
       setRatingCount(ratings.length);
       setRatingAvg(ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null);
