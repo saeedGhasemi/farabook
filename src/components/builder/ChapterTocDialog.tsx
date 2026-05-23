@@ -268,13 +268,13 @@ export const ChapterTocDialog = ({
   useEffect(() => {
     if (step !== "review" || entries.length === 0) return;
     setMatches((prev) => {
-      // Preserve any user-overridden matches when entry list hasn't shifted in length.
+      // Preserve user-overridden matches; only auto-fill the rest.
       const fresh = computeMatches(pages, selected, entries);
       if (prev.length !== entries.length) return fresh;
-      return fresh.map((m, i) => (prev[i] != null ? prev[i] : m));
+      return fresh.map((m, i) => (overrides.has(i) && prev[i] != null ? prev[i] : m));
     });
     setSelectedEntryIdx((i) => (i != null && i < entries.length ? i : null));
-  }, [step, entries, pages, selected]);
+  }, [step, entries, pages, selected, overrides]);
 
   const detectWithAi = async () => {
     setLoadingAi(true);
