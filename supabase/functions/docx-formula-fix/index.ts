@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
     }
     if (!filePath) return json(400, { error: "no_source_docx" });
 
-    const dl = await admin.storage.from("book-media").download(filePath);
+    const dl = await admin.storage.from("book-uploads").download(filePath);
     if (dl.error || !dl.data) {
       console.error("[docx-formula-fix] download failed", dl.error);
       return json(404, { error: "source_missing", detail: dl.error?.message });
