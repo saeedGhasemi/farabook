@@ -347,40 +347,47 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
 /** Convert a legacy page (`{ title, blocks: [...] }`) to a new TextPage. */
 export const legacyPageToTextPage = (p: any): TextPage => {
   const blocks: any[] = Array.isArray(p?.blocks) ? p.blocks : [];
+  const rawLevel = Number((p as any)?.level);
+  const level = Number.isFinite(rawLevel) && rawLevel > 0
+    ? Math.min(5, Math.max(0, Math.floor(rawLevel)))
+    : 0;
   if (isTiptapPage(p)) {
-    // Some books were saved while the editor schema did not yet support
-    // imported tables. In that state `doc` exists but is missing table nodes,
-    // while the legacy `blocks` array still has them. Prefer the richer source
-    // so opening the editor can no longer erase imported Word tables.
     if (countLegacyTables(blocks) > countDocTables(p.doc)) {
       const nodes = blocks.flatMap(legacyBlockToNodes);
       if (nodes.length) {
-        return { title: typeof p.title === "string" ? p.title : "", doc: { type: "doc", content: nodes } };
+        return { title: typeof p.title === "string" ? p.title : "", doc: { type: "doc", content: nodes }, level };
       }
     }
-    return { title: typeof p.title === "string" ? p.title : "", doc: p.doc };
+    return { title: typeof p.title === "string" ? p.title : "", doc: p.doc, level };
   }
   const nodes: DocNode[] = blocks.flatMap(legacyBlockToNodes);
   if (!nodes.length) nodes.push({ type: "paragraph" });
   return {
     title: typeof p?.title === "string" ? p.title : "",
     doc: { type: "doc", content: nodes },
+    level,
   };
 };
 
 /** Normalize whatever we got from DB to an array of TextPages. */
 export const dbPagesToTextPages = (raw: unknown): TextPage[] => {
   if (!Array.isArray(raw) || raw.length === 0) {
-    return [{ title: "", doc: { type: "doc", content: [{ type: "paragraph" }] } }];
+    return [{ title: "", doc: { type: "doc", content: [{ type: "paragraph" }] }, level: 0 }];
   }
   return raw.map((p) => legacyPageToTextPage(p));
 };
 
-/** Reverse: pages → DB shape (kept compatible: we store new docs alongside `title`). */
 /** Reverse: pages → DB shape. We write both the new `doc` AND legacy
- *  `blocks` so the existing Reader/BlockRenderer keeps rendering. */
+ *  `blocks` so the existing Reader/BlockRenderer keeps rendering.
+ *  `level` is persisted so the chapter tree survives reloads. */
 export const textPagesToDbPages = (pages: TextPage[]): any[] =>
-  pages.map((p) => ({ title: p.title || "—", doc: p.doc, blocks: docToLegacyBlocks(p.doc) }));
+  pages.map((p) => ({
+    title: p.title || "—",
+    doc: p.doc,
+    blocks: docToLegacyBlocks(p.doc),
+    level: Math.min(5, Math.max(0, Math.floor(p.level ?? 0))),
+  }));
+
 
 /* ------------------------------------------------------------------ */
 /* HTML rendering for the Reader (no React, used inside dangerouslySet)*/
