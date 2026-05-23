@@ -23,7 +23,9 @@ import {
   ListOrdered, Layers, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Undo2, Redo2, X, ArrowLeftRight, ChevronsLeft, ChevronsRight, Scissors,
   Eraser, Info, Combine,
+  ChevronRight, ChevronDown, ArrowUp, ArrowDown, IndentIncrease, IndentDecrease,
 } from "lucide-react";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/lib/i18n";
