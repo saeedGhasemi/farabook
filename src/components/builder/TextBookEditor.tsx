@@ -1037,6 +1037,15 @@ export const TextBookEditor = ({ initial }: Props) => {
                   size="icon"
                   variant="ghost"
                   className="h-7 w-7"
+                  onClick={() => setShowTocDialog(true)}
+                  title={fa ? "فصل‌بندی از روی فهرست مطالب" : "Re-chapter from TOC"}
+                >
+                  <ListTree className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
                   onClick={rebuildChapters}
                   title={fa ? "ادغام فصل‌های کوتاه (بازسازی)" : "Merge tiny chapters"}
                 >
