@@ -476,14 +476,26 @@ export const ChapterTocDialog = ({
     }
   };
 
-  const apply = () => {
+  const apply = async () => {
     if (!entries.length) return;
+    if (searchingMatches) return;
     setStep("applying");
+    await yieldToBrowser();
     try {
+      const matchedCount = matches.filter((m) => typeof m === "number").length;
+      if (matchedCount === 0) {
+        toast.error(
+          fa
+            ? "هیچ صفحه پیشنهادی برای سرفصل‌ها پیدا نشده است. اول «جستجوی سطرها» را بزنید یا برای چند سرفصل، صفحه درست را دستی انتخاب کنید."
+            : "No suggested page was found. Run “Search lines” first or manually pick the right page for a few entries.",
+          { duration: 10000 },
+        );
+        setStep("review");
+        return;
+      }
       const next = applyTocClient(pages, selected, entries, matches);
       if (next === pages) {
         // Diagnose: how many entries actually got matched to a page?
-        const matchedCount = matches.filter((m) => typeof m === "number").length;
         const missing = entries.length - matchedCount;
         const msg = fa
           ? `از ${entries.length} سرفصل فقط ${matchedCount} مورد در متن کتاب پیدا شد (کمتر از ۳۰٪). برای حل این مشکل: ۱) روی سرفصل‌هایی که نشانگر «؟» قرمز دارند کلیک کنید و صفحهٔ درست را از پیش‌نمایش انتخاب کنید. ۲) عناوین فهرست را با عنوان واقعی فصل در ورد یکسان کنید. ۳) اگر چند سرفصل پشت سر هم دستی تعیین کنید، بقیه به‌صورت خودکار بین آن‌ها برش می‌خورد. (${missing} سرفصل بدون تطبیق)`
