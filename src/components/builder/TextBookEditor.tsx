@@ -1027,7 +1027,14 @@ export const TextBookEditor = ({ initial }: Props) => {
         console.error("[repair-formulas] invoke error", error, "detail:", detail);
         throw new Error(detail || error.message || "invoke failed");
       }
-      const entries: Array<{ key: string; plain: string; repaired: string }> = Array.isArray(data?.entries) ? data.entries : [];
+      const entries: Array<{
+        key?: string;
+        keys?: string[];
+        plain?: string;
+        damaged?: string;
+        repaired: string;
+        content?: Array<{ text: string; marks?: Array<"superscript" | "subscript"> }>;
+      }> = Array.isArray(data?.entries) ? data.entries : [];
       if (!entries.length) {
         toast.info(fa ? "موردی برای ترمیم در سند پیدا نشد." : "No formula / sup-sub runs found in source.");
         return;
@@ -1041,11 +1048,31 @@ export const TextBookEditor = ({ initial }: Props) => {
           .replace(/[\u0660-\u0669]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 0x30))
           .replace(/\s+/g, " ").trim().toLowerCase()
           .slice(0, 160);
-      const map = new Map<string, string>();
-      for (const e of entries) if (e?.key) map.set(e.key, e.repaired);
+      const repairNodes = (entry: (typeof entries)[number]) => {
+        if (Array.isArray(entry.content) && entry.content.length) {
+          return entry.content
+            .filter((seg) => seg?.text)
+            .map((seg) => ({
+              type: "text",
+              text: seg.text,
+              ...(seg.marks?.length ? { marks: seg.marks.map((type) => ({ type })) } : {}),
+            }));
+        }
+        return [{ type: "text", text: entry.repaired || "" }];
+      };
+      const map = new Map<string, { repaired: string; content: any[] }>();
+      for (const e of entries) {
+        const value = { repaired: e.repaired, content: repairNodes(e) };
+        const keys = Array.isArray(e.keys) && e.keys.length ? e.keys : [e.key];
+        for (const k of keys) if (k) map.set(k, value);
+      }
 
       let patched = 0;
-      setPages((ps) => ps.map((p) => {
+      const sourcePages = pages.map((p, i) => (
+        i === activeIdx && editor ? { ...p, doc: editor.getJSON() as TextPage["doc"] } : p
+      ));
+      const dirtyIdx = new Set<number>();
+      const nextPages: TextPage[] = sourcePages.map((p, pageIdx) => {
         if (!p?.doc || !Array.isArray(p.doc.content)) return p;
         const content = p.doc.content.map((node: any) => {
           if (!node || (node.type !== "paragraph" && node.type !== "heading")) return node;
@@ -1053,17 +1080,32 @@ export const TextBookEditor = ({ initial }: Props) => {
           if (!txt) return node;
           const k = normKey(txt);
           const rep = map.get(k);
-          if (!rep || rep === txt) return node;
+          if (!rep || JSON.stringify(node.content ?? []) === JSON.stringify(rep.content)) return node;
           patched += 1;
-          return { ...node, content: [{ type: "text", text: rep }] };
+          dirtyIdx.add(pageIdx);
+          return { ...node, content: rep.content };
         });
-        return { ...p, doc: { type: "doc", content } };
-      }));
-      structureDirtyRef.current = true;
-      setDirty(true);
+        return { ...p, doc: { type: "doc" as const, content: content as any } };
+      });
+      setPages(nextPages);
+      if (editor) {
+        const activeDoc = nextPages[activeIdx]?.doc;
+        if (activeDoc) editor.commands.setContent(activeDoc as any, { emitUpdate: false });
+      }
       if (patched > 0) {
+        structureDirtyRef.current = true;
+        dirtyIdx.forEach((idx) => dirtyPagesRef.current.add(idx));
+        setDirty(true);
+        const { error: saveErr } = await supabase
+          .from("books")
+          .update({ pages: textPagesToDbPages(nextPages) })
+          .eq("id", initial.id);
+        if (saveErr) throw saveErr;
+        dirtyPagesRef.current.clear();
+        structureDirtyRef.current = false;
+        setSavedAt(new Date());
+        setDirty(false);
         toast.success(fa ? `${patched} پاراگراف ترمیم شد.` : `Repaired ${patched} paragraph(s).`);
-        setTimeout(() => { void persist({ showToast: false, full: true }); }, 50);
       } else {
         toast.info(fa ? "موارد سند با متن فعلی همخوانی نداشت." : "Source items didn't match current text.");
       }

@@ -79,7 +79,7 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
   // Order matters — math first (so $...$ doesn't collide with markdown),
   // then color spans, bold (**), italic (*), underline, links, urls.
   const re =
-    /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$\n]+?\$|\[c=[^\]\n]+\][\s\S]*?\[\/c\]|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
+    /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$\n]+?\$|\[c=[^\]\n]+\][\s\S]*?\[\/c\]|\[sup\][\s\S]*?\[\/sup\]|\[sub\][\s\S]*?\[\/sub\]|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
   const parts = text.split(re);
   return parts.map((p, i) => {
     const key = `${baseKey}-${i}`;
@@ -93,6 +93,10 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
         </span>
       );
     }
+    const supM = /^\[sup\]([\s\S]*?)\[\/sup\]$/.exec(p);
+    if (supM) return <sup key={key}>{renderInlineMarkdown(supM[1], `${key}-sup`)}</sup>;
+    const subM = /^\[sub\]([\s\S]*?)\[\/sub\]$/.exec(p);
+    if (subM) return <sub key={key}>{renderInlineMarkdown(subM[1], `${key}-sub`)}</sub>;
     // Block math: $$...$$ or \[...\]
     if ((p.startsWith("$$") && p.endsWith("$$") && p.length > 4)
       || (p.startsWith("\\[") && p.endsWith("\\]") && p.length > 4)) {
