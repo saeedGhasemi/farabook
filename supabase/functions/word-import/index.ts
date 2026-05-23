@@ -31,7 +31,7 @@ type Block =
     }
   | { type: "table"; headers: string[]; rows: string[][]; caption?: string; tableNumber?: string };
 
-interface Page { title: string; blocks: Block[]; }
+interface Page { title: string; blocks: Block[]; level?: number; }
 
 const htmlText = (s: string) =>
   s
@@ -437,6 +437,133 @@ function mergeTinyChapters<T extends { title: string; blocks: any[] }>(pages: T[
   }
   return out;
 }
+
+/* ------------------------------------------------------------------ */
+/* Table-of-contents based chaptering                                  */
+/* ------------------------------------------------------------------ */
+// If the source book opens with a "فهرست مطالب" / "Contents" section we
+// use it as the source of truth for chapter splits AND for the nested
+// chapter level. This runs after the normal heading-based detection so
+// that headings and explicit page breaks still work when no TOC exists.
+
+const TOC_HEADER_RE = /^\s*(فهرست\s*(?:مطالب|کتاب)?|contents|table\s+of\s+contents)\s*$/i;
+
+interface TocEntry { title: string; level: number; norm: string; }
+
+function normTitle(s: string): string {
+  return String(s ?? "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[\u064B-\u0652]/g, "")
+    .replace(/ي/g, "ی").replace(/ك/g, "ک")
+    .replace(/[\u06F0-\u06F9]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x06F0 + 0x30))
+    .replace(/[\u0660-\u0669]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 0x30))
+    .replace(/[.\-\u2013\u2014:،,()«»"'\[\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function looksLikeTocHeader(text: string): boolean {
+  return TOC_HEADER_RE.test(String(text || "").trim());
+}
+
+/** Extract TOC entries from the first few pages, if a TOC exists. */
+function extractTocEntries(pages: Page[]): { entries: TocEntry[]; tocPageIdx: number } {
+  const empty = { entries: [], tocPageIdx: -1 };
+  for (let i = 0; i < Math.min(pages.length, 6); i += 1) {
+    const p = pages[i];
+    const titleIsToc = looksLikeTocHeader(p.title);
+    const headingIsToc = p.blocks.some((b: any) => b?.type === "heading" && looksLikeTocHeader(b.text));
+    if (!titleIsToc && !headingIsToc) continue;
+    const entries: TocEntry[] = [];
+    for (const b of p.blocks as any[]) {
+      const raw = String(b?.text || "").trim();
+      if (!raw || raw.length > 220) continue;
+      if (looksLikeTocHeader(raw)) continue;
+      // Strip trailing dot-leaders + page number ("..... 23" or "  ۲۳")
+      const cleaned = raw
+        .replace(/[\s.·…\-\u2013\u2014_]+[\d\u06F0-\u06F9\u0660-\u0669]+\s*$/u, "")
+        .trim();
+      if (!cleaned || cleaned.length < 2) continue;
+      // Skip lines that are pure numbers / dates / page words
+      if (/^[\d\u06F0-\u06F9\u0660-\u0669\s.\-]+$/.test(cleaned)) continue;
+      // Determine nesting level from numeric prefix like "1.2.3" or
+      // "فصل اول → بخش دوم" indents. Default to 0.
+      let level = 0;
+      const numMatch = /^([\d\u06F0-\u06F9\u0660-\u0669]+(?:[.\-][\d\u06F0-\u06F9\u0660-\u0669]+){0,4})\b/u.exec(cleaned);
+      if (numMatch) {
+        level = Math.min(4, Math.max(0, numMatch[1].split(/[.\-]/).length - 1));
+      }
+      entries.push({ title: cleaned, level, norm: normTitle(cleaned) });
+    }
+    if (entries.length >= 3) return { entries, tocPageIdx: i };
+  }
+  return empty;
+}
+
+/** Re-split pages using TOC entries as authoritative chapter boundaries. */
+function applyTocChaptering(pages: Page[], toc: TocEntry[], tocPageIdx: number): Page[] {
+  if (!toc.length) return pages;
+  const before = tocPageIdx >= 0 ? pages.slice(0, tocPageIdx + 1) : [];
+  const rest = tocPageIdx >= 0 ? pages.slice(tocPageIdx + 1) : pages;
+  // Flatten blocks from the rest, keeping each block's text for matching.
+  const blocks: any[] = [];
+  for (const p of rest) {
+    // If the page title doesn't look TOC-like, surface it as a synthetic
+    // heading so TOC matching can still anchor against it.
+    if (p.title && p.title !== "مقدمه" && !/^(صفحه|بخش|page|section)\s+\d+/i.test(p.title)) {
+      blocks.push({ type: "heading", level: 2, text: p.title, __pageTitle: true });
+    }
+    for (const b of p.blocks) blocks.push(b);
+  }
+
+  const out: Page[] = [];
+  let cur: Page | null = null;
+  let tocPos = 0;
+  const lookahead = 25; // how far down the TOC we accept skips
+
+  const flush = () => { if (cur && cur.blocks.length) out.push(cur); };
+
+  for (const b of blocks) {
+    const text = String(b?.text || "").trim();
+    let matched: { entry: TocEntry; pos: number } | null = null;
+    if (text && text.length <= 220) {
+      const n = normTitle(text);
+      if (n.length >= 2) {
+        for (let k = tocPos; k < Math.min(toc.length, tocPos + lookahead); k += 1) {
+          const e = toc[k];
+          if (!e.norm) continue;
+          const isMatch =
+            n === e.norm ||
+            n.startsWith(e.norm + " ") ||
+            (e.norm.length >= 8 && n.startsWith(e.norm)) ||
+            (n.length >= 8 && e.norm.startsWith(n));
+          if (isMatch) { matched = { entry: e, pos: k }; break; }
+        }
+      }
+    }
+    if (matched) {
+      flush();
+      cur = { title: matched.entry.title.slice(0, 160), blocks: [], level: matched.entry.level };
+      tocPos = matched.pos + 1;
+      continue; // don't include the title line as a body block
+    }
+    if (b.__pageTitle) continue; // synthetic anchor, never emit
+    if (!cur) cur = { title: rest[0]?.title || "مقدمه", blocks: [], level: 0 };
+    cur.blocks.push(b);
+  }
+  flush();
+
+  if (out.length < Math.max(2, Math.floor(toc.length * 0.3))) {
+    // We didn't manage to anchor enough TOC entries — keep original
+    // chaptering rather than producing a worse split.
+    return pages;
+  }
+  return [...before, ...out];
+}
+
+
+
 
 // Find Persian/English figure or table label like "شکل ۹–۱" / "Figure 9.1" / "جدول ۲-۱"
 const FIG_RE = /^(شکل|تصویر|نگاره|figure|fig\.?)\s*[\d\u06F0-\u06F9۰-۹]+([.\-\u2013\u2014][\d\u06F0-\u06F9۰-۹]+)?/i;
@@ -926,6 +1053,23 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // If the book starts with a table of contents, use it to drive chapter
+    // splits AND nested chapter levels. Falls back silently when no TOC is
+    // detected or matches are too sparse to be reliable.
+    try {
+      const toc = extractTocEntries(pages);
+      if (toc.entries.length) {
+        const next = applyTocChaptering(pages, toc.entries, toc.tocPageIdx);
+        if (next.length >= 2) {
+          console.log(`TOC chaptering: ${toc.entries.length} entries → ${next.length} chapters`);
+          pages = next;
+        }
+      }
+    } catch (e) {
+      console.warn("TOC chaptering failed; keeping heading-based split", e);
+    }
+
 
     // Use the first uploaded image as the cover, if any
     let cover_url = "/placeholder.svg";
