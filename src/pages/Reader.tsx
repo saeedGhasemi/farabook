@@ -778,20 +778,37 @@ const Reader = () => {
             </button>
 
 
+            {/* Word page number footer */}
+            <div className="mt-10 flex items-center justify-center gap-3 text-[11px] text-muted-foreground tabular-nums select-none">
+              <span className="h-px w-12 bg-border" />
+              <span>{lang === "fa" ? "صفحه" : "Page"} {pageIdx + 1} / {total}</span>
+              <span className="h-px w-12 bg-border" />
+            </div>
+
             {/* Bottom navigation */}
-            <div className="mt-8 flex items-center justify-between gap-3 pb-32">
-              <Button variant="outline" onClick={goPrev} disabled={pageIdx === 0} className="gap-2 glass-strong">
-                <Prev className="w-4 h-4" /> {t("prev")}
-              </Button>
-              <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-2">
+            <div className="mt-4 flex items-stretch justify-between gap-3 pb-32">
+              <div className="flex flex-col items-start gap-1 min-w-0">
+                <Button variant="outline" onClick={goPrev} disabled={pageIdx === 0} className="gap-2 glass-strong">
+                  <Prev className="w-4 h-4" /> {t("prev")}
+                </Button>
+                <span className="text-[10px] text-muted-foreground tabular-nums ps-1 leading-none">
+                  {pageIdx === 0 ? "—" : `${lang === "fa" ? "ص." : "p."} ${pageIdx}`}
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-2 self-center">
                 <HlIcon className="w-3 h-3" />
                 <span>
                   {lang === "fa" ? "متن را انتخاب کنید تا رنگ هایلایت ظاهر شود" : "Select text to highlight"}
                 </span>
               </div>
-              <Button variant="outline" onClick={goNext} disabled={pageIdx >= total - 1} className="gap-2 glass-strong">
-                {t("next")} <Next className="w-4 h-4" />
-              </Button>
+              <div className="flex flex-col items-end gap-1 min-w-0">
+                <Button variant="outline" onClick={goNext} disabled={pageIdx >= total - 1} className="gap-2 glass-strong">
+                  {t("next")} <Next className="w-4 h-4" />
+                </Button>
+                <span className="text-[10px] text-muted-foreground tabular-nums pe-1 leading-none">
+                  {pageIdx >= total - 1 ? "—" : `${lang === "fa" ? "ص." : "p."} ${pageIdx + 2}`}
+                </span>
+              </div>
             </div>
             {id && pageIdx >= total - 1 && (
               <section className="pb-32">
