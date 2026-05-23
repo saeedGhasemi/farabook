@@ -199,6 +199,7 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [showAi, setShowAi] = useState(false);
   const [showAutoFill, setShowAutoFill] = useState(false);
   const [importId, setImportId] = useState<string | undefined>(undefined);
+  const [repairingFormulas, setRepairingFormulas] = useState(false);
   const [chaptersCollapsed, setChaptersCollapsed] = useState(false);
   const [showTocDialog, setShowTocDialog] = useState(false);
   const activeChapterRef = useRef<HTMLDivElement | null>(null);
