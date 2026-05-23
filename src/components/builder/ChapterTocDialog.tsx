@@ -240,6 +240,8 @@ export const ChapterTocDialog = ({
   // Tracks which entries the user manually re-pointed to a different page.
   const [overrides, setOverrides] = useState<Set<number>>(new Set());
   const [selectedEntryIdx, setSelectedEntryIdx] = useState<number | null>(null);
+  // Multi-select state for bulk level changes / deletion.
+  const [picked, setPicked] = useState<Set<number>>(new Set());
   const [loadingAi, setLoadingAi] = useState(false);
   const [loadingAuto, setLoadingAuto] = useState(false);
   const [loadingPaste, setLoadingPaste] = useState(false);
@@ -253,6 +255,7 @@ export const ChapterTocDialog = ({
     setEntries([]);
     setMatches([]);
     setOverrides(new Set());
+    setPicked(new Set());
     setSelectedEntryIdx(null);
     setPasted("");
     setPasteMode("pages");
