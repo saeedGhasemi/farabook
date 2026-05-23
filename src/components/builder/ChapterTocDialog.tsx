@@ -237,6 +237,8 @@ export const ChapterTocDialog = ({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [entries, setEntries] = useState<TocEntry[]>([]);
   const [matches, setMatches] = useState<Array<number | null>>([]);
+  // Tracks which entries the user manually re-pointed to a different page.
+  const [overrides, setOverrides] = useState<Set<number>>(new Set());
   const [selectedEntryIdx, setSelectedEntryIdx] = useState<number | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [loadingAuto, setLoadingAuto] = useState(false);
@@ -250,6 +252,7 @@ export const ChapterTocDialog = ({
     setStep("pick");
     setEntries([]);
     setMatches([]);
+    setOverrides(new Set());
     setSelectedEntryIdx(null);
     setPasted("");
     setPasteMode("pages");
@@ -265,13 +268,13 @@ export const ChapterTocDialog = ({
   useEffect(() => {
     if (step !== "review" || entries.length === 0) return;
     setMatches((prev) => {
-      // Preserve any user-overridden matches when entry list hasn't shifted in length.
+      // Preserve user-overridden matches; only auto-fill the rest.
       const fresh = computeMatches(pages, selected, entries);
       if (prev.length !== entries.length) return fresh;
-      return fresh.map((m, i) => (prev[i] != null ? prev[i] : m));
+      return fresh.map((m, i) => (overrides.has(i) && prev[i] != null ? prev[i] : m));
     });
     setSelectedEntryIdx((i) => (i != null && i < entries.length ? i : null));
-  }, [step, entries, pages, selected]);
+  }, [step, entries, pages, selected, overrides]);
 
   const detectWithAi = async () => {
     setLoadingAi(true);
@@ -545,11 +548,18 @@ export const ChapterTocDialog = ({
 
         {step === "review" && (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {fa
-                ? `${entries.length} سرفصل استخراج شد. روی هر عنوان کلیک کنید تا صفحهٔ تطبیق‌شده در ورد و دو سطر اول آن را ببینید. در صورت اشتباه می‌توانید صفحهٔ درست را انتخاب کنید.`
-                : `${entries.length} entries extracted. Click any entry to see its matched Word page and a 2-line preview. Override the page if wrong.`}
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground flex-1">
+                {fa
+                  ? `${entries.length} سرفصل استخراج شد. روی هر عنوان کلیک کنید تا صفحهٔ تطبیق‌شده در ورد و دو سطر اول آن را ببینید. در صورت اشتباه می‌توانید صفحهٔ درست را انتخاب کنید.`
+                  : `${entries.length} entries extracted. Click any entry to see its matched Word page and a 2-line preview. Override the page if wrong.`}
+              </p>
+              {overrides.size > 0 && (
+                <span className="text-[11px] px-2 py-1 rounded-md bg-primary/10 text-primary border border-primary/30 shrink-0">
+                  {fa ? `${overrides.size} تطبیق دستی` : `${overrides.size} manual`}
+                </span>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               {/* Entry list */}
@@ -586,13 +596,19 @@ export const ChapterTocDialog = ({
                         className={`text-xs font-semibold shrink-0 px-2 py-1 rounded-md border tabular-nums min-w-[3.5rem] text-center ${
                           m == null
                             ? "text-destructive border-destructive/50 bg-destructive/10"
-                            : "text-accent-foreground border-accent/40 bg-accent/15 hover:bg-accent/25"
+                            : overrides.has(i)
+                              ? "text-primary-foreground border-primary bg-primary hover:opacity-90"
+                              : "text-accent-foreground border-accent/40 bg-accent/15 hover:bg-accent/25"
                         }`}
-                        title={fa ? "شمارهٔ صفحه در فایل ورد" : "Word page number"}
+                        title={
+                          overrides.has(i)
+                            ? (fa ? "صفحه به‌صورت دستی توسط شما تعیین شده است" : "Manually set by you")
+                            : (fa ? "شمارهٔ صفحه در فایل ورد" : "Word page number")
+                        }
                       >
                         {m == null
                           ? (fa ? "؟" : "?")
-                          : (fa ? `ص ${m + 1}` : `p ${m + 1}`)}
+                          : (fa ? `${overrides.has(i) ? "✓ " : ""}ص ${m + 1}` : `${overrides.has(i) ? "✓ " : ""}p ${m + 1}`)}
                       </button>
                       <Select
                         value={String(e.level)}
@@ -616,6 +632,14 @@ export const ChapterTocDialog = ({
                         onClick={() => {
                           setEntries((es) => es.filter((_, k) => k !== i));
                           setMatches((ms) => ms.filter((_, k) => k !== i));
+                          setOverrides((ov) => {
+                            const n = new Set<number>();
+                            for (const v of ov) {
+                              if (v < i) n.add(v);
+                              else if (v > i) n.add(v - 1);
+                            }
+                            return n;
+                          });
                         }}
                         title={fa ? "حذف" : "Remove"}
                       >
@@ -657,6 +681,8 @@ export const ChapterTocDialog = ({
                         const idx = selectedEntryIdx;
                         if (idx == null) return;
                         setMatches((ms) => ms.map((x, k) => (k === idx ? Number(v) : x)));
+                        setOverrides((ov) => new Set(ov).add(idx));
+                        toast.success(fa ? `سرفصل به صفحهٔ ${Number(v) + 1} منتقل شد` : `Entry moved to page ${Number(v) + 1}`);
                       }}
                     >
                       <SelectTrigger className="h-8 text-xs">
@@ -706,6 +732,8 @@ export const ChapterTocDialog = ({
                           const idx = selectedEntryIdx;
                           if (idx == null) return;
                           setMatches((ms) => ms.map((x, k) => (k === idx ? Number(v) : x)));
+                          setOverrides((ov) => new Set(ov).add(idx));
+                          toast.success(fa ? `سرفصل به صفحهٔ ${Number(v) + 1} منتقل شد` : `Entry moved to page ${Number(v) + 1}`);
                         }}
                       >
                         <SelectTrigger className="h-8 text-xs">
