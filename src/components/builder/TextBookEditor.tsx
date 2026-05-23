@@ -1074,6 +1074,11 @@ export const TextBookEditor = ({ initial }: Props) => {
                 const isParent = hasChildren(i);
                 const isCollapsed = collapsedSet.has(i);
                 const isActive = i === activeIdx;
+                const isAuto = isAutoPageTitle(p.title);
+                // Auto-titled pages (e.g. "صفحه 12") visually nest one
+                // level under the closest preceding real chapter, but
+                // their data level is preserved untouched.
+                const displayLvl = isAuto ? lvl + 1 : lvl;
                 return (
                   <div
                     key={i}
@@ -1083,7 +1088,7 @@ export const TextBookEditor = ({ initial }: Props) => {
                         ? "bg-primary/10 ring-1 ring-primary/30 shadow-sm"
                         : "hover:bg-muted/50"
                     }`}
-                    style={{ paddingInlineStart: 4 + lvl * 14 }}
+                    style={{ paddingInlineStart: 4 + displayLvl * 14 }}
                   >
                     {isActive && (
                       <span className="absolute inset-y-1 start-0 w-0.5 rounded-full bg-primary" />
@@ -1104,11 +1109,23 @@ export const TextBookEditor = ({ initial }: Props) => {
                       type="button"
                       onClick={() => setActiveIdx(i)}
                       className="flex-1 min-w-0 text-start text-sm truncate"
+                      title={fa
+                        ? (isAuto ? `صفحه ورد بدون عنوان · صفحه ${i + 1}` : p.title)
+                        : (isAuto ? `Untitled Word page · page ${i + 1}` : p.title)}
                     >
                       <span className="text-[10px] text-muted-foreground me-1 tabular-nums">{i + 1}.</span>
-                      <span className={lvl === 0 ? "font-medium" : "text-foreground/80"}>
-                        {p.title || (fa ? "بدون عنوان" : "Untitled")}
-                      </span>
+                      {isAuto ? (
+                        <span className="text-xs italic text-muted-foreground">
+                          {fa ? `صفحه ${i + 1}` : `Page ${i + 1}`}
+                          <span className="ms-1 text-[9px] uppercase tracking-wider opacity-60">
+                            {fa ? "بی‌عنوان" : "untitled"}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className={lvl === 0 ? "font-medium" : "text-foreground/80"}>
+                          {p.title || (fa ? "بدون عنوان" : "Untitled")}
+                        </span>
+                      )}
                     </button>
                     <div className="flex items-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition shrink-0">
                       <button
