@@ -429,6 +429,8 @@ const inlineToMarkdown = (nodes?: TextNode[]): string =>
       if (m.type === "bold") t = `**${t}**`;
       else if (m.type === "italic") t = `*${t}*`;
       else if (m.type === "underline") t = `__${t}__`;
+      else if (m.type === "superscript") t = `[sup]${t}[/sup]`;
+      else if (m.type === "subscript") t = `[sub]${t}[/sub]`;
       else if (m.type === "textStyle" && (m as any).attrs?.color) {
         color = sanitizeCssValue((m as any).attrs.color as string);
       } else if (m.type === "link" && (m as any).attrs?.href) {
