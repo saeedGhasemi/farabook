@@ -158,6 +158,10 @@ export const ChapterTocDialog = ({
   const [entries, setEntries] = useState<TocEntry[]>([]);
   const [loadingAi, setLoadingAi] = useState(false);
   const [loadingAuto, setLoadingAuto] = useState(false);
+  const [loadingPaste, setLoadingPaste] = useState(false);
+  const [pasted, setPasted] = useState("");
+  const [pasteMode, setPasteMode] = useState<"pages" | "paste">("pages");
+  const [pasteLevelMode, setPasteLevelMode] = useState<"ai" | "flat">("ai");
 
   useEffect(() => {
     if (!open) return;
