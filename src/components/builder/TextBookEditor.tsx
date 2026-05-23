@@ -22,7 +22,7 @@ import {
   Palette, Type as TypeIcon, SplitSquareVertical, Film, GalleryHorizontal,
   ListOrdered, Layers, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Undo2, Redo2, X, ArrowLeftRight, ChevronsLeft, ChevronsRight, Scissors,
-  Eraser, Info, Combine, ListTree,
+  Eraser, Info, Combine, ListTree, FunctionSquare,
   ChevronRight, ChevronDown, ArrowUp, ArrowDown, IndentIncrease, IndentDecrease,
 } from "lucide-react";
 import { ChapterTocDialog } from "./ChapterTocDialog";
@@ -45,7 +45,7 @@ import {
   ImportedTable, useImageUpload,
 } from "./tiptap-nodes";
 import {
-  dbPagesToTextPages, textPagesToDbPages, type TextPage,
+  dbPagesToTextPages, textPagesToDbPages, nodesToPlainText, type TextPage,
 } from "@/lib/tiptap-doc";
 import { AiSuggestPanel } from "./AiSuggestPanel";
 import { ImageAutoPlacementPanel } from "./ImageAutoPlacementPanel";
@@ -199,6 +199,7 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [showAi, setShowAi] = useState(false);
   const [showAutoFill, setShowAutoFill] = useState(false);
   const [importId, setImportId] = useState<string | undefined>(undefined);
+  const [repairingFormulas, setRepairingFormulas] = useState(false);
   const [chaptersCollapsed, setChaptersCollapsed] = useState(false);
   const [showTocDialog, setShowTocDialog] = useState(false);
   const activeChapterRef = useRef<HTMLDivElement | null>(null);
@@ -996,6 +997,65 @@ export const TextBookEditor = ({ initial }: Props) => {
     }
   }, [isEdit, initial?.id, editor, activeIdx]);
 
+  // Re-scan the source .docx for runs that were lost during the first pass
+  // (vertAlign superscript/subscript + OMML formulas) and patch matching
+  // paragraphs in place. Quick auto-apply: no review panel — toast summary
+  // is enough for typical chemistry / physics indices.
+  const repairFormulasFromSource = useCallback(async () => {
+    if (!initial?.id) return;
+    setRepairingFormulas(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("docx-formula-fix", {
+        body: { bookId: initial.id, importId },
+      });
+      if (error) throw error;
+      const entries: Array<{ key: string; plain: string; repaired: string }> = Array.isArray(data?.entries) ? data.entries : [];
+      if (!entries.length) {
+        toast.info(fa ? "موردی برای ترمیم در سند پیدا نشد." : "No formula / sup-sub runs found in source.");
+        return;
+      }
+      const normKey = (s: string) =>
+        String(s ?? "")
+          .replace(/[\u200B-\u200D\uFEFF]/g, "")
+          .replace(/[\u064B-\u0652]/g, "")
+          .replace(/ي/g, "ی").replace(/ك/g, "ک")
+          .replace(/[\u06F0-\u06F9]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x06F0 + 0x30))
+          .replace(/[\u0660-\u0669]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 0x30))
+          .replace(/\s+/g, " ").trim().toLowerCase()
+          .slice(0, 160);
+      const map = new Map<string, string>();
+      for (const e of entries) if (e.key) map.set(e.key, e.repaired);
+
+      let patched = 0;
+      setPages((ps) => ps.map((p) => {
+        const content = (p.doc?.content ?? []).map((node: any) => {
+          if (node?.type !== "paragraph" && node?.type !== "heading") return node;
+          const txt = nodesToPlainText(node.content);
+          if (!txt) return node;
+          const k = normKey(txt);
+          const rep = map.get(k);
+          if (!rep || rep === txt) return node;
+          patched += 1;
+          return { ...node, content: [{ type: "text", text: rep }] };
+        });
+        return { ...p, doc: { type: "doc", content } };
+      }));
+      structureDirtyRef.current = true;
+      setDirty(true);
+      if (patched > 0) {
+        toast.success(fa ? `${patched} پاراگراف ترمیم شد.` : `Repaired ${patched} paragraph(s).`);
+        // Persist immediately so the change survives a refresh.
+        setTimeout(() => { void persist({ showToast: false, full: true }); }, 50);
+      } else {
+        toast.info(fa ? "موارد سند با متن فعلی همخوانی نداشت." : "Source items didn't match current text.");
+      }
+    } catch (e: any) {
+      toast.error(e?.message || (fa ? "خطای ترمیم" : "Repair failed"));
+    } finally {
+      setRepairingFormulas(false);
+    }
+  }, [initial?.id, importId, fa]);
+
   if (!editor) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-accent" /></div>;
   }
@@ -1282,6 +1342,22 @@ export const TextBookEditor = ({ initial }: Props) => {
               </span>
             )}
           </Button>
+          {isEdit && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1"
+              onClick={() => { void repairFormulasFromSource(); }}
+              disabled={repairingFormulas}
+              title={fa ? "استخراج بالانویس/زیرنویس و فرمول‌ها از فایل ورد اصلی" : "Repair sup/sub & formulas from source Word file"}
+            >
+              {repairingFormulas
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <FunctionSquare className="w-3.5 h-3.5" />}
+              {fa ? "ترمیم فرمول‌ها" : "Repair formulas"}
+            </Button>
+          )}
           {isEdit && (
             <Button
               type="button"
