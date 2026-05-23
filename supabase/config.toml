@@ -27,6 +27,9 @@ verify_jwt = true
 [functions.docx-image-fill]
 verify_jwt = false
 
+[functions.docx-formula-fix]
+verify_jwt = false
+
 [functions.book-auto-cover]
 verify_jwt = false
 

@@ -119,23 +119,23 @@ Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) return json(401, { error: "unauthorized" });
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
     const token = authHeader.replace("Bearer ", "");
-    const { data: claims, error: claimsErr } = await supabase.auth.getClaims(token);
-    if (claimsErr || !claims?.claims?.sub) return json(401, { error: "unauthorized" });
-    const userId = claims.claims.sub as string;
+
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: userData, error: userErr } = await admin.auth.getUser(token);
+    if (userErr || !userData?.user?.id) {
+      console.error("[docx-formula-fix] auth failed", userErr);
+      return json(401, { error: "unauthorized", detail: userErr?.message });
+    }
+    const userId = userData.user.id;
 
     const body = await req.json().catch(() => ({}));
     const bookId: string = body.bookId;
     const importId: string | undefined = body.importId;
-    if (!bookId) return json(400, { error: "missing bookId" });
+    if (!bookId) return json(400, { error: "missing_bookId" });
 
-    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
-    const { data: bookRow } = await admin.from("books").select("id, publisher_id").eq("id", bookId).maybeSingle();
+    const { data: bookRow, error: bookErr } = await admin.from("books").select("id, publisher_id").eq("id", bookId).maybeSingle();
+    if (bookErr) { console.error("[docx-formula-fix] book lookup", bookErr); return json(500, { error: "book_lookup_failed", detail: bookErr.message }); }
     if (!bookRow) return json(404, { error: "book_not_found" });
     if (bookRow.publisher_id !== userId) return json(403, { error: "forbidden" });
 
@@ -153,15 +153,23 @@ Deno.serve(async (req) => {
     if (!filePath) return json(400, { error: "no_source_docx" });
 
     const dl = await admin.storage.from("book-media").download(filePath);
-    if (dl.error || !dl.data) return json(404, { error: "source_missing" });
+    if (dl.error || !dl.data) {
+      console.error("[docx-formula-fix] download failed", dl.error);
+      return json(404, { error: "source_missing", detail: dl.error?.message });
+    }
     const buf = new Uint8Array(await dl.data.arrayBuffer());
 
-    const files = await unzipFiltered(buf, (n) => n === "word/document.xml");
+    let files: Unzipped;
+    try {
+      files = await unzipFiltered(buf, (n) => n === "word/document.xml");
+    } catch (e) {
+      console.error("[docx-formula-fix] unzip failed", e);
+      return json(500, { error: "unzip_failed", detail: String((e as any)?.message ?? e) });
+    }
     const xmlBytes = files["word/document.xml"];
     if (!xmlBytes) return json(500, { error: "no_document_xml" });
     const xml = strFromU8(xmlBytes);
 
-    // Walk every <w:p>...</w:p>, collect repairs
     const entries: Array<{ key: string; plain: string; repaired: string }> = [];
     const pRe = /<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g;
     let m: RegExpExecArray | null;
@@ -177,6 +185,7 @@ Deno.serve(async (req) => {
 
     return json(200, { entries });
   } catch (e) {
-    return json(500, { error: String(e?.message ?? e) });
+    console.error("[docx-formula-fix] crash", e);
+    return json(500, { error: String((e as any)?.message ?? e), stack: String((e as any)?.stack ?? "") });
   }
 });
