@@ -1,7 +1,7 @@
 // Shared helper for converting a previously-uploaded Word import into a book.
-// On large/heavy files, the single-shot conversion can exceed Edge Function
-// memory limits. This helper transparently falls back to a two-phase flow:
-//   1) Convert text/structure only (skipImages=true) — light & reliable.
+// The canonical flow is two-phase so Word's rendered page breaks are preserved:
+//   1) Convert text/structure only (skipImages=true) — light, reliable, and
+//      page-accurate because the importer can read Word pagination markers.
 //   2) Iteratively fill image placeholders in small batches via
 //      `docx-image-fill` — each call only inflates a handful of media files.
 //
@@ -222,9 +222,18 @@ export const convertWordImport = async (opts: ConvertOptions): Promise<ConvertRe
   const baseBody: Record<string, unknown> = { importId };
   if (replaceBookId) baseBody.replaceBookId = replaceBookId;
 
-  // --- Attempt 1: full conversion (text + images in one shot) ---
+  // --- Attempt 1: page-accurate text conversion ---
+  let textData: { book: { id: string }; chapters?: number };
   try {
-    onStatus?.("در حال تبدیل کتاب…");
+    onStatus?.("در حال استخراج صفحه‌بندی واقعی Word…");
+    textData = await callImport({ ...baseBody, skipImages: true });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!looksLikeOverload(msg)) {
+      // Genuine error unrelated to size — bubble up.
+      throw e;
+    }
+    onStatus?.("استخراج صفحه‌بندی مستقیم ناموفق بود؛ در حال تلاش با تبدیل معمولی…");
     const data = await callImport({ ...baseBody, skipImages: false });
     return {
       bookId: data.book.id,
@@ -234,30 +243,14 @@ export const convertWordImport = async (opts: ConvertOptions): Promise<ConvertRe
       imageFailures: 0,
       usedFallback: false,
     };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (!looksLikeOverload(msg)) {
-      // Genuine error unrelated to size — bubble up.
-      throw e;
-    }
-    onStatus?.(
-      "حجم فایل/تصاویر زیاد است. تبدیل متن جداگانه انجام و سپس تصاویر مرحله‌به‌مرحله جایگذاری می‌شوند…",
-    );
   }
 
-  // --- Attempt 2: text-only ---
-  let textData: { book: { id: string }; chapters?: number };
-  try {
-    textData = await callImport({ ...baseBody, skipImages: true });
-  } catch (e) {
-    // Even text conversion failed — give up.
-    throw e;
-  }
-
-  // --- Attempt 3: iterative image fill ---
+  // --- Attempt 2: iterative image fill ---
   let imageStats = { filled: 0, total: 0, failures: 0 };
   try {
-    onStatus?.("تبدیل متن انجام شد. در حال جایگذاری تصاویر…");
+    onStatus?.(
+      "صفحه‌بندی Word اعمال شد. در حال جایگذاری تصاویر…",
+    );
     imageStats = await fillImages(textData.book.id, importId, onImageProgress);
     const vectorStats = await fillVectorImagesInBrowser(textData.book.id, importId);
     if (vectorStats.filled > 0) {
