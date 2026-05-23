@@ -167,6 +167,9 @@ export const ChapterTocDialog = ({
     if (!open) return;
     setStep("pick");
     setEntries([]);
+    setPasted("");
+    setPasteMode("pages");
+    setPasteLevelMode("ai");
     // Pre-select pages whose title looks like "فهرست مطالب"
     const guess = new Set<number>();
     pages.slice(0, 8).forEach((p, i) => {
