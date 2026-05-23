@@ -145,8 +145,39 @@ const convertAnchors = (s: string): string => {
   );
 };
 
+const SUP_MAP: Record<string, string> = {
+  "0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹",
+  "+":"⁺","-":"⁻","=":"⁼","(":"⁽",")":"⁾","n":"ⁿ","i":"ⁱ",
+};
+const SUB_MAP: Record<string, string> = {
+  "0":"₀","1":"₁","2":"₂","3":"₃","4":"₄","5":"₅","6":"₆","7":"₇","8":"₈","9":"₉",
+  "+":"₊","-":"₋","=":"₌","(":"₍",")":"₎",
+};
+const mapAll = (s: string, m: Record<string,string>): string | null => {
+  let out = "";
+  for (const ch of s) { const v = m[ch]; if (!v) return null; out += v; }
+  return out;
+};
+// Convert <sup>...</sup> and <sub>...</sub> to Unicode super/subscripts when
+// possible, falling back to `^{…}` / `_{…}` markers so the chemistry / math
+// indices survive the plain-text pipeline (mammoth → htmlToPages → editor).
+const inlineSupSub = (s: string): string =>
+  s
+    .replace(/<sup[^>]*>([\s\S]*?)<\/sup>/gi, (_m, inner) => {
+      const txt = inner.replace(/<\/?[^>]+>/g, "").trim();
+      if (!txt) return "";
+      const uni = mapAll(txt, SUP_MAP);
+      return uni ?? `^{${txt}}`;
+    })
+    .replace(/<sub[^>]*>([\s\S]*?)<\/sub>/gi, (_m, inner) => {
+      const txt = inner.replace(/<\/?[^>]+>/g, "").trim();
+      if (!txt) return "";
+      const uni = mapAll(txt, SUB_MAP);
+      return uni ?? `_{${txt}}`;
+    });
+
 const stripTags = (s: string) =>
-  normalizeImportedLinks(htmlText(convertAnchors(s)));
+  normalizeImportedLinks(htmlText(convertAnchors(inlineSupSub(s))));
 
 // Word stores EMF/WMF vector images inside <mc:AlternateContent>:
 //   <mc:Choice>  → modern path with EMF (browsers can't render)
