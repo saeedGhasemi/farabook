@@ -1080,7 +1080,7 @@ export const TextBookEditor = ({ initial }: Props) => {
           if (!txt) return node;
           const k = normKey(txt);
           const rep = map.get(k);
-          if (!rep || rep.repaired === txt) return node;
+          if (!rep || JSON.stringify(node.content ?? []) === JSON.stringify(rep.content)) return node;
           patched += 1;
           dirtyIdx.add(pageIdx);
           return { ...node, content: rep.content };
