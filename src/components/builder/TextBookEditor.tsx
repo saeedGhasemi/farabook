@@ -1008,7 +1008,18 @@ export const TextBookEditor = ({ initial }: Props) => {
       const { data, error } = await supabase.functions.invoke("docx-formula-fix", {
         body: { bookId: initial.id, importId },
       });
-      if (error) throw error;
+      if (error) {
+        // Surface server message instead of generic "Edge function returned a non-2xx".
+        let detail = "";
+        try {
+          const resp = (error as any)?.context?.response;
+          if (resp && typeof resp.text === "function") {
+            const body = await resp.text();
+            try { detail = JSON.parse(body)?.error ?? body; } catch { detail = body; }
+          }
+        } catch { /* ignore */ }
+        throw new Error(detail || error.message || "invoke failed");
+      }
       const entries: Array<{ key: string; plain: string; repaired: string }> = Array.isArray(data?.entries) ? data.entries : [];
       if (!entries.length) {
         toast.info(fa ? "موردی برای ترمیم در سند پیدا نشد." : "No formula / sup-sub runs found in source.");
@@ -1024,12 +1035,13 @@ export const TextBookEditor = ({ initial }: Props) => {
           .replace(/\s+/g, " ").trim().toLowerCase()
           .slice(0, 160);
       const map = new Map<string, string>();
-      for (const e of entries) if (e.key) map.set(e.key, e.repaired);
+      for (const e of entries) if (e?.key) map.set(e.key, e.repaired);
 
       let patched = 0;
       setPages((ps) => ps.map((p) => {
-        const content = (p.doc?.content ?? []).map((node: any) => {
-          if (node?.type !== "paragraph" && node?.type !== "heading") return node;
+        if (!p?.doc || !Array.isArray(p.doc.content)) return p;
+        const content = p.doc.content.map((node: any) => {
+          if (!node || (node.type !== "paragraph" && node.type !== "heading")) return node;
           const txt = nodesToPlainText(node.content);
           if (!txt) return node;
           const k = normKey(txt);
@@ -1044,13 +1056,14 @@ export const TextBookEditor = ({ initial }: Props) => {
       setDirty(true);
       if (patched > 0) {
         toast.success(fa ? `${patched} پاراگراف ترمیم شد.` : `Repaired ${patched} paragraph(s).`);
-        // Persist immediately so the change survives a refresh.
         setTimeout(() => { void persist({ showToast: false, full: true }); }, 50);
       } else {
         toast.info(fa ? "موارد سند با متن فعلی همخوانی نداشت." : "Source items didn't match current text.");
       }
     } catch (e: any) {
-      toast.error(e?.message || (fa ? "خطای ترمیم" : "Repair failed"));
+      const msg = e?.message || String(e);
+      console.error("[repair-formulas]", e);
+      toast.error((fa ? "خطای ترمیم: " : "Repair failed: ") + msg);
     } finally {
       setRepairingFormulas(false);
     }
