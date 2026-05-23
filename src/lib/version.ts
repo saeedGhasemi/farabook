@@ -6,5 +6,5 @@
 //   • Significant change (~15–25 credits) → +1 minor  (e.g. 1.0.x → 1.1.0)  ← "20 credits = serious"
 //   • Breaking / overhaul (50+ credits)   → +1 major  (e.g. 1.x.y → 2.0.0)
 // The user may also edit this manually at any time.
-export const APP_VERSION = "1.4.009";
+export const APP_VERSION = "1.4.010";
 export const APP_VERSION_LABEL = `v${APP_VERSION}`;
