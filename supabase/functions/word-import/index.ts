@@ -1100,17 +1100,23 @@ Deno.serve(async (req) => {
     // If the book starts with a table of contents, use it to drive chapter
     // splits AND nested chapter levels. Falls back silently when no TOC is
     // detected or matches are too sparse to be reliable.
-    try {
-      const toc = extractTocEntries(pages);
-      if (toc.entries.length) {
-        const next = applyTocChaptering(pages, toc.entries, toc.tocPageIdx);
-        if (next.length >= 2) {
-          console.log(`TOC chaptering: ${toc.entries.length} entries → ${next.length} chapters`);
-          pages = next;
+    // Skip this when the import already produced many raw word-pages
+    // (1 Word page = 1 book page mode) — collapsing 100+ pages back into
+    // a handful of TOC chapters would defeat that and the user can run
+    // chaptering interactively from the editor's TOC dialog instead.
+    if (pages.length < 20) {
+      try {
+        const toc = extractTocEntries(pages);
+        if (toc.entries.length) {
+          const next = applyTocChaptering(pages, toc.entries, toc.tocPageIdx);
+          if (next.length >= 2) {
+            console.log(`TOC chaptering: ${toc.entries.length} entries → ${next.length} chapters`);
+            pages = next;
+          }
         }
+      } catch (e) {
+        console.warn("TOC chaptering failed; keeping heading-based split", e);
       }
-    } catch (e) {
-      console.warn("TOC chaptering failed; keeping heading-based split", e);
     }
 
 
