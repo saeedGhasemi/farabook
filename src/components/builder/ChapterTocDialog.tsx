@@ -700,6 +700,17 @@ export const ChapterTocDialog = ({
 
             {/* Bulk-action toolbar */}
             <div className="flex items-center gap-2 flex-wrap rounded-lg border bg-muted/30 px-2 py-1.5">
+              {searchingMatches && (
+                <span className="inline-flex items-center gap-1 text-xs text-primary">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  {fa ? `جستجو در کتاب… ${matchProgress}/${entries.length}` : `Searching book… ${matchProgress}/${entries.length}`}
+                </span>
+              )}
+              {!searchingMatches && matches.length > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {fa ? `${matchedCount} صفحه پیشنهادی` : `${matchedCount} suggested pages`}
+                </span>
+              )}
               <button
                 type="button"
                 onClick={toggleAllPicked}
