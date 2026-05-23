@@ -1009,15 +1009,22 @@ export const TextBookEditor = ({ initial }: Props) => {
         body: { bookId: initial.id, importId },
       });
       if (error) {
-        // Surface server message instead of generic "Edge function returned a non-2xx".
         let detail = "";
         try {
-          const resp = (error as any)?.context?.response;
-          if (resp && typeof resp.text === "function") {
-            const body = await resp.text();
-            try { detail = JSON.parse(body)?.error ?? body; } catch { detail = body; }
+          const resp = (error as any)?.context;
+          if (resp && typeof resp.json === "function") {
+            const body = await resp.clone().json().catch(() => null);
+            detail = body?.error ? `${body.error}${body.detail ? ` — ${body.detail}` : ""}` : "";
+            if (!detail) {
+              const txt = await resp.clone().text().catch(() => "");
+              detail = txt?.slice(0, 300) || "";
+            }
+          } else if (resp && typeof resp.text === "function") {
+            const txt = await resp.text();
+            try { const j = JSON.parse(txt); detail = j?.error ?? txt; } catch { detail = txt; }
           }
         } catch { /* ignore */ }
+        console.error("[repair-formulas] invoke error", error, "detail:", detail);
         throw new Error(detail || error.message || "invoke failed");
       }
       const entries: Array<{ key: string; plain: string; repaired: string }> = Array.isArray(data?.entries) ? data.entries : [];
