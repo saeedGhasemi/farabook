@@ -155,7 +155,7 @@ export const applyTocClient = (
   if (pageHints && pageHints.some((h) => typeof h === "number")) {
     const hinted = entries
       .map((e, i) => ({ e, h: pageHints[i] ?? null, pos: i }))
-      .filter((x) => typeof x.h === "number") as Array<{ e: TocEntry; h: number }>;
+      .filter((x) => typeof x.h === "number") as Array<{ e: TocEntry; h: number; pos: number }>;
     hinted.sort((a, b) => a.h - b.h || a.pos - b.pos);
     const uniqueHinted = hinted.filter((x, i) => i === 0 || x.h !== hinted[i - 1].h);
     if (uniqueHinted.length >= 1) {
