@@ -301,6 +301,8 @@ export const ChapterTocDialog = ({
   const [loadingAi, setLoadingAi] = useState(false);
   const [loadingAuto, setLoadingAuto] = useState(false);
   const [loadingPaste, setLoadingPaste] = useState(false);
+  const [searchingMatches, setSearchingMatches] = useState(false);
+  const [matchProgress, setMatchProgress] = useState(0);
   const [pasted, setPasted] = useState("");
   const [pasteMode, setPasteMode] = useState<"pages" | "paste">("pages");
   const [pasteLevelMode, setPasteLevelMode] = useState<"ai" | "flat">("ai");
@@ -314,6 +316,8 @@ export const ChapterTocDialog = ({
     setPicked(new Set());
     setSelectedEntryIdx(null);
     setPasted("");
+    setSearchingMatches(false);
+    setMatchProgress(0);
     setPasteMode("pages");
     setPasteLevelMode("ai");
     const guess = new Set<number>();
@@ -326,13 +330,20 @@ export const ChapterTocDialog = ({
   /** Recompute matches whenever entries or TOC-page selection change. */
   useEffect(() => {
     if (step !== "review" || entries.length === 0) return;
-    setMatches((prev) => {
-      // Preserve user-overridden matches; only auto-fill the rest.
-      const fresh = computeMatches(pages, selected, entries);
-      if (prev.length !== entries.length) return fresh;
-      return fresh.map((m, i) => (overrides.has(i) && prev[i] != null ? prev[i] : m));
+    let cancelled = false;
+    setSearchingMatches(true);
+    setMatchProgress(0);
+    const previous = matches;
+    computeMatchesAsync(pages, selected, entries, (done) => {
+      if (!cancelled) setMatchProgress(done);
+    }).then((fresh) => {
+      if (cancelled) return;
+      setMatches(fresh.map((m, i) => (overrides.has(i) && previous[i] != null ? previous[i] : m)));
+    }).finally(() => {
+      if (!cancelled) setSearchingMatches(false);
     });
     setSelectedEntryIdx((i) => (i != null && i < entries.length ? i : null));
+    return () => { cancelled = true; };
   }, [step, entries, pages, selected, overrides]);
 
   const detectWithAi = async () => {
