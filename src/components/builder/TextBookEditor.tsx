@@ -26,6 +26,7 @@ import {
   ChevronRight, ChevronDown, ArrowUp, ArrowDown, IndentIncrease, IndentDecrease,
 } from "lucide-react";
 import { ChapterTocDialog } from "./ChapterTocDialog";
+import { isAutoPageTitle } from "@/lib/page-title";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
