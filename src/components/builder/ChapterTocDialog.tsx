@@ -602,23 +602,82 @@ export const ChapterTocDialog = ({
               )}
             </div>
 
+            {/* Bulk-action toolbar */}
+            <div className="flex items-center gap-2 flex-wrap rounded-lg border bg-muted/30 px-2 py-1.5">
+              <button
+                type="button"
+                onClick={toggleAllPicked}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                title={fa ? "انتخاب همه / لغو همه" : "Select all / none"}
+              >
+                {picked.size === entries.length && entries.length > 0
+                  ? <CheckSquare className="w-3.5 h-3.5" />
+                  : <Square className="w-3.5 h-3.5" />}
+                <span>{fa ? "همه" : "All"}</span>
+              </button>
+              <span className="text-xs text-muted-foreground">
+                {picked.size > 0
+                  ? (fa ? `${picked.size} انتخاب شده` : `${picked.size} selected`)
+                  : (fa ? "برای تغییر گروهی، فصل‌ها را تیک بزنید" : "Tick items for bulk actions")}
+              </span>
+              <div className="ms-auto flex items-center gap-1">
+                <Button
+                  size="sm" variant="outline" className="h-7 px-2 gap-1"
+                  disabled={!picked.size}
+                  onClick={() => bulkBumpLevel(-1)}
+                  title={fa ? "کاهش سطح (Outdent)" : "Decrease level"}
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                  {fa ? "سطح" : "Lvl"}
+                </Button>
+                <Button
+                  size="sm" variant="outline" className="h-7 px-2 gap-1"
+                  disabled={!picked.size}
+                  onClick={() => bulkBumpLevel(+1)}
+                  title={fa ? "افزایش سطح (Indent)" : "Increase level"}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {fa ? "سطح" : "Lvl"}
+                </Button>
+                <Button
+                  size="sm" variant="ghost" className="h-7 px-2 text-destructive gap-1"
+                  disabled={!picked.size}
+                  onClick={bulkDelete}
+                  title={fa ? "حذف انتخاب‌شده‌ها" : "Delete selected"}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               {/* Entry list */}
-              <div className="md:col-span-3 border rounded-lg max-h-[22rem] overflow-y-auto divide-y">
+              <div className="md:col-span-3 border rounded-lg max-h-[22rem] overflow-y-auto divide-y bg-background">
                 {entries.map((e, i) => {
                   const m = matches[i];
                   const active = selectedEntryIdx === i;
+                  const isPicked = picked.has(i);
                   return (
                     <div
                       key={i}
-                      className={`flex items-center gap-2 p-2 ${active ? "bg-accent/10" : "hover:bg-muted/40"}`}
-                      style={{ paddingInlineStart: 8 + e.level * 14 }}
+                      className={`flex items-center gap-1.5 px-2 py-1.5 ${active ? "bg-accent/10" : isPicked ? "bg-primary/5" : "hover:bg-muted/40"}`}
+                      style={{ paddingInlineStart: 6 + e.level * 12 }}
                     >
+                      <Checkbox
+                        checked={isPicked}
+                        onCheckedChange={(v) => {
+                          setPicked((prev) => {
+                            const n = new Set(prev);
+                            if (v) n.add(i); else n.delete(i);
+                            return n;
+                          });
+                        }}
+                        className="shrink-0"
+                      />
                       <button
                         type="button"
                         onClick={() => setSelectedEntryIdx(i)}
                         className="text-[10px] text-muted-foreground w-5 shrink-0 tabular-nums text-start"
-                        title={fa ? "پیش‌نمایش" : "Preview"}
                       >
                         {i + 1}
                       </button>
@@ -628,48 +687,53 @@ export const ChapterTocDialog = ({
                         onChange={(ev) =>
                           setEntries((es) => es.map((x, k) => (k === i ? { ...x, title: ev.target.value } : x)))
                         }
-                        className="h-8 text-sm"
+                        className="h-7 text-sm min-w-0 flex-1"
                         dir="auto"
                       />
                       <button
                         type="button"
                         onClick={() => setSelectedEntryIdx(i)}
-                        className={`text-xs font-semibold shrink-0 px-2 py-1 rounded-md border tabular-nums min-w-[3.5rem] text-center ${
+                        className={`text-[11px] font-semibold shrink-0 px-1.5 py-1 rounded-md border tabular-nums min-w-[3rem] text-center ${
                           m == null
                             ? "text-destructive border-destructive/50 bg-destructive/10"
                             : overrides.has(i)
-                              ? "text-primary-foreground border-primary bg-primary hover:opacity-90"
+                              ? "text-primary-foreground border-primary bg-primary"
                               : "text-accent-foreground border-accent/40 bg-accent/15 hover:bg-accent/25"
                         }`}
                         title={
                           overrides.has(i)
-                            ? (fa ? "صفحه به‌صورت دستی توسط شما تعیین شده است" : "Manually set by you")
-                            : (fa ? "شمارهٔ صفحه در فایل ورد" : "Word page number")
+                            ? (fa ? "تعیین‌شده توسط شما" : "Manually set")
+                            : (fa ? "شمارهٔ صفحه در ورد" : "Word page")
                         }
                       >
                         {m == null
                           ? (fa ? "؟" : "?")
-                          : (fa ? `${overrides.has(i) ? "✓ " : ""}ص ${m + 1}` : `${overrides.has(i) ? "✓ " : ""}p ${m + 1}`)}
+                          : (fa ? `${overrides.has(i) ? "✓" : ""}ص${m + 1}` : `${overrides.has(i) ? "✓" : ""}p${m + 1}`)}
                       </button>
-                      <Select
-                        value={String(e.level)}
-                        onValueChange={(v) =>
-                          setEntries((es) => es.map((x, k) => (k === i ? { ...x, level: Number(v) } : x)))
-                        }
-                      >
-                        <SelectTrigger className="h-8 w-16 shrink-0 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[0, 1, 2, 3, 4].map((l) => (
-                            <SelectItem key={l} value={String(l)}>
-                              L{l}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0"
+                      {/* Level +/- group */}
+                      <div className="flex items-center rounded-md border bg-muted/30 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => bumpLevel(i, -1)}
+                          disabled={e.level === 0}
+                          className="h-7 w-6 grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={fa ? "کاهش سطح" : "Decrease level"}
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-[10px] font-semibold tabular-nums w-4 text-center text-muted-foreground">{e.level}</span>
+                        <button
+                          type="button"
+                          onClick={() => bumpLevel(i, +1)}
+                          disabled={e.level >= 4}
+                          className="h-7 w-6 grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={fa ? "افزایش سطح" : "Increase level"}
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
                         onClick={() => {
                           setEntries((es) => es.filter((_, k) => k !== i));
                           setMatches((ms) => ms.filter((_, k) => k !== i));
@@ -681,11 +745,20 @@ export const ChapterTocDialog = ({
                             }
                             return n;
                           });
+                          setPicked((pk) => {
+                            const n = new Set<number>();
+                            for (const v of pk) {
+                              if (v === i) continue;
+                              n.add(v > i ? v - 1 : v);
+                            }
+                            return n;
+                          });
                         }}
+                        className="h-7 w-7 grid place-items-center text-destructive shrink-0 hover:bg-destructive/10 rounded-md"
                         title={fa ? "حذف" : "Remove"}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      </button>
                     </div>
                   );
                 })}
