@@ -46,12 +46,8 @@ const norm = (s: string): string =>
     .trim()
     .toLowerCase();
 
-function unzipFiltered(buf: Uint8Array, wanted: (name: string) => boolean): Promise<Unzipped> {
-  return new Promise((resolve, reject) => {
-    unzip(buf, { filter: (f) => wanted(f.name) }, (err, data) => {
-      if (err) reject(err); else resolve(data);
-    });
-  });
+function unzipFiltered(buf: Uint8Array, wanted: (name: string) => boolean): Unzipped {
+  return unzipSync(buf, { filter: (f) => wanted(f.name) });
 }
 
 // --- tiny XML walker over <w:p>, <w:r>, <m:oMath> nodes ---
