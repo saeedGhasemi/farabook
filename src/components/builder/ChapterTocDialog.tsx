@@ -570,7 +570,7 @@ export const ChapterTocDialog = ({
   }, [selectedEntryIdx, matches, pages, entries]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!searchingMatches) onOpenChange(nextOpen); }}>
       <DialogContent className="max-w-4xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -991,7 +991,7 @@ export const ChapterTocDialog = ({
                 <Back className="w-4 h-4" />
                 {fa ? "بازگشت" : "Back"}
               </Button>
-              <Button onClick={apply} disabled={entries.length < 2} className="gap-1.5">
+                <Button onClick={apply} disabled={entries.length < 2 || searchingMatches} className="gap-1.5">
                 {fa ? "اعمال فصل‌بندی" : "Apply chaptering"}
               </Button>
             </DialogFooter>
