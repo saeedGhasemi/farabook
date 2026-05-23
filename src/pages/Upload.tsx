@@ -192,7 +192,7 @@ const Upload = () => {
     if (result.usedFallback) {
       toast.success(
         fa
-          ? `کتاب با تبدیل دومرحله‌ای ساخته شد (${result.imagesFilled} از ${result.imagesTotal} تصویر جایگذاری شد). در حال انتقال…`
+          ? `کتاب با صفحه‌بندی Word ساخته شد (${result.chapters} صفحه، ${result.imagesFilled} از ${result.imagesTotal} تصویر جایگذاری شد). در حال انتقال…`
           : `Built via two-phase import (${result.imagesFilled}/${result.imagesTotal} images placed). Opening…`,
       );
     } else {
