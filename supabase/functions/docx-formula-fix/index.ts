@@ -3,7 +3,7 @@
 // text keyed by a normalized prefix of the original plain text, so the
 // client can swap them in-place without re-running the full importer.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
-import { strFromU8, unzip, type Unzipped } from "https://esm.sh/fflate@0.8.2?target=deno";
+import { strFromU8, unzipSync, type Unzipped } from "https://esm.sh/fflate@0.8.2?target=deno";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,12 +46,8 @@ const norm = (s: string): string =>
     .trim()
     .toLowerCase();
 
-function unzipFiltered(buf: Uint8Array, wanted: (name: string) => boolean): Promise<Unzipped> {
-  return new Promise((resolve, reject) => {
-    unzip(buf, { filter: (f) => wanted(f.name) }, (err, data) => {
-      if (err) reject(err); else resolve(data);
-    });
-  });
+function unzipFiltered(buf: Uint8Array, wanted: (name: string) => boolean): Unzipped {
+  return unzipSync(buf, { filter: (f) => wanted(f.name) });
 }
 
 // --- tiny XML walker over <w:p>, <w:r>, <m:oMath> nodes ---
