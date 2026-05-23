@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Sparkles, Loader2, Trash2, ChevronRight, ChevronLeft, ListTree, ClipboardPaste, FileSearch, AlertTriangle } from "lucide-react";
+import { Sparkles, Loader2, Trash2, ChevronRight, ChevronLeft, ListTree, ClipboardPaste, FileSearch, AlertTriangle, Plus, Minus, CheckSquare, Square } from "lucide-react";
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
@@ -240,6 +240,8 @@ export const ChapterTocDialog = ({
   // Tracks which entries the user manually re-pointed to a different page.
   const [overrides, setOverrides] = useState<Set<number>>(new Set());
   const [selectedEntryIdx, setSelectedEntryIdx] = useState<number | null>(null);
+  // Multi-select state for bulk level changes / deletion.
+  const [picked, setPicked] = useState<Set<number>>(new Set());
   const [loadingAi, setLoadingAi] = useState(false);
   const [loadingAuto, setLoadingAuto] = useState(false);
   const [loadingPaste, setLoadingPaste] = useState(false);
@@ -253,6 +255,7 @@ export const ChapterTocDialog = ({
     setEntries([]);
     setMatches([]);
     setOverrides(new Set());
+    setPicked(new Set());
     setSelectedEntryIdx(null);
     setPasted("");
     setPasteMode("pages");
@@ -393,7 +396,13 @@ export const ChapterTocDialog = ({
     try {
       const next = applyTocClient(pages, selected, entries, matches);
       if (next === pages) {
-        toast.error(fa ? "تعداد تطبیق کافی نبود — تغییری اعمال نشد." : "Not enough matches — no changes applied.");
+        // Diagnose: how many entries actually got matched to a page?
+        const matchedCount = matches.filter((m) => typeof m === "number").length;
+        const missing = entries.length - matchedCount;
+        const msg = fa
+          ? `از ${entries.length} سرفصل فقط ${matchedCount} مورد در متن کتاب پیدا شد (کمتر از ۳۰٪). برای حل این مشکل: ۱) روی سرفصل‌هایی که نشانگر «؟» قرمز دارند کلیک کنید و صفحهٔ درست را از پیش‌نمایش انتخاب کنید. ۲) عناوین فهرست را با عنوان واقعی فصل در ورد یکسان کنید. ۳) اگر چند سرفصل پشت سر هم دستی تعیین کنید، بقیه به‌صورت خودکار بین آن‌ها برش می‌خورد. (${missing} سرفصل بدون تطبیق)`
+          : `Only ${matchedCount} of ${entries.length} entries were matched in the book text (under 30%). Fixes: 1) click entries marked with a red "?" and pick the right page from the preview. 2) make TOC titles match real chapter headings in Word. 3) once you manually pin 2+ entries, the rest are sliced between them automatically. (${missing} unmatched)`;
+        toast.error(msg, { duration: 12000 });
         setStep("review");
         return;
       }
@@ -404,6 +413,38 @@ export const ChapterTocDialog = ({
       toast.error(e?.message || (fa ? "خطا در اعمال" : "Apply error"));
       setStep("review");
     }
+  };
+
+  /* ---------- Level helpers (per-row + bulk) ---------- */
+  const clampLvl = (n: number) => Math.max(0, Math.min(4, n));
+  const bumpLevel = (idx: number, delta: number) => {
+    setEntries((es) => es.map((x, k) => (k === idx ? { ...x, level: clampLvl(x.level + delta) } : x)));
+  };
+  const bulkBumpLevel = (delta: number) => {
+    if (!picked.size) return;
+    setEntries((es) => es.map((x, k) => (picked.has(k) ? { ...x, level: clampLvl(x.level + delta) } : x)));
+  };
+  const bulkDelete = () => {
+    if (!picked.size) return;
+    const remove = picked;
+    setEntries((es) => es.filter((_, k) => !remove.has(k)));
+    setMatches((ms) => ms.filter((_, k) => !remove.has(k)));
+    setOverrides((ov) => {
+      const sorted = [...remove].sort((a, b) => a - b);
+      const n = new Set<number>();
+      for (const v of ov) {
+        if (remove.has(v)) continue;
+        const shift = sorted.filter((s) => s < v).length;
+        n.add(v - shift);
+      }
+      return n;
+    });
+    setPicked(new Set());
+    setSelectedEntryIdx(null);
+  };
+  const toggleAllPicked = () => {
+    if (picked.size === entries.length) setPicked(new Set());
+    else setPicked(new Set(entries.map((_, i) => i)));
   };
 
   const Back = fa ? ChevronRight : ChevronLeft;
@@ -432,7 +473,7 @@ export const ChapterTocDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-4xl w-[95vw] sm:w-auto max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ListTree className="w-4 h-4 text-accent" />
@@ -561,23 +602,82 @@ export const ChapterTocDialog = ({
               )}
             </div>
 
+            {/* Bulk-action toolbar */}
+            <div className="flex items-center gap-2 flex-wrap rounded-lg border bg-muted/30 px-2 py-1.5">
+              <button
+                type="button"
+                onClick={toggleAllPicked}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                title={fa ? "انتخاب همه / لغو همه" : "Select all / none"}
+              >
+                {picked.size === entries.length && entries.length > 0
+                  ? <CheckSquare className="w-3.5 h-3.5" />
+                  : <Square className="w-3.5 h-3.5" />}
+                <span>{fa ? "همه" : "All"}</span>
+              </button>
+              <span className="text-xs text-muted-foreground">
+                {picked.size > 0
+                  ? (fa ? `${picked.size} انتخاب شده` : `${picked.size} selected`)
+                  : (fa ? "برای تغییر گروهی، فصل‌ها را تیک بزنید" : "Tick items for bulk actions")}
+              </span>
+              <div className="ms-auto flex items-center gap-1">
+                <Button
+                  size="sm" variant="outline" className="h-7 px-2 gap-1"
+                  disabled={!picked.size}
+                  onClick={() => bulkBumpLevel(-1)}
+                  title={fa ? "کاهش سطح (Outdent)" : "Decrease level"}
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                  {fa ? "سطح" : "Lvl"}
+                </Button>
+                <Button
+                  size="sm" variant="outline" className="h-7 px-2 gap-1"
+                  disabled={!picked.size}
+                  onClick={() => bulkBumpLevel(+1)}
+                  title={fa ? "افزایش سطح (Indent)" : "Increase level"}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {fa ? "سطح" : "Lvl"}
+                </Button>
+                <Button
+                  size="sm" variant="ghost" className="h-7 px-2 text-destructive gap-1"
+                  disabled={!picked.size}
+                  onClick={bulkDelete}
+                  title={fa ? "حذف انتخاب‌شده‌ها" : "Delete selected"}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               {/* Entry list */}
-              <div className="md:col-span-3 border rounded-lg max-h-[22rem] overflow-y-auto divide-y">
+              <div className="md:col-span-3 border rounded-lg max-h-[22rem] overflow-y-auto divide-y bg-background">
                 {entries.map((e, i) => {
                   const m = matches[i];
                   const active = selectedEntryIdx === i;
+                  const isPicked = picked.has(i);
                   return (
                     <div
                       key={i}
-                      className={`flex items-center gap-2 p-2 ${active ? "bg-accent/10" : "hover:bg-muted/40"}`}
-                      style={{ paddingInlineStart: 8 + e.level * 14 }}
+                      className={`flex items-center gap-1.5 px-2 py-1.5 ${active ? "bg-accent/10" : isPicked ? "bg-primary/5" : "hover:bg-muted/40"}`}
+                      style={{ paddingInlineStart: 6 + e.level * 12 }}
                     >
+                      <Checkbox
+                        checked={isPicked}
+                        onCheckedChange={(v) => {
+                          setPicked((prev) => {
+                            const n = new Set(prev);
+                            if (v) n.add(i); else n.delete(i);
+                            return n;
+                          });
+                        }}
+                        className="shrink-0"
+                      />
                       <button
                         type="button"
                         onClick={() => setSelectedEntryIdx(i)}
                         className="text-[10px] text-muted-foreground w-5 shrink-0 tabular-nums text-start"
-                        title={fa ? "پیش‌نمایش" : "Preview"}
                       >
                         {i + 1}
                       </button>
@@ -587,48 +687,53 @@ export const ChapterTocDialog = ({
                         onChange={(ev) =>
                           setEntries((es) => es.map((x, k) => (k === i ? { ...x, title: ev.target.value } : x)))
                         }
-                        className="h-8 text-sm"
+                        className="h-7 text-sm min-w-0 flex-1"
                         dir="auto"
                       />
                       <button
                         type="button"
                         onClick={() => setSelectedEntryIdx(i)}
-                        className={`text-xs font-semibold shrink-0 px-2 py-1 rounded-md border tabular-nums min-w-[3.5rem] text-center ${
+                        className={`text-[11px] font-semibold shrink-0 px-1.5 py-1 rounded-md border tabular-nums min-w-[3rem] text-center ${
                           m == null
                             ? "text-destructive border-destructive/50 bg-destructive/10"
                             : overrides.has(i)
-                              ? "text-primary-foreground border-primary bg-primary hover:opacity-90"
+                              ? "text-primary-foreground border-primary bg-primary"
                               : "text-accent-foreground border-accent/40 bg-accent/15 hover:bg-accent/25"
                         }`}
                         title={
                           overrides.has(i)
-                            ? (fa ? "صفحه به‌صورت دستی توسط شما تعیین شده است" : "Manually set by you")
-                            : (fa ? "شمارهٔ صفحه در فایل ورد" : "Word page number")
+                            ? (fa ? "تعیین‌شده توسط شما" : "Manually set")
+                            : (fa ? "شمارهٔ صفحه در ورد" : "Word page")
                         }
                       >
                         {m == null
                           ? (fa ? "؟" : "?")
-                          : (fa ? `${overrides.has(i) ? "✓ " : ""}ص ${m + 1}` : `${overrides.has(i) ? "✓ " : ""}p ${m + 1}`)}
+                          : (fa ? `${overrides.has(i) ? "✓" : ""}ص${m + 1}` : `${overrides.has(i) ? "✓" : ""}p${m + 1}`)}
                       </button>
-                      <Select
-                        value={String(e.level)}
-                        onValueChange={(v) =>
-                          setEntries((es) => es.map((x, k) => (k === i ? { ...x, level: Number(v) } : x)))
-                        }
-                      >
-                        <SelectTrigger className="h-8 w-16 shrink-0 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[0, 1, 2, 3, 4].map((l) => (
-                            <SelectItem key={l} value={String(l)}>
-                              L{l}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0"
+                      {/* Level +/- group */}
+                      <div className="flex items-center rounded-md border bg-muted/30 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => bumpLevel(i, -1)}
+                          disabled={e.level === 0}
+                          className="h-7 w-6 grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={fa ? "کاهش سطح" : "Decrease level"}
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-[10px] font-semibold tabular-nums w-4 text-center text-muted-foreground">{e.level}</span>
+                        <button
+                          type="button"
+                          onClick={() => bumpLevel(i, +1)}
+                          disabled={e.level >= 4}
+                          className="h-7 w-6 grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={fa ? "افزایش سطح" : "Increase level"}
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
                         onClick={() => {
                           setEntries((es) => es.filter((_, k) => k !== i));
                           setMatches((ms) => ms.filter((_, k) => k !== i));
@@ -640,11 +745,20 @@ export const ChapterTocDialog = ({
                             }
                             return n;
                           });
+                          setPicked((pk) => {
+                            const n = new Set<number>();
+                            for (const v of pk) {
+                              if (v === i) continue;
+                              n.add(v > i ? v - 1 : v);
+                            }
+                            return n;
+                          });
                         }}
+                        className="h-7 w-7 grid place-items-center text-destructive shrink-0 hover:bg-destructive/10 rounded-md"
                         title={fa ? "حذف" : "Remove"}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      </button>
                     </div>
                   );
                 })}
