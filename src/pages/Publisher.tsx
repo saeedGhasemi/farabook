@@ -101,7 +101,7 @@ const Publisher = () => {
       });
       if (result.usedFallback) {
         toast.success(lang === "fa"
-          ? `«${book.title}» با تبدیل دومرحله‌ای بازسازی شد (${result.imagesFilled}/${result.imagesTotal} تصویر). در حال انتقال به ادیتور…`
+          ? `«${book.title}» با صفحه‌بندی Word بازسازی شد (${result.chapters} صفحه، ${result.imagesFilled}/${result.imagesTotal} تصویر). در حال انتقال به ادیتور…`
           : `"${book.title}" rebuilt via two-phase import (${result.imagesFilled}/${result.imagesTotal} images). Opening editor…`);
       } else {
         toast.success(lang === "fa"
