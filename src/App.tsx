@@ -26,6 +26,7 @@ import { UploadProgressPanel } from "@/components/UploadProgressPanel";
 import { SyncEngineBoot } from "@/components/SyncEngineBoot";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { InstallPromptAuto } from "@/components/InstallPromptAuto";
+import { VersionWatcher } from "@/components/VersionWatcher";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <VersionWatcher />
             <Navbar />
             <OfflineBanner />
             <Routes>
