@@ -139,6 +139,44 @@ const computeMatches = (
   return matches;
 };
 
+const yieldToBrowser = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+const computeMatchesAsync = async (
+  pages: TextPage[],
+  tocSet: Set<number>,
+  entries: TocEntry[],
+  onProgress?: (done: number) => void,
+): Promise<Array<number | null>> => {
+  const sorted = [...tocSet].sort((a, b) => a - b);
+  const start = sorted.length ? Math.max(...sorted) + 1 : 0;
+  const matches: Array<number | null> = new Array(entries.length).fill(null);
+  const index = pages.map((p) => {
+    const lines = pageSearchLines(p).map(normTitle).filter(Boolean);
+    return { lines, full: normTitle(pageText(p)) };
+  });
+  for (let i = 0; i < entries.length; i += 1) {
+    const norm = normTitle(cleanManualTocLine(entries[i].title));
+    if (norm) {
+      for (let p = start; p < pages.length; p += 1) {
+        if (tocSet.has(p)) continue;
+        const hit = index[p].lines.some((c) =>
+          c === norm ||
+          c.startsWith(norm + " ") ||
+          (norm.length >= 8 && c.startsWith(norm)) ||
+          (c.length >= 8 && norm.startsWith(c)),
+        ) || (norm.length >= 10 && index[p].full.includes(norm));
+        if (hit) { matches[i] = p; break; }
+      }
+    }
+    if (i % 8 === 7) {
+      onProgress?.(i + 1);
+      await yieldToBrowser();
+    }
+  }
+  onProgress?.(entries.length);
+  return matches;
+};
+
 /** Re-split pages using a TOC entry list. When `pageHints` is provided
  *  (one optional hint per entry), we slice the book at those page boundaries
  *  instead of fuzzy-matching block-by-block. Otherwise the original
