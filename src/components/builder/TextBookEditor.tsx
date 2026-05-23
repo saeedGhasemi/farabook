@@ -1054,34 +1054,94 @@ export const TextBookEditor = ({ initial }: Props) => {
                 </Button>
               </div>
             </div>
-            <div className="space-y-1 max-h-[60vh] overflow-y-auto pe-1">
-              {pages.map((p, i) => (
-                <div
-                  key={i}
-                  ref={i === activeIdx ? activeChapterRef : undefined}
-                  className={`group flex items-center gap-1 rounded-lg border px-2 py-1.5 transition ${
-                    i === activeIdx ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/40"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setActiveIdx(i)}
-                    className="flex-1 min-w-0 text-start text-sm truncate"
+            <div className="space-y-0.5 max-h-[60vh] overflow-y-auto pe-1">
+              {pages.map((p, i) => {
+                if (hiddenSet.has(i)) return null;
+                const lvl = getLevel(p);
+                const isParent = hasChildren(i);
+                const isCollapsed = collapsedSet.has(i);
+                return (
+                  <div
+                    key={i}
+                    ref={i === activeIdx ? activeChapterRef : undefined}
+                    className={`group flex items-center gap-0.5 rounded-lg border px-1 py-1 transition ${
+                      i === activeIdx ? "border-primary bg-primary/5" : "border-transparent hover:bg-muted/40"
+                    }`}
+                    style={{ paddingInlineStart: 4 + lvl * 14 }}
                   >
-                    <span className="text-[10px] text-muted-foreground me-1">{i + 1}.</span>
-                    {p.title || (fa ? "بدون عنوان" : "Untitled")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPendingDelete(i)}
-                    className="opacity-0 group-hover:opacity-100 transition text-destructive p-1"
-                    title={fa ? "حذف فصل" : "Delete chapter"}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+                    {isParent ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleCollapse(i)}
+                        className="p-0.5 text-muted-foreground hover:text-foreground shrink-0"
+                        title={isCollapsed ? (fa ? "باز کردن" : "Expand") : (fa ? "بستن" : "Collapse")}
+                      >
+                        {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      </button>
+                    ) : (
+                      <span className="w-4 shrink-0" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setActiveIdx(i)}
+                      className="flex-1 min-w-0 text-start text-sm truncate"
+                    >
+                      <span className="text-[10px] text-muted-foreground me-1">{i + 1}.</span>
+                      <span className={lvl === 0 ? "font-medium" : ""}>
+                        {p.title || (fa ? "بدون عنوان" : "Untitled")}
+                      </span>
+                    </button>
+                    <div className="flex items-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => moveChapter(i, -1)}
+                        className="p-1 text-muted-foreground hover:text-foreground"
+                        title={fa ? "انتقال به بالا" : "Move up"}
+                        disabled={i === 0}
+                      >
+                        <ArrowUp className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveChapter(i, 1)}
+                        className="p-1 text-muted-foreground hover:text-foreground"
+                        title={fa ? "انتقال به پایین" : "Move down"}
+                        disabled={subtreeEnd(pages, i) >= pages.length}
+                      >
+                        <ArrowDown className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => outdentChapter(i)}
+                        className="p-1 text-muted-foreground hover:text-foreground"
+                        title={fa ? "ارتقا (خروج از زیرفصل)" : "Outdent"}
+                        disabled={lvl === 0}
+                      >
+                        {fa ? <IndentIncrease className="w-3 h-3" /> : <IndentDecrease className="w-3 h-3" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => indentChapter(i)}
+                        className="p-1 text-muted-foreground hover:text-foreground"
+                        title={fa ? "تنزل (تبدیل به زیرفصل)" : "Indent"}
+                        disabled={i === 0 || lvl >= Math.min(MAX_LEVEL, getLevel(pages[i - 1]) + 1) - 0 && lvl > getLevel(pages[i - 1])}
+                      >
+                        {fa ? <IndentDecrease className="w-3 h-3" /> : <IndentIncrease className="w-3 h-3" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPendingDelete(i)}
+                        className="p-1 text-destructive"
+                        title={fa ? "حذف فصل" : "Delete chapter"}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
           </>
         )}
       </aside>
