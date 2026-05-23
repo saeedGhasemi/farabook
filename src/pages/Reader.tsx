@@ -14,6 +14,7 @@ import { FloatingMenu } from "@/components/reader/FloatingMenu";
 import { AiPanel } from "@/components/reader/AiPanel";
 import { ChatPanel } from "@/components/reader/ChatPanel";
 import { ChapterSidebar } from "@/components/reader/ChapterSidebar";
+import { isAutoPageTitle } from "@/lib/page-title";
 import { HighlightsPanel, type HighlightItem } from "@/components/reader/HighlightsPanel";
 import { resolveBookMedia } from "@/lib/book-media";
 import { speakSmart, stopSpeak as stopSpeakSmart } from "@/lib/tts";
