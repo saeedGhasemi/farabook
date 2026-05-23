@@ -22,9 +22,10 @@ import {
   Palette, Type as TypeIcon, SplitSquareVertical, Film, GalleryHorizontal,
   ListOrdered, Layers, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Undo2, Redo2, X, ArrowLeftRight, ChevronsLeft, ChevronsRight, Scissors,
-  Eraser, Info, Combine,
+  Eraser, Info, Combine, ListTree,
   ChevronRight, ChevronDown, ArrowUp, ArrowDown, IndentIncrease, IndentDecrease,
 } from "lucide-react";
+import { ChapterTocDialog } from "./ChapterTocDialog";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
