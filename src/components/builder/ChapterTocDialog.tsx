@@ -154,26 +154,28 @@ export const applyTocClient = (
   /* ---------- Hint-based slicing (preferred when hints exist) ---------- */
   if (pageHints && pageHints.some((h) => typeof h === "number")) {
     const hinted = entries
-      .map((e, i) => ({ e, h: pageHints[i] ?? null }))
+      .map((e, i) => ({ e, h: pageHints[i] ?? null, pos: i }))
       .filter((x) => typeof x.h === "number") as Array<{ e: TocEntry; h: number }>;
-    hinted.sort((a, b) => a.h - b.h);
-    if (hinted.length >= 2) {
-      const firstHint = hinted[0].h;
+    hinted.sort((a, b) => a.h - b.h || a.pos - b.pos);
+    const uniqueHinted = hinted.filter((x, i) => i === 0 || x.h !== hinted[i - 1].h);
+    if (uniqueHinted.length >= 1) {
+      const firstHint = uniqueHinted[0].h;
       const before = pages.slice(0, firstHint).filter((_, k) => !tocPageIdxs.has(k));
       const out: TextPage[] = [];
-      for (let k = 0; k < hinted.length; k += 1) {
-        const start = hinted[k].h;
-        const end = k + 1 < hinted.length ? hinted[k + 1].h : pages.length;
-        const content: any[] = [];
+      for (let k = 0; k < uniqueHinted.length; k += 1) {
+        const start = uniqueHinted[k].h;
+        const end = k + 1 < uniqueHinted.length ? uniqueHinted[k + 1].h : pages.length;
         for (let p = start; p < end; p += 1) {
           if (tocPageIdxs.has(p)) continue;
-          for (const n of (pages[p].doc?.content ?? [])) content.push(n);
+          const source = pages[p];
+          const title = p === start ? uniqueHinted[k].e.title.slice(0, 160) : (source.title || `Page ${p + 1}`);
+          out.push({
+            ...source,
+            title,
+            level: p === start ? uniqueHinted[k].e.level : uniqueHinted[k].e.level + 1,
+            doc: { type: "doc", content: [...(source.doc?.content ?? [])] },
+          });
         }
-        out.push({
-          title: hinted[k].e.title.slice(0, 160),
-          level: hinted[k].e.level,
-          doc: { type: "doc", content },
-        });
       }
       return [...before, ...out];
     }
