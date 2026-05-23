@@ -327,16 +327,27 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
     return refs;
   };
 
+  // Detect whether the docx carries rendered-page-break markers. When it
+  // does, we trust them as the authoritative page boundaries (1 Word page
+  // = 1 book page) and skip heading-based promotion / tiny-chapter merging
+  // so the output mirrors the source pagination one-to-one. When it does
+  // not (file never opened in Word, so no <w:lastRenderedPageBreak/>), we
+  // fall back to the legacy heading-based split.
+  const hasRenderedBreaks = /<w:lastRenderedPageBreak\b/i.test(doc);
+
   const pages: Page[] = [];
-  let cur: Page = { title: "مقدمه", blocks: [] };
+  let cur: Page = { title: hasRenderedBreaks ? "صفحه 1" : "مقدمه", blocks: [] };
   const pushPage = () => {
     if (cur.blocks.length) pages.push(cur);
   };
-  const maxBlocksPerPage = 80;
+  // Give each page plenty of room — a real Word page is usually < 60 blocks,
+  // but we keep a safety cap to prevent a pathological doc with no breaks
+  // from creating one giant page.
+  const maxBlocksPerPage = hasRenderedBreaks ? 400 : 80;
   const ensureRoom = () => {
     if (cur.blocks.length < maxBlocksPerPage) return;
     pushPage();
-    cur = { title: `بخش ${pages.length + 1}`, blocks: [] };
+    cur = { title: `صفحه ${pages.length + 1}`, blocks: [] };
   };
 
   const tokenRe = /<w:p\b[\s\S]*?<\/w:p>|<w:tbl\b[\s\S]*?<\/w:tbl>/gi;
@@ -381,24 +392,32 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
     const style = /<w:pStyle\b[^>]*(?:w:val|val)=["']([^"']+)["']/i.exec(token)?.[1] || "";
     const headingMatch = /heading\s*([1-4])|Heading([1-4])|عنوان\s*([1-4])/i.exec(style);
     const level = Number(headingMatch?.[1] || headingMatch?.[2] || headingMatch?.[3] || 0);
-    // Only split on EXPLICIT page breaks (w:br type="page"); ignore
-    // <w:lastRenderedPageBreak/> which is just a print-pagination marker
-    // and was creating dozens of one-sentence "chapters" in long books.
-    const parts = token.split(/<w:br\b[^>]*(?:w:)?type=["']page["'][^>]*\/>/gi);
+    // Split on BOTH explicit page breaks (<w:br type="page"/>) AND
+    // rendered page breaks (<w:lastRenderedPageBreak/>) so output pages
+    // mirror the actual Word pagination one-to-one.
+    const breakRe = /<w:br\b[^>]*(?:w:)?type=["']page["'][^>]*\/>|<w:lastRenderedPageBreak\b[^>]*\/>/gi;
+    const parts = token.split(breakRe);
     for (let i = 0; i < parts.length; i += 1) {
       const part = parts[i];
       const text = textFromWordXml(part);
       if (text) {
-        const looksLikeChapter = level === 0 && isStrictChapterTitle(text);
-        if (level === 1 || level === 2 || looksLikeChapter) {
+        // Heading-based new-page promotion only when we don't have rendered
+        // page breaks — otherwise real pagination already drives splits.
+        const looksLikeChapter = !hasRenderedBreaks && level === 0 && isStrictChapterTitle(text);
+        if (!hasRenderedBreaks && (level === 1 || level === 2 || looksLikeChapter)) {
           pushPage();
           cur = { title: text.slice(0, 120), blocks: [] };
         } else {
           ensureRoom();
           cur.blocks.push(level ? { type: "heading", level: Math.min(level, 3), text } : { type: "paragraph", text });
+          // Lift first real text into an auto-titled page so the chapter
+          // sidebar shows something meaningful instead of "صفحه N".
+          if (/^صفحه\s+\d+\s*$/.test(cur.title) && cur.blocks.length === 1) {
+            cur.title = text.slice(0, 120);
+          }
         }
       }
-      // Only honor a manual page break if the current chapter actually has
+      // Only honor a manual page break if the current page actually has
       // content; otherwise we'd produce an empty "صفحه N" stub.
       if (i < parts.length - 1 && cur.blocks.length > 0) {
         pushPage();
@@ -407,7 +426,13 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
     }
   }
   pushPage();
-  return { pages: mergeTinyChapters(pages.filter((p) => p.blocks.length > 0)), removedImages };
+  const filtered = pages.filter((p) => p.blocks.length > 0);
+  return {
+    // When real page breaks are present, do NOT merge tiny chapters —
+    // the user explicitly wants 1 Word page = 1 book page.
+    pages: hasRenderedBreaks ? filtered : mergeTinyChapters(filtered),
+    removedImages,
+  };
 }
 
 // Strict chapter-title detector: the WHOLE paragraph must be a chapter
@@ -1075,17 +1100,23 @@ Deno.serve(async (req) => {
     // If the book starts with a table of contents, use it to drive chapter
     // splits AND nested chapter levels. Falls back silently when no TOC is
     // detected or matches are too sparse to be reliable.
-    try {
-      const toc = extractTocEntries(pages);
-      if (toc.entries.length) {
-        const next = applyTocChaptering(pages, toc.entries, toc.tocPageIdx);
-        if (next.length >= 2) {
-          console.log(`TOC chaptering: ${toc.entries.length} entries → ${next.length} chapters`);
-          pages = next;
+    // Skip this when the import already produced many raw word-pages
+    // (1 Word page = 1 book page mode) — collapsing 100+ pages back into
+    // a handful of TOC chapters would defeat that and the user can run
+    // chaptering interactively from the editor's TOC dialog instead.
+    if (pages.length < 20) {
+      try {
+        const toc = extractTocEntries(pages);
+        if (toc.entries.length) {
+          const next = applyTocChaptering(pages, toc.entries, toc.tocPageIdx);
+          if (next.length >= 2) {
+            console.log(`TOC chaptering: ${toc.entries.length} entries → ${next.length} chapters`);
+            pages = next;
+          }
         }
+      } catch (e) {
+        console.warn("TOC chaptering failed; keeping heading-based split", e);
       }
-    } catch (e) {
-      console.warn("TOC chaptering failed; keeping heading-based split", e);
     }
 
 
