@@ -55,7 +55,15 @@ function unzipFiltered(buf: Uint8Array, wanted: (name: string) => boolean): Unzi
 // We avoid pulling a full XML parser dep — the OOXML subset we need is
 // well-structured enough that a token regex pass works reliably and is
 // cheap in edge runtime memory.
-interface ParaResult { plain: string; repaired: string; hasChange: boolean }
+type RepairMark = "superscript" | "subscript";
+interface RepairSegment { text: string; marks?: RepairMark[] }
+interface ParaResult {
+  plain: string;
+  damaged: string;
+  repaired: string;
+  content: RepairSegment[];
+  hasChange: boolean;
+}
 
 function extractRunText(runXml: string): string {
   // Pull every <w:t ...>...</w:t> in order.
@@ -76,9 +84,22 @@ function omathToText(xml: string): string {
   return txt;
 }
 
+const pushSegment = (segments: RepairSegment[], text: string, mark?: RepairMark) => {
+  if (!text) return;
+  const last = segments[segments.length - 1];
+  const sameMark = JSON.stringify(last?.marks ?? []) === JSON.stringify(mark ? [mark] : []);
+  if (last && sameMark) {
+    last.text += text;
+  } else {
+    segments.push(mark ? { text, marks: [mark] } : { text });
+  }
+};
+
 function processParagraph(pXml: string): ParaResult {
   let plain = "";
+  let damaged = "";
   let repaired = "";
+  const content: RepairSegment[] = [];
   let hasChange = false;
 
   // Walk every direct token: <w:r>...</w:r> or <m:oMath>...</m:oMath>
@@ -91,6 +112,9 @@ function processParagraph(pXml: string): ParaResult {
       if (tex) {
         plain += tex;
         repaired += `$${tex}$`;
+        // If the original importer dropped the equation entirely, this
+        // damaged key still lets the client match and restore the paragraph.
+        pushSegment(content, `$${tex}$`);
         hasChange = true;
       }
       continue;
@@ -99,15 +123,19 @@ function processParagraph(pXml: string): ParaResult {
     if (!text) continue;
     plain += text;
     // Look for <w:vertAlign w:val="superscript|subscript"/> inside this run's rPr
-    const va = /<w:vertAlign\s+w:val="(superscript|subscript)"\s*\/>/.exec(tok);
+    const va = /<w:vertAlign\b[^>]*(?:w:)?val=["'](superscript|subscript)["'][^>]*\/?\s*>/i.exec(tok);
     if (va) {
-      repaired += va[1] === "superscript" ? toSuper(text) : toSub(text);
+      const mark = va[1] === "superscript" ? "superscript" : "subscript";
+      repaired += mark === "superscript" ? `[sup]${text}[/sup]` : `[sub]${text}[/sub]`;
+      pushSegment(content, text, mark);
       hasChange = true;
     } else {
+      damaged += text;
       repaired += text;
+      pushSegment(content, text);
     }
   }
-  return { plain: plain.trim(), repaired: repaired.trim(), hasChange };
+  return { plain: plain.trim(), damaged: damaged.trim(), repaired: repaired.trim(), content, hasChange };
 }
 
 Deno.serve(async (req) => {
@@ -166,16 +194,23 @@ Deno.serve(async (req) => {
     if (!xmlBytes) return json(500, { error: "no_document_xml" });
     const xml = strFromU8(xmlBytes);
 
-    const entries: Array<{ key: string; plain: string; repaired: string }> = [];
+    const entries: Array<{ key: string; keys: string[]; plain: string; damaged: string; repaired: string; content: RepairSegment[] }> = [];
     const pRe = /<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g;
     let m: RegExpExecArray | null;
     while ((m = pRe.exec(xml)) !== null) {
       const r = processParagraph(m[0]);
       if (!r.hasChange || !r.plain || r.plain.length < 2) continue;
+      const keys = Array.from(new Set([
+        norm(r.plain).slice(0, 160),
+        r.damaged && r.damaged !== r.plain ? norm(r.damaged).slice(0, 160) : "",
+      ].filter((k) => k.length >= 2)));
       entries.push({
-        key: norm(r.plain).slice(0, 160),
+        key: keys[0] ?? norm(r.plain).slice(0, 160),
+        keys,
         plain: r.plain,
+        damaged: r.damaged,
         repaired: r.repaired,
+        content: r.content,
       });
     }
 
