@@ -94,7 +94,10 @@ export interface TextPage {
   title: string;
   /** New document format */
   doc: TiptapDoc;
+  /** Nesting depth in the chapter tree (0 = top-level). */
+  level?: number;
 }
+
 
 export const isTiptapPage = (p: unknown): p is { title: string; doc: TiptapDoc } =>
   !!p && typeof p === "object" && "doc" in (p as Record<string, unknown>) &&
