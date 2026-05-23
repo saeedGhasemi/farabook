@@ -583,14 +583,16 @@ export const ChapterTocDialog = ({
                       <button
                         type="button"
                         onClick={() => setSelectedEntryIdx(i)}
-                        className={`text-[10px] shrink-0 px-1.5 py-0.5 rounded border tabular-nums ${
+                        className={`text-xs font-semibold shrink-0 px-2 py-1 rounded-md border tabular-nums min-w-[3.5rem] text-center ${
                           m == null
-                            ? "text-destructive border-destructive/40 bg-destructive/5"
-                            : "text-muted-foreground border-border bg-muted/40 hover:bg-muted"
+                            ? "text-destructive border-destructive/50 bg-destructive/10"
+                            : "text-accent-foreground border-accent/40 bg-accent/15 hover:bg-accent/25"
                         }`}
-                        title={fa ? "صفحهٔ ورد" : "Word page"}
+                        title={fa ? "شمارهٔ صفحه در فایل ورد" : "Word page number"}
                       >
-                        {m == null ? (fa ? "—" : "—") : (fa ? `ص ${m + 1}` : `p${m + 1}`)}
+                        {m == null
+                          ? (fa ? "؟" : "?")
+                          : (fa ? `ص ${m + 1}` : `p ${m + 1}`)}
                       </button>
                       <Select
                         value={String(e.level)}
