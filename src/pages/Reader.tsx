@@ -562,7 +562,20 @@ const Reader = () => {
 
   const blocks: Block[] = pageToBlocks(currentPage);
 
-  const chapters = book.pages.map((p, i) => ({ index: i, title: p.title, level: (p as any).level ?? 0 }));
+  // Only real (titled) headings show in the chapter sidebar. Auto-titled
+  // pages like "صفحه 12" stay folded under their preceding chapter and
+  // keep that chapter highlighted while the reader flips through them.
+  const chapters = book.pages
+    .map((p, i) => ({ index: i, title: p.title, level: (p as any).level ?? 0 }))
+    .filter((c) => !isAutoPageTitle(c.title));
+  // Nearest preceding titled chapter is "current" for the sidebar highlight.
+  const currentChapterIndex = (() => {
+    let last = chapters[0]?.index ?? 0;
+    for (const c of chapters) {
+      if (c.index <= pageIdx) last = c.index; else break;
+    }
+    return last;
+  })();
   // Detect book content direction independently of UI language
   const sampleText = (book.pages.slice(0, 3).map((p) => p.title + " " + (pageToBlocks(p).map((b) => "text" in b ? b.text : "").join(" ") || p.content || "")).join(" ")).slice(0, 2000);
   const rtlChars = (sampleText.match(/[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length;
