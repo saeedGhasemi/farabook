@@ -560,6 +560,9 @@ function applyTocChaptering(pages: Page[], toc: TocEntry[], tocPageIdx: number):
     return pages;
   }
   return [...before, ...out];
+}
+
+
 
 
 // Find Persian/English figure or table label like "شکل ۹–۱" / "Figure 9.1" / "جدول ۲-۱"
