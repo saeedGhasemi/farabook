@@ -323,7 +323,7 @@ const Upload = () => {
           </div>
           <Button variant="outline" size="sm" onClick={() => setTab("word")}>
             <FileText className="w-4 h-4 me-2" />
-            {fa ? "از فایل ورد" : "From Word"}
+            {fa ? "از فایل (Word/PDF/HTML)" : "From File"}
           </Button>
         </div>
         <BookEditor onCreated={(id) => nav(`/edit/${id}`)} />
@@ -356,7 +356,7 @@ const Upload = () => {
             </TabsTrigger>
             <TabsTrigger value="word">
               <FileText className="w-4 h-4 me-2" />
-              {fa ? "از فایل ورد" : "From Word"}
+              {fa ? "از فایل (Word/PDF/HTML)" : "From File"}
             </TabsTrigger>
           </TabsList>
 
