@@ -324,3 +324,16 @@ function docToLegacyBlocks(doc: any): any[] {
 function textOf(n: any): string {
   return (n.content ?? []).map((t: any) => t.text ?? "").join("");
 }
+
+function PreviewBlock({ b }: { b: any }) {
+  const dir = b.dir ?? undefined;
+  if (b.type === "heading") {
+    const lv = b.level ?? 2;
+    const cls = lv === 1 ? "text-2xl font-bold" : lv === 2 ? "text-xl font-bold" : "text-lg font-semibold";
+    return <div className={cls} dir={dir}>{b.text}</div>;
+  }
+  if (b.type === "image") {
+    return <div className="text-xs text-muted-foreground">[تصویر: {b.src}]</div>;
+  }
+  return <p className="whitespace-pre-wrap" dir={dir}>{b.text}</p>;
+}
