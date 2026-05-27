@@ -24,7 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { readDocx } from "@/lib/docx/ooxml-reader";
 import { mapOoxmlToDoc, type MapResult } from "@/lib/docx/ast-mapper";
-import { BlockRenderer } from "@/components/reader/BlockRenderer";
+
 
 declare global {
   interface Window {
