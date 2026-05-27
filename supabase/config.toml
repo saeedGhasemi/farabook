@@ -36,5 +36,8 @@ verify_jwt = false
 [functions.doc-import]
 verify_jwt = false
 
+[functions.word-addin-ingest]
+verify_jwt = true
+
 
 
