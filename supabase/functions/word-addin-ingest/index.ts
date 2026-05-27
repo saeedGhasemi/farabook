@@ -157,7 +157,6 @@ Deno.serve(async (req) => {
       publisher_id: user.id,
       status: "draft",
       pages: [],
-      metadata: { source: "word-addin", diagnostics: body.meta?.diagnostics ?? {} },
     })
     .select("id")
     .single();
