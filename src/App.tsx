@@ -22,6 +22,7 @@ import EditorRequests from "./pages/EditorRequests";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound.tsx";
 import Install from "./pages/Install";
+import WordAddin from "./pages/WordAddin";
 import { UploadProgressPanel } from "@/components/UploadProgressPanel";
 import { SyncEngineBoot } from "@/components/SyncEngineBoot";
 import { OfflineBanner } from "@/components/OfflineBanner";
@@ -57,6 +58,7 @@ const App = () => (
               <Route path="/editor-requests" element={<EditorRequests />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/install" element={<Install />} />
+              <Route path="/word-addin" element={<WordAddin />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <UploadProgressPanel />
