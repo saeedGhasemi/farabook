@@ -5,9 +5,9 @@
 //
 // Body: { filePath, kind: "pdf" | "html", title, author?, description?,
 //         metadata?, replaceBookId? }
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
-import { extractText, getDocumentProxy } from "https://esm.sh/unpdf@0.12.1";
-import { parseHTML } from "https://esm.sh/linkedom@0.18.5";
+import { createClient } from "npm:@supabase/supabase-js@2.95.0";
+import { extractText, getDocumentProxy } from "npm:unpdf@0.12.1";
+import { parseHTML } from "npm:linkedom@0.18.5";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
