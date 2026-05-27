@@ -56,14 +56,33 @@ export default function WordAddin() {
   const [prep, setPrep] = useState<PreparedDoc | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  /* -------- Office.js bootstrap (no-op when standalone) -------- */
+  /* -------- Office.js bootstrap (lazy, no-op when standalone) -------- */
   useEffect(() => {
-    if (window.Office?.onReady) {
-      window.Office.onReady((info: any) => {
-        setOffice({ ready: true, host: info?.host });
-      });
+    // Lazy-load office.js only on this route. Loading it globally in
+    // index.html breaks window.history outside Word.
+    const SRC = "https://appsforoffice.microsoft.com/lib/1/hosted/office.js";
+    const onReady = () => {
+      if (window.Office?.onReady) {
+        window.Office.onReady((info: any) => setOffice({ ready: true, host: info?.host }));
+      }
+    };
+    if (window.Office) {
+      onReady();
+      return;
     }
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${SRC}"]`);
+    if (existing) {
+      existing.addEventListener("load", onReady, { once: true });
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = SRC;
+    s.async = true;
+    s.onload = onReady;
+    s.onerror = () => console.warn("[word-addin] failed to load office.js (expected outside Word)");
+    document.head.appendChild(s);
   }, []);
+
 
   /* -------- Process a docx ArrayBuffer -------- */
   const processBuffer = async (buf: ArrayBuffer, name: string) => {
