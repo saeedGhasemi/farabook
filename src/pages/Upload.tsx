@@ -108,20 +108,35 @@ const Upload = () => {
     return names.join("، ") || (fa ? "ناشناس" : "Unknown");
   };
 
-  /** Stage 1: resumable upload — saves file to storage and creates a word_imports row. */
-  const uploadOnly = async (): Promise<{ importId: string; path: string } | null> => {
+  /** Detect input kind from file extension. */
+  const detectKind = (f: File): "docx" | "pdf" | "html" => {
+    const n = f.name.toLowerCase();
+    if (n.endsWith(".pdf")) return "pdf";
+    if (n.endsWith(".html") || n.endsWith(".htm")) return "html";
+    return "docx";
+  };
+
+  /** Stage 1: resumable upload — saves file to storage and (for docx) creates a word_imports row. */
+  const uploadOnly = async (): Promise<{ importId: string | null; path: string; kind: "docx" | "pdf" | "html" } | null> => {
     if (!user) { nav("/auth"); return null; }
-    if (!file) { toast.error(fa ? "یک فایل ورد انتخاب کنید" : "Pick a .docx file"); return null; }
+    if (!file) { toast.error(fa ? "یک فایل انتخاب کنید" : "Pick a file"); return null; }
     if (!meta.title.trim()) { toast.error(fa ? "عنوان لازم است" : "Title required"); return null; }
 
+    const kind = detectKind(file);
     const dot = file.name.lastIndexOf(".");
-    const ext = (dot >= 0 ? file.name.slice(dot + 1) : "docx").toLowerCase().replace(/[^a-z0-9]/g, "") || "docx";
+    const ext = (dot >= 0 ? file.name.slice(dot + 1) : kind).toLowerCase().replace(/[^a-z0-9]/g, "") || kind;
     const safeName = `book-${Date.now()}.${ext}`;
     const path = `${user.id}/${safeName}`;
 
     const { data: sess } = await supabase.auth.getSession();
     const token = sess.session?.access_token;
     if (!token) { toast.error(fa ? "نشست شما منقضی شده است" : "Session expired"); return null; }
+
+    const contentType = kind === "pdf"
+      ? "application/pdf"
+      : kind === "html"
+        ? "text/html"
+        : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
     setStage(1);
     setUploadPct(0);
@@ -130,7 +145,7 @@ const Upload = () => {
       objectName: path,
       file,
       accessToken: token,
-      contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      contentType,
       onProgress: (loaded, total) => {
         if (total > 0) setUploadPct(Math.round((loaded / total) * 100));
       },
@@ -146,6 +161,8 @@ const Upload = () => {
       console.error("[upload] resumable upload failed", e);
       throw new Error((fa ? "بارگذاری فایل ناموفق بود: " : "Upload failed: ") + msg);
     }
+
+    if (kind !== "docx") return { importId: null, path, kind };
 
     const { data: imp, error: impErr } = await supabase
       .from("word_imports")
@@ -165,7 +182,7 @@ const Upload = () => {
       .select("*")
       .single();
     if (impErr || !imp) throw impErr || new Error("could not record import");
-    return { importId: imp.id, path };
+    return { importId: imp.id, path, kind };
   };
 
   /** Stage 2: convert by importId — with auto fallback for heavy files. */
@@ -205,13 +222,51 @@ const Upload = () => {
     setTimeout(() => nav(`/edit/${result.bookId}`), 700);
   };
 
+  /** Convert PDF/HTML via the doc-import edge function. */
+  const convertDoc = async (filePath: string, kind: "pdf" | "html") => {
+    setStage(2);
+    setProcessPct(15);
+    const { data, error } = await supabase.functions.invoke("doc-import", {
+      body: {
+        filePath,
+        kind,
+        title: meta.title.trim(),
+        author: primaryAuthorName(),
+        description: meta.description?.trim() || null,
+        metadata: meta,
+      },
+    });
+    if (error) {
+      let detail = error.message;
+      try {
+        const ctx = (error as any)?.context;
+        if (ctx instanceof Response) {
+          const j = await ctx.clone().json().catch(() => null);
+          detail = j?.error || j?.detail || detail;
+        }
+      } catch { /* ignore */ }
+      throw new Error(detail);
+    }
+    const r = data as { book: { id: string }; chapters: number };
+    setStage(3);
+    setProcessPct(100);
+    toast.success(fa
+      ? `کتاب با ${r.chapters} صفحه ساخته شد — در حال انتقال…`
+      : `Imported (${r.chapters} pages) — opening editor…`);
+    setTimeout(() => nav(`/edit/${r.book.id}`), 700);
+  };
+
   const submitWord = async () => {
     setBusy(true);
     try {
       const res = await uploadOnly();
       if (!res) return;
       loadImports();
-      await convertById(res.importId);
+      if (res.kind === "docx" && res.importId) {
+        await convertById(res.importId);
+      } else if (res.kind === "pdf" || res.kind === "html") {
+        await convertDoc(res.path, res.kind);
+      }
     } catch (e) {
       setStage(0);
       setUploadPct(0);
@@ -222,6 +277,8 @@ const Upload = () => {
       loadImports();
     }
   };
+
+
 
   const retryImport = async (row: ImportRow, _skipImages: boolean) => {
     setRetryingId({ id: row.id, mode: _skipImages ? "without" : "with" });
@@ -266,7 +323,7 @@ const Upload = () => {
           </div>
           <Button variant="outline" size="sm" onClick={() => setTab("word")}>
             <FileText className="w-4 h-4 me-2" />
-            {fa ? "از فایل ورد" : "From Word"}
+            {fa ? "از فایل (Word/PDF/HTML)" : "From File"}
           </Button>
         </div>
         <BookEditor onCreated={(id) => nav(`/edit/${id}`)} />
@@ -299,7 +356,7 @@ const Upload = () => {
             </TabsTrigger>
             <TabsTrigger value="word">
               <FileText className="w-4 h-4 me-2" />
-              {fa ? "از فایل ورد" : "From Word"}
+              {fa ? "از فایل (Word/PDF/HTML)" : "From File"}
             </TabsTrigger>
           </TabsList>
 
@@ -310,23 +367,24 @@ const Upload = () => {
           <TabsContent value="word" className="space-y-6">
             <div className="glass-strong rounded-3xl p-6 md:p-8 space-y-5">
               <div>
-                <div className="text-sm font-medium mb-1.5">{fa ? "فایل ورد" : "Word file"}</div>
+                <div className="text-sm font-medium mb-1.5">{fa ? "فایل ورد، PDF یا HTML" : "Word, PDF or HTML file"}</div>
                 <label className="mt-2 flex flex-col items-center justify-center gap-2 p-8 rounded-2xl border-2 border-dashed border-border hover:border-accent/60 cursor-pointer transition-colors bg-background/40">
                   {file ? (
                     <>
                       <FileText className="w-8 h-8 text-accent" />
                       <span className="text-sm font-medium">{file.name}</span>
-                      <span className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                      <span className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB · {detectKind(file).toUpperCase()}</span>
                     </>
                   ) : (
                     <>
                       <UploadIcon className="w-8 h-8 text-muted-foreground" />
-                      <span className="text-sm">{fa ? "برای انتخاب کلیک کنید (تا ۸۰ مگابایت)" : "Click to select (up to 80MB)"}</span>
+                      <span className="text-sm">{fa ? "برای انتخاب کلیک کنید — DOCX، PDF یا HTML (تا ۸۰ مگابایت)" : "Click to select — DOCX, PDF or HTML (up to 80MB)"}</span>
                     </>
                   )}
-                  <input type="file" accept=".docx" className="hidden"
+                  <input type="file" accept=".docx,.pdf,.html,.htm" className="hidden"
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
                 </label>
+
               </div>
               <div className="rounded-2xl border bg-background/40 p-4">
                 <div className="text-xs text-muted-foreground mb-3">
