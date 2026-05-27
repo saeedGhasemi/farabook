@@ -58,6 +58,7 @@ const App = () => (
               <Route path="/editor-requests" element={<EditorRequests />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/install" element={<Install />} />
+              <Route path="/word-addin" element={<WordAddin />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             <UploadProgressPanel />
