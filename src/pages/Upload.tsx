@@ -367,23 +367,24 @@ const Upload = () => {
           <TabsContent value="word" className="space-y-6">
             <div className="glass-strong rounded-3xl p-6 md:p-8 space-y-5">
               <div>
-                <div className="text-sm font-medium mb-1.5">{fa ? "فایل ورد" : "Word file"}</div>
+                <div className="text-sm font-medium mb-1.5">{fa ? "فایل ورد، PDF یا HTML" : "Word, PDF or HTML file"}</div>
                 <label className="mt-2 flex flex-col items-center justify-center gap-2 p-8 rounded-2xl border-2 border-dashed border-border hover:border-accent/60 cursor-pointer transition-colors bg-background/40">
                   {file ? (
                     <>
                       <FileText className="w-8 h-8 text-accent" />
                       <span className="text-sm font-medium">{file.name}</span>
-                      <span className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                      <span className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB · {detectKind(file).toUpperCase()}</span>
                     </>
                   ) : (
                     <>
                       <UploadIcon className="w-8 h-8 text-muted-foreground" />
-                      <span className="text-sm">{fa ? "برای انتخاب کلیک کنید (تا ۸۰ مگابایت)" : "Click to select (up to 80MB)"}</span>
+                      <span className="text-sm">{fa ? "برای انتخاب کلیک کنید — DOCX، PDF یا HTML (تا ۸۰ مگابایت)" : "Click to select — DOCX, PDF or HTML (up to 80MB)"}</span>
                     </>
                   )}
-                  <input type="file" accept=".docx" className="hidden"
+                  <input type="file" accept=".docx,.pdf,.html,.htm" className="hidden"
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
                 </label>
+
               </div>
               <div className="rounded-2xl border bg-background/40 p-4">
                 <div className="text-xs text-muted-foreground mb-3">
