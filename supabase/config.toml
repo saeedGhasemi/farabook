@@ -33,3 +33,8 @@ verify_jwt = false
 [functions.book-auto-cover]
 verify_jwt = false
 
+[functions.doc-import]
+verify_jwt = false
+
+
+
