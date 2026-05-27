@@ -25,8 +25,10 @@
     <meta name="twitter:title" content="فرابوک" />
     <meta name="twitter:description" content="کتابخانهٔ دیجیتال تعاملی با خوانش آفلاین." />
 
-    <!-- Office.js — loaded for all routes; harmless outside Word. Used by /word-addin -->
-    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <!-- Office.js is loaded lazily inside /word-addin only.
+         Loading it globally breaks window.history (replaceState becomes
+         undefined outside Word) which prevents react-router from booting. -->
+
   </head>
 
   <body>
