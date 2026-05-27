@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Farabook Word Add-in manifest.
+
+  Sideload instructions (Windows / Mac):
+    1. Save this file as farabook-word-addin.xml on your computer.
+    2. In Word: Insert → My Add-ins → Manage My Add-ins → Upload My Add-in.
+    3. Pick this file. The "فرابوک" button appears in the Home ribbon.
+
+  For Word for the Web, the same Upload My Add-in dialog accepts this manifest.
+  For organisation-wide rollout (Microsoft 365 admin), use Centralized Deployment.
+-->
+<OfficeApp
+  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+  xsi:type="TaskPaneApp">
+
+  <Id>3f5a1c8e-7e2d-4d4d-9b34-farabook00001</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Farabook</ProviderName>
+  <DefaultLocale>fa-IR</DefaultLocale>
+  <DisplayName DefaultValue="Farabook" />
+  <Description DefaultValue="پاک‌سازی و آپلود مستقیم سند Word به فرابوک." />
+  <IconUrl DefaultValue="https://farabook.lovable.app/icons/icon-192.png" />
+  <HighResolutionIconUrl DefaultValue="https://farabook.lovable.app/icons/icon-512.png" />
+  <SupportUrl DefaultValue="https://farabook.lovable.app/" />
+
+  <AppDomains>
+    <AppDomain>https://farabook.lovable.app</AppDomain>
+    <AppDomain>https://uojmvqkuyqkskbsxypji.supabase.co</AppDomain>
+  </AppDomains>
+
+  <Hosts>
+    <Host Name="Document" />
+  </Hosts>
+
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://farabook.lovable.app/word-addin" />
+  </DefaultSettings>
+
+  <Permissions>ReadWriteDocument</Permissions>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Document">
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="GetStarted.Title" />
+            <Description resid="GetStarted.Description" />
+            <LearnMoreUrl resid="GetStarted.LearnMoreUrl" />
+          </GetStarted>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="Farabook.Group">
+                <Label resid="GroupLabel" />
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16" />
+                  <bt:Image size="32" resid="Icon.32" />
+                  <bt:Image size="80" resid="Icon.80" />
+                </Icon>
+                <Control xsi:type="Button" id="Farabook.OpenPane">
+                  <Label resid="OpenPaneLabel" />
+                  <Supertip>
+                    <Title resid="OpenPaneLabel" />
+                    <Description resid="OpenPaneDesc" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16" />
+                    <bt:Image size="32" resid="Icon.32" />
+                    <bt:Image size="80" resid="Icon.80" />
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>Office.AutoShowTaskpaneWithDocument</TaskpaneId>
+                    <SourceLocation resid="Taskpane.Url" />
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16" DefaultValue="https://farabook.lovable.app/icons/icon-192.png" />
+        <bt:Image id="Icon.32" DefaultValue="https://farabook.lovable.app/icons/icon-192.png" />
+        <bt:Image id="Icon.80" DefaultValue="https://farabook.lovable.app/icons/icon-512.png" />
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://farabook.lovable.app/word-addin" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://farabook.lovable.app/word-addin" />
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GetStarted.Title" DefaultValue="Farabook" />
+        <bt:String id="GroupLabel" DefaultValue="Farabook" />
+        <bt:String id="OpenPaneLabel" DefaultValue="باز کردن Farabook" />
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="GetStarted.Description" DefaultValue="پاک‌سازی و آپلود سند Word به فرابوک." />
+        <bt:String id="OpenPaneDesc" DefaultValue="تحلیل ساختار، پیش‌نمایش وب، و ارسال مستقیم به اکانت ناشر." />
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>
