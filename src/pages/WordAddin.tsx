@@ -282,8 +282,8 @@ export default function WordAddin() {
               <CardTitle>پیش‌نمایش وب</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="prose prose-sm max-w-none rounded-md border p-4 max-h-[480px] overflow-auto bg-card">
-                {previewBlocks && <BlockRenderer blocks={previewBlocks} mediaResolver={(s) => s} />}
+              <div className="prose prose-sm max-w-none rounded-md border p-4 max-h-[480px] overflow-auto bg-card space-y-2">
+                {previewBlocks?.map((b, i) => <PreviewBlock key={i} b={b} />)}
               </div>
             </CardContent>
           </Card>
