@@ -100,11 +100,95 @@
 
 ---
 
-## مرحله مقدم (در حال اجرا الان): ورود از PDF و HTML
-- edge function جدید `doc-import` که فایل PDF یا HTML را به ساختار pages/blocks
-  تبدیل می‌کند و کتابی در حالت draft می‌سازد (مشابه خروجی word-import).
-- در `Upload.tsx` یک تب/گزینه‌ی جدید «از PDF یا HTML» اضافه شود.
-- PDF: متن هر صفحه با `unpdf` استخراج و به یک Page تبدیل می‌شود.
-- HTML: ساختار `<h1>..<h6>`, `<p>`, `<ul>/<ol>`, `<blockquote>`, `<img>`, `<table>`, `<pre>` به Blockها نگاشت
-  و هر `<h1>` شروع یک Page است.
-- خروجی هر دو در همان ادیتور فعلی باز می‌شود تا کیفیت parse را تست کنیم.
+## افزونه Word (Office Add-in) — مسیر اصلی پذیرفته‌شده
+
+**هدف:** انجام تمام پاک‌سازی و نرمال‌سازی سند *در داخل خود Word*، تا خروجی نهایی
+بدون نیاز به importer سنگین، یا مستقیماً به اکانت ناشر آپلود شود، یا به‌صورت یک
+فایل `.docx` «تمیز و استاندارد» ذخیره گردد که importer فعلی هم بدون مشکل آن را
+بشناسد. (مسیر PDF/HTML کنار گذاشته شد چون خروجی‌ها — تصاویر، ZWNJ، فرمول، dir —
+به‌اندازه کافی قابل اعتماد نبود.)
+
+### دامنه پشتیبانی
+- Word 2016 / 2019 / 2021 / 2024 / Microsoft 365 (Win + Mac) + Word for the Web.
+- ورودی: فقط `.docx` (OOXML). `.doc` قدیمی پشتیبانی نمی‌شود — به کاربر پیام
+  داده می‌شود «ابتدا در Word با Save As به `.docx` تبدیل کنید».
+- نصب: در Word جدید از طریق manifest XML یا Unified Manifest (M365)؛ برای
+  سازمان‌ها Centralized Deployment، برای کاربر تنها "Upload My Add-in".
+
+### معماری
+- Taskpane add-in روی مسیر `/word-addin` همین برنامه میزبانی می‌شود.
+- ارتباط با Word: Office.js + خواندن مستقیم OOXML خام
+  (`context.document.body.getOoxml()` و `getFileAsync(Office.FileType.Compressed)`).
+- AST خروجی add-in **دقیقاً منطبق با ساختار فعلی `tiptap-doc.ts`** است؛ هیچ
+  مسیر داده موازی ساخته نمی‌شود.
+
+### موتور پاک‌سازی داخل add-in
+1. **هدینگ‌های سفارشی → استاندارد** (مورد ۹): خوشه‌بندی استایل‌های پاراگراف بر
+   اساس font-size / bold / طول / فاصله، تعیین level نسبی، و *در فایل Word هم*
+   استایل پاراگراف‌ها به `Heading 1/2/3` استاندارد بازنویسی می‌شود. خروجی add-in
+   تمیز می‌شود و فایل ذخیره‌شده برای importer هم استاندارد.
+2. **فهرست مطالب (TOC)**: شناسایی، استخراج (عنوان، صفحه)، و در نبود heading
+   استاندارد با کمک خروجی مرحله ۱ سطوح فصل بازسازی می‌شوند.
+3. **فرمول‌ها**: OMML → MathML → LaTeX (با `mathml-to-latex`). inline → node
+   `math`، نمایشی → block `math`.
+4. **sup/sub**: `w:vertAlign` → node `sup`/`sub` (نه Unicode، نه حذف).
+5. **ZWNJ / ZWSP**: `\u200C` و `\u200B` حفظ شوند؛ هیچ normalize حذفی روی متن.
+6. **جهت متن**: `w:bidi` در `pPr` + heuristic اسکریپت غالب → `dir: "rtl"|"ltr"`
+   روی هر پاراگراف.
+7. **زبان**: `w:lang` خوانده و در attr پاراگراف ذخیره می‌شود.
+8. **تصاویر**: استخراج مستقیم از zip فایل `.docx`؛ EMF/WMF با canvas داخل
+   add-in به PNG (همان pipeline فعلی `emf-converter`).
+9. **لیست‌ها**: nesting از `w:numPr/w:ilvl` و حفظ نوع شماره‌گذاری
+   (decimal/persian/arabic-indic/bullet).
+10. **جداول**: colspan/rowspan از `w:gridSpan` و `w:vMerge`.
+11. **پاورقی/Endnote**: node `footnote` با مرجع inline.
+
+### پیش‌نمایش داخل add-in
+- iframe در taskpane همان `BlockRenderer` وب را رندر می‌کند تا کاربر **قبل از
+  ارسال** ببیند خروجی وب چگونه است. اختلاف با Word → اصلاح در Word → preview مجدد.
+
+### دو حالت خروجی
+**الف) آپلود مستقیم به اکانت ناشر:**
+- ورود به اکانت در taskpane (Supabase auth با dialog API آفیس).
+- ارسال AST پاک‌شده + مدیا به edge function جدید `word-addin-ingest` که رکورد
+  `books` (status=`draft`) می‌سازد و کاربر به ادیتور ناشر redirect می‌شود.
+- نیاز: bucket `book-uploads` موجود، grant سرویس برای `word-addin-ingest`.
+
+**ب) ذخیره فایل Word تمیز (Clean DOCX export):**
+- add-in تبدیلات را داخل فایل اعمال می‌کند:
+  - بازنویسی استایل پاراگراف‌ها به Heading استاندارد.
+  - تبدیل sup/sub دستی به `w:vertAlign` استاندارد.
+  - حذف runهای صفر/تکراری و merge کردن runهای هم‌فرمت.
+  - نرمال‌سازی لیست‌ها به `w:numPr` استاندارد.
+  - نگه‌داری OMML سالم برای فرمول‌ها.
+  - تضمین `w:lang` و `w:bidi` صحیح روی پاراگراف‌ها.
+- کاربر با دکمه «ذخیره نسخه تمیز» یک `.docx` جدید می‌گیرد که importer فعلی
+  `word-import` بدون retry/fallback پردازش می‌کند.
+- یک marker مخفی (Custom XML Part با id `farabook-cleaned-v1`) داخل فایل
+  درج می‌شود تا `word-import` بفهمد فایل از قبل نرمال شده و مسیر سریع را برود
+  (بدون heuristicهای سنگین).
+
+### Edge function جدید `word-addin-ingest`
+- ورودی: `{ ast: TiptapDoc, media: { name, contentType, base64 }[], meta }`.
+- اعتبارسنجی JWT، آپلود مدیا به `book-media`، ساخت `books` row، برگشت `bookId`.
+- `verify_jwt = true` در `supabase/config.toml`.
+
+### ترتیب اجرای add-in (پس از تایید کاربر)
+1. اسکلت taskpane + manifest (sideload + AppSource-compatible) + auth.
+2. خواننده OOXML + AST mapper (بدون پاک‌سازی).
+3. موتور پاک‌سازی کامل (هدینگ، فرمول، sup/sub، ZWNJ، dir، lang، lists، tables، media).
+4. پیش‌نمایش زنده با `BlockRenderer`.
+5. مسیر آپلود (`word-addin-ingest`) + redirect به ادیتور ناشر.
+6. مسیر Clean DOCX export + درج Custom XML marker.
+7. تشخیص marker در `word-import` و فعال‌سازی مسیر سریع.
+
+### تست
+- روی Word 2019/2021/365/Web با فایل‌های مشکل‌دار قبلی (فارسی/عربی/انگلیسی،
+  فرمول شیمی/ریاضی، تصاویر EMF، sup/sub، nested lists، TOC چندسطحی) regression.
+
+---
+
+## یادداشت درباره مسیر PDF/HTML (تست‌شده، کنار گذاشته شد)
+- `doc-import` (PDF با `unpdf`، HTML با `linkedom`) ساخته و آپلود شد اما خروجی
+  ضعیف بود: تصاویر استخراج نمی‌شدند، ZWNJ از بین می‌رفت، فرمول‌ها و dir درست
+  نبودند. این مسیر تا اطلاع ثانوی توسعه نمی‌یابد؛ تمرکز روی add-in Word است.
