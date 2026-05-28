@@ -229,11 +229,28 @@ export default function WordAddin() {
     }
   };
 
+  /* -------- Build blob URLs for media so preview can show images -------- */
+  const mediaUrls = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!prep) return map;
+    for (const m of prep.media) {
+      const blob = new Blob([m.bytes], { type: m.contentType });
+      map.set(m.name, URL.createObjectURL(blob));
+    }
+    return map;
+  }, [prep]);
+  useEffect(() => {
+    return () => {
+      for (const url of mediaUrls.values()) URL.revokeObjectURL(url);
+    };
+  }, [mediaUrls]);
+
   /* -------- Preview: BlockRenderer expects "blocks" — quick adapter -------- */
   const previewBlocks = useMemo(() => {
     if (!prep) return null;
-    return docToLegacyBlocks(prep.doc);
-  }, [prep]);
+    return docToLegacyBlocks(prep.doc, mediaUrls);
+  }, [prep, mediaUrls]);
+
 
   return (
     <div className="container mx-auto max-w-5xl py-6 space-y-4" dir="rtl">
