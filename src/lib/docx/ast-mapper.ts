@@ -594,6 +594,83 @@ function parseRels(relsXml: any | null): Map<string, string> {
 }
 
 /* ------------------------------------------------------------------ */
+/* Numbering (word/numbering.xml)                                      */
+/* ------------------------------------------------------------------ */
+
+interface NumLevelFmt { numFmt?: string; lvlText?: string; }
+interface NumInfo {
+  /** numId → abstractNumId */
+  numToAbstract: Map<number, number>;
+  /** abstractNumId → ilvl → fmt */
+  abstractLevels: Map<number, Map<number, NumLevelFmt>>;
+}
+
+function parseNumbering(xml: any | null): NumInfo {
+  const info: NumInfo = { numToAbstract: new Map(), abstractLevels: new Map() };
+  if (!xml) return info;
+  const root = findFirst(xml, "w:numbering");
+  if (!root) return info;
+  for (const c of kidsOf(root, "w:numbering")) {
+    const t = tagOf(c);
+    if (t === "w:num") {
+      const numId = Number(attr(c, "w:numId"));
+      for (const cc of kidsOf(c, "w:num")) {
+        if (tagOf(cc) === "w:abstractNumId") {
+          const aid = Number(attr(cc, "w:val"));
+          if (Number.isFinite(numId) && Number.isFinite(aid)) info.numToAbstract.set(numId, aid);
+        }
+      }
+    } else if (t === "w:abstractNum") {
+      const aid = Number(attr(c, "w:abstractNumId"));
+      if (!Number.isFinite(aid)) continue;
+      const levels = new Map<number, NumLevelFmt>();
+      for (const lvl of kidsOf(c, "w:abstractNum")) {
+        if (tagOf(lvl) !== "w:lvl") continue;
+        const ilvl = Number(attr(lvl, "w:ilvl"));
+        const fmt: NumLevelFmt = {};
+        for (const lp of kidsOf(lvl, "w:lvl")) {
+          const lt = tagOf(lp);
+          if (lt === "w:numFmt") fmt.numFmt = attr(lp, "w:val");
+          else if (lt === "w:lvlText") fmt.lvlText = attr(lp, "w:val");
+        }
+        if (Number.isFinite(ilvl)) levels.set(ilvl, fmt);
+      }
+      info.abstractLevels.set(aid, levels);
+    }
+  }
+  return info;
+}
+
+function numFmtFor(info: NumInfo, numId?: number, ilvl?: number): NumLevelFmt | null {
+  if (numId === undefined) return null;
+  const aid = info.numToAbstract.get(numId);
+  if (aid === undefined) return null;
+  const lv = info.abstractLevels.get(aid);
+  if (!lv) return null;
+  return lv.get(ilvl ?? 0) ?? null;
+}
+
+function romanize(n: number): string {
+  const m: [number, string][] = [[1000,"m"],[900,"cm"],[500,"d"],[400,"cd"],[100,"c"],[90,"xc"],[50,"l"],[40,"xl"],[10,"x"],[9,"ix"],[5,"v"],[4,"iv"],[1,"i"]];
+  let s = "";
+  for (const [v, r] of m) { while (n >= v) { s += r; n -= v; } }
+  return s;
+}
+
+function renderListMarker(fmt: NumLevelFmt | null, counter: number, ilvl: number): string {
+  const f = fmt?.numFmt ?? "bullet";
+  if (f === "bullet" || f === "none") return "• ";
+  let token = String(counter);
+  if (f === "lowerLetter") token = String.fromCharCode(96 + ((counter - 1) % 26) + 1);
+  else if (f === "upperLetter") token = String.fromCharCode(64 + ((counter - 1) % 26) + 1);
+  else if (f === "lowerRoman") token = romanize(counter);
+  else if (f === "upperRoman") token = romanize(counter).toUpperCase();
+  // decimal / default → counter as-is
+  return `${token}. `;
+}
+
+
+/* ------------------------------------------------------------------ */
 /* Main entry                                                           */
 /* ------------------------------------------------------------------ */
 
