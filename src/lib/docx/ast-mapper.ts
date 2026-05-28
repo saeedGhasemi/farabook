@@ -99,9 +99,18 @@ function normalizePersianHalfSpaces(value: string): string {
   );
   return value
     .replace(betweenPersian, "$1\u200C$2")
-    .replace(/([می|نمی])\s+/g, (m) => m)
-    .replace(new RegExp(`\\b(می|نمی)[ \\t\\u00A0]+(?=[${PERSIAN_ARABIC_CLASS}])`, "g"), "$1\u200C")
+    .replace(new RegExp(`(^|[^${PERSIAN_ARABIC_CLASS}])(می|نمی)[ \\t\\u00A0]+(?=[${PERSIAN_ARABIC_CLASS}])`, "g"), "$1$2\u200C")
     .replace(commonSuffixes, "$1\u200C$3");
+}
+
+function normalizeTextNodes(nodes: TextNode[]): TextNode[] {
+  const raw = nodes.map((n) => n.text ?? "").join("");
+  const normalized = normalizePersianHalfSpaces(raw);
+  if (normalized === raw) return nodes;
+  // When Word splits a half-space sequence across multiple runs, preserving
+  // exact run marks while replacing/removing separator characters is unsafe.
+  // Prefer textual correctness for Persian import and keep a clean paragraph.
+  return normalized ? [{ type: "text", text: normalized }] : [];
 }
 
 /* ------------------------------------------------------------------ */
@@ -419,10 +428,11 @@ function parseParagraph(p: PNode, rels: Map<string, string>): ParaInfo {
     }
   }
 
-  const text = textNodes.map((n) => n.text).join("");
+  const normalizedTextNodes = normalizeTextNodes(textNodes);
+  const text = normalizedTextNodes.map((n) => n.text).join("");
   return {
     text,
-    textNodes,
+    textNodes: normalizedTextNodes,
     ...meta,
     dominantSizeHalfPt: sizeCount ? sumSize / sizeCount : undefined,
     anyBold,
