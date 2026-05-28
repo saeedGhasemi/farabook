@@ -234,7 +234,8 @@ export default function WordAddin() {
     const map = new Map<string, string>();
     if (!prep) return map;
     for (const m of prep.media) {
-      const blob = new Blob([m.bytes], { type: m.contentType });
+      const blob = new Blob([m.bytes as BlobPart], { type: m.contentType });
+
       map.set(m.name, URL.createObjectURL(blob));
     }
     return map;
