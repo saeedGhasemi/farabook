@@ -668,6 +668,19 @@ function renderListMarker(fmt: NumLevelFmt | null, counter: number, _ilvl: numbe
   return `${token}. `;
 }
 
+export interface MapResult {
+  doc: TiptapDoc;
+  media: OoxmlMedia[];
+  diagnostics: {
+    promotedHeadings: number;
+    headingLevels: Record<number, number>;
+    paragraphsTotal: number;
+    imagesEmbedded: number;
+    formulasDetected: number;
+    cleanedMarker: boolean;
+  };
+}
+
 
 export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
   const stylesMap = parseStyles(bundle.styles);
