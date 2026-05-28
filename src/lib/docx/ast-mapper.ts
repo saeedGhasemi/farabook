@@ -77,6 +77,10 @@ function getText(nodes: PNode[]): string {
       out += "\t";
     } else if (t === "w:br") {
       out += "\n";
+    } else if (t === "w:softHyphen") {
+      out += "\u00AD";
+    } else if (t === "w:noBreakHyphen") {
+      out += "\u2011";
     } else if (Array.isArray(n[t])) {
       out += getText(n[t]);
     }
@@ -90,7 +94,7 @@ const PERSIAN_ARABIC_CLASS = "\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF\\uFB
 function normalizePersianHalfSpaces(value: string): string {
   if (!value) return value;
   const betweenPersian = new RegExp(
-    `([${PERSIAN_ARABIC_CLASS}])[ \\t\\u00A0]*[\\u00AD\\u200B\\u200C]+[ \\t\\u00A0]*([${PERSIAN_ARABIC_CLASS}])`,
+    `([${PERSIAN_ARABIC_CLASS}])[ \\t\\u00A0]*[\\u00AD\\u200B\\u200C\\u2011]+[ \\t\\u00A0]*([${PERSIAN_ARABIC_CLASS}])`,
     "g",
   );
   const commonSuffixes = new RegExp(
@@ -291,6 +295,10 @@ function runToTextNodes(run: PNode): TextNode[] {
       buf += "\t";
     } else if (t === "w:br") {
       buf += "\n";
+    } else if (t === "w:softHyphen") {
+      buf += "\u00AD";
+    } else if (t === "w:noBreakHyphen") {
+      buf += "\u2011";
     } else if (t === "w:sym") {
       // symbol char — fallback to its char attr if present
       const ch = attr(c, "w:char");
