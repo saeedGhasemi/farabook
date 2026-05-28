@@ -594,12 +594,83 @@ function parseRels(relsXml: any | null): Map<string, string> {
 }
 
 /* ------------------------------------------------------------------ */
-/* Main entry                                                           */
+/* Numbering (word/numbering.xml)                                      */
 /* ------------------------------------------------------------------ */
+
+interface NumLevelFmt { numFmt?: string; lvlText?: string; }
+interface NumInfo {
+  /** numId → abstractNumId */
+  numToAbstract: Map<number, number>;
+  /** abstractNumId → ilvl → fmt */
+  abstractLevels: Map<number, Map<number, NumLevelFmt>>;
+}
+
+function parseNumbering(xml: any | null): NumInfo {
+  const info: NumInfo = { numToAbstract: new Map(), abstractLevels: new Map() };
+  if (!xml) return info;
+  const root = findFirst(xml, "w:numbering");
+  if (!root) return info;
+  for (const c of kidsOf(root, "w:numbering")) {
+    const t = tagOf(c);
+    if (t === "w:num") {
+      const numId = Number(attr(c, "w:numId"));
+      for (const cc of kidsOf(c, "w:num")) {
+        if (tagOf(cc) === "w:abstractNumId") {
+          const aid = Number(attr(cc, "w:val"));
+          if (Number.isFinite(numId) && Number.isFinite(aid)) info.numToAbstract.set(numId, aid);
+        }
+      }
+    } else if (t === "w:abstractNum") {
+      const aid = Number(attr(c, "w:abstractNumId"));
+      if (!Number.isFinite(aid)) continue;
+      const levels = new Map<number, NumLevelFmt>();
+      for (const lvl of kidsOf(c, "w:abstractNum")) {
+        if (tagOf(lvl) !== "w:lvl") continue;
+        const ilvl = Number(attr(lvl, "w:ilvl"));
+        const fmt: NumLevelFmt = {};
+        for (const lp of kidsOf(lvl, "w:lvl")) {
+          const lt = tagOf(lp);
+          if (lt === "w:numFmt") fmt.numFmt = attr(lp, "w:val");
+          else if (lt === "w:lvlText") fmt.lvlText = attr(lp, "w:val");
+        }
+        if (Number.isFinite(ilvl)) levels.set(ilvl, fmt);
+      }
+      info.abstractLevels.set(aid, levels);
+    }
+  }
+  return info;
+}
+
+function numFmtFor(info: NumInfo, numId?: number, ilvl?: number): NumLevelFmt | null {
+  if (numId === undefined) return null;
+  const aid = info.numToAbstract.get(numId);
+  if (aid === undefined) return null;
+  const lv = info.abstractLevels.get(aid);
+  if (!lv) return null;
+  return lv.get(ilvl ?? 0) ?? null;
+}
+
+function romanize(n: number): string {
+  const m: [number, string][] = [[1000,"m"],[900,"cm"],[500,"d"],[400,"cd"],[100,"c"],[90,"xc"],[50,"l"],[40,"xl"],[10,"x"],[9,"ix"],[5,"v"],[4,"iv"],[1,"i"]];
+  let s = "";
+  for (const [v, r] of m) { while (n >= v) { s += r; n -= v; } }
+  return s;
+}
+
+function renderListMarker(fmt: NumLevelFmt | null, counter: number, _ilvl: number): string {
+  const f = fmt?.numFmt ?? "bullet";
+  if (f === "bullet" || f === "none") return "• ";
+  let token = String(counter);
+  if (f === "lowerLetter") token = String.fromCharCode(96 + ((counter - 1) % 26) + 1);
+  else if (f === "upperLetter") token = String.fromCharCode(64 + ((counter - 1) % 26) + 1);
+  else if (f === "lowerRoman") token = romanize(counter);
+  else if (f === "upperRoman") token = romanize(counter).toUpperCase();
+  return `${token}. `;
+}
 
 export interface MapResult {
   doc: TiptapDoc;
-  media: OoxmlMedia[];                  // media actually referenced
+  media: OoxmlMedia[];
   diagnostics: {
     promotedHeadings: number;
     headingLevels: Record<number, number>;
@@ -610,28 +681,39 @@ export interface MapResult {
   };
 }
 
+
 export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
   const stylesMap = parseStyles(bundle.styles);
   const rels = parseRels(bundle.rels);
+  const numInfo = parseNumbering(bundle.numbering);
   const root = findFirst(bundle.doc, "w:document");
   if (!root) throw new Error("ساختار XML سند نامعتبر است (w:document یافت نشد).");
   const body = findFirst(kidsOf(root, "w:document"), "w:body");
   if (!body) throw new Error("ساختار XML سند نامعتبر است (w:body یافت نشد).");
 
-  // First pass: collect ParaInfo for every <w:p> at top level (skip tables for now)
+  // First pass: collect ParaInfo for every <w:p> at top level.
+  // Recursively unwrap <w:sdt>/<w:sdtContent> (content controls) so wrapped
+  // paragraphs (TOC, structured fields, etc.) aren't silently dropped.
   const paras: ParaInfo[] = [];
   const topBlocks: Array<{ kind: "para"; info: ParaInfo } | { kind: "table"; node: PNode }> = [];
 
-  for (const c of kidsOf(body, "w:body")) {
-    const t = tagOf(c);
-    if (t === "w:p") {
-      const info = parseParagraph(c, rels);
-      paras.push(info);
-      topBlocks.push({ kind: "para", info });
-    } else if (t === "w:tbl") {
-      topBlocks.push({ kind: "table", node: c });
+  const walkBody = (nodes: PNode[]) => {
+    for (const c of nodes ?? []) {
+      const t = tagOf(c);
+      if (t === "w:p") {
+        const info = parseParagraph(c, rels);
+        paras.push(info);
+        topBlocks.push({ kind: "para", info });
+      } else if (t === "w:tbl") {
+        topBlocks.push({ kind: "table", node: c });
+      } else if (t === "w:sdt") {
+        for (const sc of kidsOf(c, "w:sdt")) {
+          if (tagOf(sc) === "w:sdtContent") walkBody(kidsOf(sc, "w:sdtContent"));
+        }
+      }
     }
-  }
+  };
+  walkBody(kidsOf(body, "w:body"));
 
   // Heading detection (custom-style aware)
   const headingDiag = inferHeadings(paras, stylesMap);
@@ -641,10 +723,11 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
   const usedMediaNames = new Set<string>();
   let formulasDetected = 0;
   let imagesEmbedded = 0;
+  // Counters for numbered lists: key = `${numId}:${ilvl}`
+  const listCounters = new Map<string, number>();
 
   const mediaByRid = new Map<string, OoxmlMedia>();
   for (const [rid, target] of rels.entries()) {
-    // image relationships look like "media/imageN.png"
     const file = target.replace(/^.*\//, "");
     const m = bundle.media.find((x) => x.name === file);
     if (m) mediaByRid.set(rid, m);
@@ -652,7 +735,6 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
 
   for (const b of topBlocks) {
     if (b.kind === "table") {
-      // Render table as plain rows of paragraphs (text only) — temporary
       const rows = collectTableText(b.node);
       for (const row of rows) {
         content.push({
@@ -682,10 +764,20 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
       continue;
     }
 
-    // List item → prefix with marker (until AST supports lists natively)
+    // List item → prefix with proper marker (numbered or bullet)
     if (info.numId !== undefined) {
-      const indent = "  ".repeat(info.ilvl ?? 0);
-      const prefix = indent + "• ";
+      const ilvl = info.ilvl ?? 0;
+      const fmt = numFmtFor(numInfo, info.numId, ilvl);
+      const isNumbered = !!fmt && fmt.numFmt && fmt.numFmt !== "bullet" && fmt.numFmt !== "none";
+      const key = `${info.numId}:${ilvl}`;
+      let prefix: string;
+      if (isNumbered) {
+        const next = (listCounters.get(key) ?? 0) + 1;
+        listCounters.set(key, next);
+        prefix = "  ".repeat(ilvl) + renderListMarker(fmt, next, ilvl);
+      } else {
+        prefix = "  ".repeat(ilvl) + "• ";
+      }
       const nodes = [...info.textNodes];
       nodes.unshift({ type: "text", text: prefix });
       content.push({
@@ -698,6 +790,7 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
       } as ParagraphNode);
       continue;
     }
+
 
     // Heading?
     if (info.outlineLevel !== undefined) {
