@@ -1,6 +1,6 @@
 // Maps OOXML (parsed by ooxml-reader) into the project's TiptapDoc AST,
 // applying all the cleanup the long-term plan requires:
-//   • ZWNJ / ZWSP preserved (no normalization)
+//   • ZWNJ preserved; Word/legacy half-space variants are converted to ZWNJ
 //   • Custom heading detection (font-size / bold clustering → H1/H2/H3)
 //   • Standard Heading 1/2/3 from styles.xml respected
 //   • <w:vertAlign> → superscript / subscript marks (not unicode)
@@ -81,7 +81,27 @@ function getText(nodes: PNode[]): string {
       out += getText(n[t]);
     }
   }
-  return out;
+  return normalizePersianHalfSpaces(out);
+}
+
+const PERSIAN_ARABIC_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+const PERSIAN_ARABIC_CLASS = "\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF";
+
+function normalizePersianHalfSpaces(value: string): string {
+  if (!value) return value;
+  const betweenPersian = new RegExp(
+    `([${PERSIAN_ARABIC_CLASS}])[ \\t\\u00A0]*[\\u00AD\\u200B\\u200C]+[ \\t\\u00A0]*([${PERSIAN_ARABIC_CLASS}])`,
+    "g",
+  );
+  const commonSuffixes = new RegExp(
+    `([${PERSIAN_ARABIC_CLASS}])([ \\t\\u00A0]+)(ها(?:ی|يي|ئی|یی)?|تر(?:ین)?|گر|وار|خوار|پذیر|ساز|زا|مند|گونه)(?=\\s|$|[،؛,.!?؟])`,
+    "g",
+  );
+  return value
+    .replace(betweenPersian, "$1\u200C$2")
+    .replace(/([می|نمی])\s+/g, (m) => m)
+    .replace(new RegExp(`\\b(می|نمی)[ \\t\\u00A0]+(?=[${PERSIAN_ARABIC_CLASS}])`, "g"), "$1\u200C")
+    .replace(commonSuffixes, "$1\u200C$3");
 }
 
 /* ------------------------------------------------------------------ */
