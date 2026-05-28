@@ -1,6 +1,6 @@
 // Maps OOXML (parsed by ooxml-reader) into the project's TiptapDoc AST,
 // applying all the cleanup the long-term plan requires:
-//   • ZWNJ / ZWSP preserved (no normalization)
+//   • ZWNJ preserved; Word/legacy half-space variants are converted to ZWNJ
 //   • Custom heading detection (font-size / bold clustering → H1/H2/H3)
 //   • Standard Heading 1/2/3 from styles.xml respected
 //   • <w:vertAlign> → superscript / subscript marks (not unicode)
@@ -77,11 +77,43 @@ function getText(nodes: PNode[]): string {
       out += "\t";
     } else if (t === "w:br") {
       out += "\n";
+    } else if (t === "w:softHyphen") {
+      out += "\u00AD";
+    } else if (t === "w:noBreakHyphen") {
+      out += "\u2011";
     } else if (Array.isArray(n[t])) {
       out += getText(n[t]);
     }
   }
-  return out;
+  return normalizePersianHalfSpaces(out);
+}
+
+const PERSIAN_ARABIC_CLASS = "\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF";
+
+function normalizePersianHalfSpaces(value: string): string {
+  if (!value) return value;
+  const betweenPersian = new RegExp(
+    `([${PERSIAN_ARABIC_CLASS}])[ \\t\\u00A0]*[\\u00AD\\u200B\\u200C\\u2011]+[ \\t\\u00A0]*([${PERSIAN_ARABIC_CLASS}])`,
+    "g",
+  );
+  const commonSuffixes = new RegExp(
+    `([${PERSIAN_ARABIC_CLASS}])([ \\t\\u00A0]+)(ها(?:ی|يي|ئی|یی)?|تر(?:ین)?|گر|وار|خوار|پذیر|ساز|زا|مند|گونه)(?=\\s|$|[،؛,.!?؟])`,
+    "g",
+  );
+  return value
+    .replace(betweenPersian, "$1\u200C$2")
+    .replace(new RegExp(`(^|[^${PERSIAN_ARABIC_CLASS}])(می|نمی)[ \\t\\u00A0]+(?=[${PERSIAN_ARABIC_CLASS}])`, "g"), "$1$2\u200C")
+    .replace(commonSuffixes, "$1\u200C$3");
+}
+
+function normalizeTextNodes(nodes: TextNode[]): TextNode[] {
+  const raw = nodes.map((n) => n.text ?? "").join("");
+  const normalized = normalizePersianHalfSpaces(raw);
+  if (normalized === raw) return nodes;
+  // When Word splits a half-space sequence across multiple runs, preserving
+  // exact run marks while replacing/removing separator characters is unsafe.
+  // Prefer textual correctness for Persian import and keep a clean paragraph.
+  return normalized ? [{ type: "text", text: normalized }] : [];
 }
 
 /* ------------------------------------------------------------------ */
@@ -262,6 +294,10 @@ function runToTextNodes(run: PNode): TextNode[] {
       buf += "\t";
     } else if (t === "w:br") {
       buf += "\n";
+    } else if (t === "w:softHyphen") {
+      buf += "\u00AD";
+    } else if (t === "w:noBreakHyphen") {
+      buf += "\u2011";
     } else if (t === "w:sym") {
       // symbol char — fallback to its char attr if present
       const ch = attr(c, "w:char");
@@ -399,10 +435,11 @@ function parseParagraph(p: PNode, rels: Map<string, string>): ParaInfo {
     }
   }
 
-  const text = textNodes.map((n) => n.text).join("");
+  const normalizedTextNodes = normalizeTextNodes(textNodes);
+  const text = normalizedTextNodes.map((n) => n.text).join("");
   return {
     text,
-    textNodes,
+    textNodes: normalizedTextNodes,
     ...meta,
     dominantSizeHalfPt: sizeCount ? sumSize / sizeCount : undefined,
     anyBold,

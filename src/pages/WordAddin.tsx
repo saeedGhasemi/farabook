@@ -339,6 +339,8 @@ export default function WordAddin() {
       )}
     </div>
   );
+}
+
 /* ------------------------------------------------------------------ */
 /* Tiny AST → legacy blocks adapter (only for the inline preview UI). */
 /* The publisher editor / reader use the full TiptapDoc directly.     */
@@ -374,21 +376,6 @@ function PreviewBlock({ b }: { b: any }) {
       return <img src={b.src} alt={b.name ?? ""} className="max-w-full h-auto rounded border" />;
     }
     return <div className="text-xs text-muted-foreground">[تصویر: {b.name ?? b.src}]</div>;
-  }
-  return <p className="whitespace-pre-wrap" dir={dir}>{b.text}</p>;
-}
-
-}
-
-function PreviewBlock({ b }: { b: any }) {
-  const dir = b.dir ?? undefined;
-  if (b.type === "heading") {
-    const lv = b.level ?? 2;
-    const cls = lv === 1 ? "text-2xl font-bold" : lv === 2 ? "text-xl font-bold" : "text-lg font-semibold";
-    return <div className={cls} dir={dir}>{b.text}</div>;
-  }
-  if (b.type === "image") {
-    return <div className="text-xs text-muted-foreground">[تصویر: {b.src}]</div>;
   }
   return <p className="whitespace-pre-wrap" dir={dir}>{b.text}</p>;
 }
