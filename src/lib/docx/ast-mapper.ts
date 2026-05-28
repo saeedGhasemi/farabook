@@ -88,7 +88,6 @@ function getText(nodes: PNode[]): string {
   return normalizePersianHalfSpaces(out);
 }
 
-const PERSIAN_ARABIC_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 const PERSIAN_ARABIC_CLASS = "\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF";
 
 function normalizePersianHalfSpaces(value: string): string {
