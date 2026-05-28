@@ -321,13 +321,11 @@ export default function WordAddin() {
       )}
     </div>
   );
-}
-
 /* ------------------------------------------------------------------ */
 /* Tiny AST → legacy blocks adapter (only for the inline preview UI). */
 /* The publisher editor / reader use the full TiptapDoc directly.     */
 /* ------------------------------------------------------------------ */
-function docToLegacyBlocks(doc: any): any[] {
+function docToLegacyBlocks(doc: any, mediaUrls: Map<string, string>): any[] {
   const out: any[] = [];
   for (const n of doc.content ?? []) {
     if (n.type === "paragraph") {
@@ -335,13 +333,33 @@ function docToLegacyBlocks(doc: any): any[] {
     } else if (n.type === "heading") {
       out.push({ type: "heading", level: n.attrs?.level ?? 2, text: textOf(n), dir: n.attrs?.dir });
     } else if (n.type === "image") {
-      out.push({ type: "image", src: n.attrs?.src, caption: n.attrs?.caption });
+      const src: string = n.attrs?.src ?? "";
+      const name = src.startsWith("media://") ? src.slice("media://".length) : src;
+      out.push({ type: "image", src: mediaUrls.get(name) ?? src, name, caption: n.attrs?.caption });
     }
   }
   return out;
 }
 function textOf(n: any): string {
   return (n.content ?? []).map((t: any) => t.text ?? "").join("");
+}
+
+function PreviewBlock({ b }: { b: any }) {
+  const dir = b.dir ?? undefined;
+  if (b.type === "heading") {
+    const lv = b.level ?? 2;
+    const cls = lv === 1 ? "text-2xl font-bold" : lv === 2 ? "text-xl font-bold" : "text-lg font-semibold";
+    return <div className={cls} dir={dir}>{b.text}</div>;
+  }
+  if (b.type === "image") {
+    if (b.src && (b.src.startsWith("blob:") || b.src.startsWith("data:") || /^https?:/.test(b.src))) {
+      return <img src={b.src} alt={b.name ?? ""} className="max-w-full h-auto rounded border" />;
+    }
+    return <div className="text-xs text-muted-foreground">[تصویر: {b.name ?? b.src}]</div>;
+  }
+  return <p className="whitespace-pre-wrap" dir={dir}>{b.text}</p>;
+}
+
 }
 
 function PreviewBlock({ b }: { b: any }) {
