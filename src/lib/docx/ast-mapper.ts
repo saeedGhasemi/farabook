@@ -888,7 +888,7 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
     title: textForFirstTag(bundle.coreProps, "dc:title") || paras.find((p) => p.isTitle)?.text,
     subtitle: paras.find((p) => p.isSubtitle)?.text,
   };
-  const usedMediaNames_unused: never[] = []; void usedMediaNames_unused;
+  
   const usedMediaNames = new Set<string>();
   let formulasDetected = 0;
   let imagesEmbedded = 0;
