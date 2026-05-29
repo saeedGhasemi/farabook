@@ -107,14 +107,21 @@ function normalizePersianHalfSpaces(value: string): string {
 }
 
 function normalizeTextNodes(nodes: TextNode[]): TextNode[] {
+  if (nodes.length === 0) return nodes;
+  const hasMarks = nodes.some((n) => n.marks && n.marks.length > 0);
+  if (hasMarks) {
+    // Preserve marks: normalize each node individually. Cross-run half-space
+    // joins are lost in this case, but mark fidelity (sup/sub/bold/...) wins.
+    return nodes
+      .map((n) => ({ ...n, text: normalizePersianHalfSpaces(n.text ?? "") }))
+      .filter((n) => n.text.length > 0);
+  }
   const raw = nodes.map((n) => n.text ?? "").join("");
   const normalized = normalizePersianHalfSpaces(raw);
   if (normalized === raw) return nodes;
-  // When Word splits a half-space sequence across multiple runs, preserving
-  // exact run marks while replacing/removing separator characters is unsafe.
-  // Prefer textual correctness for Persian import and keep a clean paragraph.
   return normalized ? [{ type: "text", text: normalized }] : [];
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Styles                                                              */
@@ -127,6 +134,8 @@ interface StyleInfo {
   outlineLevel?: number;     // 0..8
   fontSizeHalfPt?: number;   // <w:sz w:val="..."/> in half-points
   bold?: boolean;
+  italic?: boolean;
+  vertAlign?: "superscript" | "subscript";
   isHeading?: boolean;       // explicit "Heading N"
   headingLevel?: 1 | 2 | 3;
 }
@@ -160,7 +169,15 @@ function parseStyles(stylesXml: any | null): Map<string, StyleInfo> {
             const v = Number(attr(rp, "w:val"));
             if (Number.isFinite(v)) info.fontSizeHalfPt = v;
           } else if (tt === "w:b") {
-            info.bold = attr(rp, "w:val") !== "0" && attr(rp, "w:val") !== "false";
+            const v = attr(rp, "w:val");
+            info.bold = v !== "0" && v !== "false";
+          } else if (tt === "w:i") {
+            const v = attr(rp, "w:val");
+            info.italic = v !== "0" && v !== "false";
+          } else if (tt === "w:vertAlign") {
+            const v = attr(rp, "w:val");
+            if (v === "superscript") info.vertAlign = "superscript";
+            else if (v === "subscript") info.vertAlign = "subscript";
           }
         }
       }
@@ -173,16 +190,24 @@ function parseStyles(stylesXml: any | null): Map<string, StyleInfo> {
       info.isHeading = true;
       info.headingLevel = lv;
     }
+    // Detect superscript/subscript character styles by name
+    const lname = (info.name ?? "").toLowerCase();
+    if (!info.vertAlign) {
+      if (/superscript|exposant|hoch|نمای|بالانویس/.test(lname)) info.vertAlign = "superscript";
+      else if (/subscript|indice|tief|پایین\s*نویس|زیرنویس/.test(lname)) info.vertAlign = "subscript";
+    }
     map.set(id, info);
   }
-  // Resolve basedOn outline/size inheritance one level deep
+  // Resolve basedOn inheritance one level deep
   for (const s of map.values()) {
-    if (s.basedOn && (s.outlineLevel === undefined || s.fontSizeHalfPt === undefined)) {
+    if (s.basedOn) {
       const p = map.get(s.basedOn);
       if (p) {
         if (s.outlineLevel === undefined) s.outlineLevel = p.outlineLevel;
         if (s.fontSizeHalfPt === undefined) s.fontSizeHalfPt = p.fontSizeHalfPt;
         if (s.bold === undefined) s.bold = p.bold;
+        if (s.italic === undefined) s.italic = p.italic;
+        if (s.vertAlign === undefined) s.vertAlign = p.vertAlign;
         if (!s.isHeading && p.isHeading) {
           s.isHeading = true;
           s.headingLevel = p.headingLevel;
@@ -192,6 +217,7 @@ function parseStyles(stylesXml: any | null): Map<string, StyleInfo> {
   }
   return map;
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Direction heuristic                                                 */
@@ -225,9 +251,23 @@ interface RunFormat {
   fontSizeHalfPt?: number;
 }
 
-function parseRunProps(rPr: PNode | null): RunFormat {
+
+function parseRunProps(rPr: PNode | null, styles?: Map<string, StyleInfo>): RunFormat {
   const out: RunFormat = {};
   if (!rPr) return out;
+  // First, apply rStyle inheritance (so direct props can still override).
+  for (const p of kidsOf(rPr, "w:rPr")) {
+    if (tagOf(p) === "w:rStyle") {
+      const sid = attr(p, "w:val");
+      const s = sid ? styles?.get(sid) : undefined;
+      if (s) {
+        if (s.bold && out.bold === undefined) out.bold = true;
+        if (s.italic && out.italic === undefined) out.italic = true;
+        if (s.vertAlign && !out.vertAlign) out.vertAlign = s.vertAlign;
+        if (s.fontSizeHalfPt && out.fontSizeHalfPt === undefined) out.fontSizeHalfPt = s.fontSizeHalfPt;
+      }
+    }
+  }
   for (const p of kidsOf(rPr, "w:rPr")) {
     const t = tagOf(p);
     if (!t) continue;
@@ -255,6 +295,8 @@ function parseRunProps(rPr: PNode | null): RunFormat {
   return out;
 }
 
+
+
 function marksFromFormat(f: RunFormat): Mark[] {
   const m: Mark[] = [];
   if (f.bold) m.push({ type: "bold" });
@@ -266,7 +308,7 @@ function marksFromFormat(f: RunFormat): Mark[] {
   return m;
 }
 
-function runToTextNodes(run: PNode): TextNode[] {
+function runToTextNodes(run: PNode, styles?: Map<string, StyleInfo>): TextNode[] {
   // run is { "w:r": [child, ...], ":@": {...} }
   const children = kidsOf(run, "w:r");
   let format: RunFormat = {};
@@ -283,7 +325,8 @@ function runToTextNodes(run: PNode): TextNode[] {
     if (!t) continue;
     if (t === "w:rPr") {
       flush();
-      format = parseRunProps(c);
+      format = parseRunProps(c, styles);
+
     } else if (t === "w:t") {
       // text payload — keep ZWNJ / ZWSP / whitespace verbatim
       const inner = kidsOf(c, "w:t");
@@ -379,7 +422,7 @@ function parsePPr(pPr: PNode | null): {
   return out;
 }
 
-function parseParagraph(p: PNode, rels: Map<string, string>): ParaInfo {
+function parseParagraph(p: PNode, rels: Map<string, string>, styles?: Map<string, StyleInfo>): ParaInfo {
   const children = kidsOf(p, "w:p");
   const pPr = findFirst(children, "w:pPr");
   const meta = parsePPr(pPr);
@@ -395,9 +438,11 @@ function parseParagraph(p: PNode, rels: Map<string, string>): ParaInfo {
     if (!t || t === "w:pPr") continue;
     if (t === "w:r") {
       // Inspect run properties for size / bold stats and image
+
+      // Inspect run properties for size / bold stats and image
       const rChildren = kidsOf(c, "w:r");
       const rPr = findFirst(rChildren, "w:rPr");
-      const fmt = parseRunProps(rPr);
+      const fmt = parseRunProps(rPr, styles);
       if (fmt.fontSizeHalfPt) {
         sumSize += fmt.fontSizeHalfPt;
         sizeCount++;
@@ -405,7 +450,7 @@ function parseParagraph(p: PNode, rels: Map<string, string>): ParaInfo {
       if (fmt.bold) anyBold = true;
       // images via w:drawing > … > a:blip r:embed
       collectImageRels(rChildren, imageRels);
-      textNodes.push(...runToTextNodes(c));
+      textNodes.push(...runToTextNodes(c, styles));
     } else if (t === "w:hyperlink") {
       // unwrap hyperlink runs; record href
       const hChildren = kidsOf(c, "w:hyperlink");
@@ -413,7 +458,7 @@ function parseParagraph(p: PNode, rels: Map<string, string>): ParaInfo {
       const href = ridAttr ? rels.get(ridAttr) : undefined;
       for (const hc of hChildren) {
         if (tagOf(hc) === "w:r") {
-          const nodes = runToTextNodes(hc);
+          const nodes = runToTextNodes(hc, styles);
           if (href) {
             for (const n of nodes) {
               n.marks = [...(n.marks ?? []), { type: "link", attrs: { href } }];
@@ -426,8 +471,9 @@ function parseParagraph(p: PNode, rels: Map<string, string>): ParaInfo {
       // tracked-insertions / smart tags: unwrap runs
       const inner = kidsOf(c, t);
       for (const ic of inner) {
-        if (tagOf(ic) === "w:r") textNodes.push(...runToTextNodes(ic));
+        if (tagOf(ic) === "w:r") textNodes.push(...runToTextNodes(ic, styles));
       }
+
     } else if (t === "m:oMath" || t === "m:oMathPara") {
       hasMath = true;
       const tex = ommlToLatex(c);
@@ -738,7 +784,7 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
     for (const c of nodes ?? []) {
       const t = tagOf(c);
       if (t === "w:p") {
-        const info = parseParagraph(c, rels);
+        const info = parseParagraph(c, rels, stylesMap);
         paras.push(info);
         topBlocks.push({ kind: "para", info });
       } else if (t === "w:tbl") {
