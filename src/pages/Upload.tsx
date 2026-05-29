@@ -178,14 +178,14 @@ const Upload = () => {
   }, [reconvertBookId, user]);
 
   /* -------- core local processing -------- */
-  const processFile = async (file: File, buf?: ArrayBuffer, customHeadings?: Set<string>) => {
+  const processFile = async (file: File, buf?: ArrayBuffer, customHeadingMap?: Map<string, number>) => {
     setError(null);
     setStage("processing");
     setUploadPhase("در حال تحلیل ساختار فایل…");
     try {
       const buffer = buf ?? await file.arrayBuffer();
       const bundle = await readDocx(buffer);
-      const prep = mapOoxmlToDoc(bundle, customHeadings ? { customHeadings } : undefined);
+      const prep = mapOoxmlToDoc(bundle, customHeadingMap?.size ? { customHeadings: customHeadingMap } : undefined);
 
       setUploadPhase("در حال بهینه‌سازی تصاویر…");
       const images = await processImagesLocally(bundle.media);
