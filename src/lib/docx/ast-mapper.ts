@@ -742,7 +742,7 @@ function inferHeadings(
   const dist: Record<number, number> = {};
   for (const p of paras) {
     if (p.outlineLevel !== undefined) {
-      const lv = Math.min(3, p.outlineLevel + 1);
+      const lv = Math.min(8, Math.max(1, p.outlineLevel + 1));
       dist[lv] = (dist[lv] ?? 0) + 1;
     }
   }
@@ -1129,7 +1129,7 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle, opts: MapOptions = {}): MapRe
     // explicit-heading styles applied to blank lines should not appear in TOC).
     if (info.outlineLevel !== undefined) {
       if (!info.text.trim()) continue;
-      const level = Math.min(3, Math.max(1, (info.outlineLevel ?? 0) + 1)) as 1 | 2 | 3;
+      const level = Math.min(8, Math.max(1, (info.outlineLevel ?? 0) + 1)) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
       content.push({
         type: "heading",
         attrs: { level, dir: detectDir(info.text, info.bidi), textAlign: info.align ?? null },

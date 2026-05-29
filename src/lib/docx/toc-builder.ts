@@ -6,7 +6,7 @@ import type { TiptapDoc } from "@/lib/tiptap-doc";
 
 export interface TocNode {
   id: string;
-  level: 1 | 2 | 3;
+  level: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   title: string;
   /** Index of the heading node in doc.content. */
   index: number;
@@ -27,7 +27,7 @@ export function buildToc(doc: TiptapDoc): TocNode[] {
   const flat: TocNode[] = [];
   let lastIdx = -1;
   doc.content?.forEach((node: any, i: number) => {
-    if (node?.type === "heading" && node.attrs?.level >= 1 && node.attrs?.level <= 3) {
+    if (node?.type === "heading" && node.attrs?.level >= 1 && node.attrs?.level <= 8) {
       const title = plainText(node) || "—";
       flat.push({
         id: `h-${i}`,
