@@ -236,9 +236,33 @@ function CropDialog({
   const { upload, busy } = useImageUpload();
 
   const [crop2, setCrop2] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
   const [pixels, setPixels] = useState<Area | null>(null);
   const onComplete = useCallback((_a: Area, p: Area) => setPixels(p), []);
+
+  // Resizable crop box: size is a percentage (20-100) of the maximum crop
+  // box that fits the container while keeping 2:3 aspect.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
+  const [sizePct, setSizePct] = useState(100);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const measure = () => setContainerSize({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const cropSize = (() => {
+    if (!containerSize.w || !containerSize.h) return undefined;
+    // Largest 2:3 box that fits the container.
+    const maxH = Math.min(containerSize.h, containerSize.w / COVER_ASPECT);
+    const maxW = maxH * COVER_ASPECT;
+    const f = Math.max(0.2, Math.min(1, sizePct / 100));
+    return { width: maxW * f, height: maxH * f };
+  })();
 
   const save = async () => {
     if (!pixels) return;
@@ -248,8 +272,6 @@ function CropDialog({
       const url = await upload(file);
       if (!url) return;
       const patch: Partial<CoverState> = {
-        // If the book was using spread mode, replace with separate images
-        // for clarity.
         ...(spreadUrl && crop?.mode === "half" ? { spreadUrl: null, crop: null } : {}),
       };
       if (side === "front") {
@@ -278,31 +300,33 @@ function CropDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="relative w-full h-[60vh] bg-black/90">
+        <div ref={containerRef} className="relative w-full h-[60vh] bg-black/90">
           <Cropper
             image={src}
             crop={crop2}
-            zoom={zoom}
+            zoom={1}
             aspect={COVER_ASPECT}
+            cropSize={cropSize}
             onCropChange={setCrop2}
-            onZoomChange={setZoom}
             onCropComplete={onComplete}
             showGrid
             objectFit="contain"
+            zoomWithScroll={false}
           />
         </div>
 
         <div className="px-4 py-3 border-t space-y-3 bg-muted/30">
           <div className="flex items-center gap-3">
-            <span className="text-[11px] text-muted-foreground w-12">{fa ? "بزرگ‌نمایی" : "Zoom"}</span>
+            <span className="text-[11px] text-muted-foreground w-20">{fa ? "اندازه قاب" : "Frame size"}</span>
             <Slider
-              value={[zoom]}
-              min={1}
-              max={4}
-              step={0.01}
-              onValueChange={(v) => setZoom(v[0])}
+              value={[sizePct]}
+              min={20}
+              max={100}
+              step={1}
+              onValueChange={(v) => setSizePct(v[0])}
               className="flex-1"
             />
+            <span className="text-[11px] text-muted-foreground tabular-nums w-10 text-end">{sizePct}%</span>
           </div>
           <div className="flex items-center justify-between">
             <Button size="sm" variant="ghost" onClick={onCancel} className="gap-1">
