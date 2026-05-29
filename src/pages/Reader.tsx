@@ -182,7 +182,7 @@ const Reader = () => {
       // Only replace the offline-rendered copy if we actually have newer pages
       // (server returned non-empty pages).
       if (!renderedOffline || pages.length > 0) {
-        setBook({ ...data, pages: pages as unknown as Page[] });
+        setBook({ ...(data as any), pages: pages as unknown as Page[] });
         if (data.ambient_theme && data.ambient_theme !== "paper") setAmbient(data.ambient_theme);
       }
     })();
