@@ -281,7 +281,7 @@ function marksFromFormat(f: RunFormat): Mark[] {
   return m;
 }
 
-function runToTextNodes(run: PNode): TextNode[] {
+function runToTextNodes(run: PNode, styles?: Map<string, StyleInfo>): TextNode[] {
   // run is { "w:r": [child, ...], ":@": {...} }
   const children = kidsOf(run, "w:r");
   let format: RunFormat = {};
@@ -298,7 +298,8 @@ function runToTextNodes(run: PNode): TextNode[] {
     if (!t) continue;
     if (t === "w:rPr") {
       flush();
-      format = parseRunProps(c);
+      format = parseRunProps(c, styles);
+
     } else if (t === "w:t") {
       // text payload — keep ZWNJ / ZWSP / whitespace verbatim
       const inner = kidsOf(c, "w:t");
