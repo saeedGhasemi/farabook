@@ -286,9 +286,9 @@ const InteractiveImage = ({
       <div className="relative overflow-hidden rounded-2xl book-shadow bg-foreground/5">
         <button
           type="button"
-          onClick={() => setZoomed((v) => !v)}
-          className={`block w-full ${zoomed ? "cursor-zoom-out" : "cursor-zoom-in"}`}
-          aria-label={zoomed ? "close" : caption || "zoom"}
+          onClick={() => setZoomed(true)}
+          className="block w-full cursor-zoom-in"
+          aria-label={caption || "zoom"}
         >
           <motion.img
             layout
@@ -296,27 +296,11 @@ const InteractiveImage = ({
             alt={caption || ""}
             loading="lazy"
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-            className={`w-full h-auto transition-transform duration-300 ${
-              zoomed
-                ? "object-contain max-h-[80vh] mx-auto"
-                : "group-hover:scale-[1.02]"
-            }`}
+            className="w-full h-auto transition-transform duration-300 group-hover:scale-[1.02]"
           />
         </button>
 
-        {!zoomed && (
-          <div className="absolute inset-0 bg-gradient-to-t from-foreground/40 via-transparent to-transparent pointer-events-none" />
-        )}
-
-        {zoomed && (
-          <button
-            onClick={() => setZoomed(false)}
-            className="absolute top-3 end-3 w-9 h-9 rounded-full glass-strong flex items-center justify-center shadow-soft"
-            aria-label="close"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-foreground/40 via-transparent to-transparent pointer-events-none" />
 
         {hotspots?.map((h, i) => (
           <Popover key={i}>
@@ -344,7 +328,7 @@ const InteractiveImage = ({
           </Popover>
         ))}
 
-        {hotspots && hotspots.length > 0 && !zoomed && (
+        {hotspots && hotspots.length > 0 && (
           <div className="absolute bottom-3 start-3 glass rounded-full px-3 py-1 text-xs flex items-center gap-1.5">
             <Sparkles className="w-3 h-3 text-accent" />
             <span>{hotspots.length} نکتهٔ تعاملی</span>
@@ -357,6 +341,7 @@ const InteractiveImage = ({
           {caption}
         </figcaption>
       )}
+      <ImageLightbox src={resolveImg(src)} alt={caption} open={zoomed} onClose={() => setZoomed(false)} />
     </figure>
   );
 };
