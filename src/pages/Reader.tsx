@@ -754,52 +754,57 @@ const Reader = () => {
         transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
       />
 
-      <div className="container py-6 md:py-10 relative">
-        {/* Top bar */}
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => nav("/library")} className="gap-1.5">
-              <Prev className="w-4 h-4" /> {t("back")}
-            </Button>
-            {/* Chapters trigger — collapsible drawer on all viewports */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setChaptersOpen(true)}
-              className="gap-1.5"
-            >
-              <Menu className="w-4 h-4" />
-              {lang === "fa" ? "فصل‌ها" : "Chapters"}
-            </Button>
+      <div className={`container relative ${fullscreen ? "py-2 md:py-3 max-w-none px-2 md:px-6" : "py-6 md:py-10"}`}>
+        {/* Top bar — hidden in fullscreen reading mode */}
+        {!fullscreen && (
+          <div className="flex items-center justify-between gap-3 mb-6">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => nav("/library")} className="gap-1.5">
+                <Prev className="w-4 h-4" /> {t("back")}
+              </Button>
+              {/* Chapters trigger — collapsible drawer on all viewports */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setChaptersOpen(true)}
+                className="gap-1.5"
+              >
+                <Menu className="w-4 h-4" />
+                {lang === "fa" ? "فصل‌ها" : "Chapters"}
+              </Button>
+            </div>
+            <div className="text-sm text-muted-foreground hidden sm:block text-center">
+              <span className="font-display font-semibold text-foreground">{book.title}</span>
+              <span className="mx-2">·</span>
+              <span>{book.author}</span>
+            </div>
+            <div className="text-xs text-muted-foreground tabular-nums">
+              {currentPrintPage ? (
+                <span title={lang === "fa" ? "صفحه چاپی" : "Print page"}>
+                  <span className="opacity-60">{lang === "fa" ? "ص." : "p."}</span> {currentPrintPage}
+                  <span className="opacity-40 mx-1.5">·</span>
+                </span>
+              ) : null}
+              {pageIdx + 1} / {total}
+            </div>
           </div>
-          <div className="text-sm text-muted-foreground hidden sm:block text-center">
-            <span className="font-display font-semibold text-foreground">{book.title}</span>
-            <span className="mx-2">·</span>
-            <span>{book.author}</span>
-          </div>
-          <div className="text-xs text-muted-foreground tabular-nums">
-            {currentPrintPage ? (
-              <span title={lang === "fa" ? "صفحه چاپی" : "Print page"}>
-                <span className="opacity-60">{lang === "fa" ? "ص." : "p."}</span> {currentPrintPage}
-                <span className="opacity-40 mx-1.5">·</span>
-              </span>
-            ) : null}
-            {pageIdx + 1} / {total}
-          </div>
-        </div>
+        )}
 
 
-        {/* Progress */}
-        <div className="h-1 bg-foreground/5 rounded-full overflow-hidden mb-8 max-w-5xl mx-auto">
-          <motion.div
-            className="h-full bg-gradient-warm"
-            animate={{ width: `${((pageIdx + 1) / total) * 100}%` }}
-            transition={{ duration: 0.4 }}
-          />
-        </div>
+        {/* Progress — hidden in fullscreen */}
+        {!fullscreen && (
+          <div className="h-1 bg-foreground/5 rounded-full overflow-hidden mb-8 max-w-5xl mx-auto">
+            <motion.div
+              className="h-full bg-gradient-warm"
+              animate={{ width: `${((pageIdx + 1) / total) * 100}%` }}
+              transition={{ duration: 0.4 }}
+            />
+          </div>
+        )}
 
         {/* Single-column layout — chapter sidebar is now always opened via drawer */}
-        <div className={`max-w-4xl mx-auto transition-all duration-300 ${allOverlaysOpen ? "blur-[2px] opacity-55" : ""}`}>
+        <div className={`${fullscreen ? "max-w-5xl" : "max-w-4xl"} mx-auto transition-all duration-300 ${allOverlaysOpen ? "blur-[2px] opacity-55" : ""}`}>
+
 
           {/* Page */}
           <div className="relative">
