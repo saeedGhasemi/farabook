@@ -284,6 +284,10 @@ Deno.serve(async (req) => {
   }
 
   const { imagesReplaced, imagesMissing } = replaceMediaUrls(body.ast, urlMap);
+  const startPage = Number(body.meta?.printStartPage);
+  if (Number.isFinite(startPage) && startPage > 0) {
+    applyPrintStartPage(body.ast, startPage);
+  }
   const pages = splitIntoPages(body.ast);
 
   const updatePayload: Record<string, unknown> = {
