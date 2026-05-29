@@ -383,7 +383,16 @@ function runToTextNodes(run: PNode, styles?: Map<string, StyleInfo>): TextNode[]
       const id = attrLoose(c, "w:id");
       if (id && !id.startsWith("-")) {
         flush();
-        out.push({ type: "text", text: id, marks: [{ type: "superscript" }] });
+        const kind = t === "w:footnoteReference" ? "footnote" : "endnote";
+        out.push({
+          type: "text",
+          text: id,
+          marks: [
+            { type: "superscript" },
+            // content resolved later in the main loop once notes maps are known
+            { type: "footnote", attrs: { kind, id } } as any,
+          ],
+        });
       }
     }
   }
