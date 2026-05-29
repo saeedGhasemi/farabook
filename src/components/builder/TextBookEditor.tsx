@@ -1188,6 +1188,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     : (sidePanel ? "lg:grid-cols-[220px_1fr_340px]" : "lg:grid-cols-[260px_1fr]");
 
   return (
+    <BookImagesContext.Provider value={bookImages}>
     <div
       className={`grid grid-cols-1 gap-4 px-3 md:px-4 py-3 ${gridCols}`}
       dir={fa ? "rtl" : "ltr"}
