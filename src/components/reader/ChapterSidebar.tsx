@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, Check, X, ChevronRight, ChevronDown } from "lucide-react";
+import { BookOpen, Check, X, ChevronRight, ChevronDown, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
 interface ChapterItem {
