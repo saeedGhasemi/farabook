@@ -942,24 +942,40 @@ const Reader = () => {
                     ref={paginatedHostRef}
                     className={`selectable selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text ${
                       readingMode === "paginated"
-                        ? "reader-paginated space-y-4"
+                        ? "relative overflow-hidden"
                         : "space-y-4"
                     }`}
                     style={readingMode === "paginated"
-                      ? ({ columnWidth: "100%", ["--paginated-height" as any]: fullscreen ? "82vh" : "70vh" } as React.CSSProperties)
+                      ? ({ height: fullscreen ? "82vh" : "70vh" } as React.CSSProperties)
                       : undefined}
                   >
-                    {blocks.map((block, i) => (
-                      <BlockRenderer
-                        key={i}
-                        block={block}
-                        fontSize={fontSize}
-                        index={i}
-                        pageIndex={pageIdx}
-                        savedHighlights={pageHighlights.map((h) => ({ id: h.id, text: h.text, color: h.color || "yellow" }))}
-                        onHighlightClick={() => setHighlightsOpen(true)}
-                      />
-                    ))}
+                    <div
+                      ref={paginatedTrackRef}
+                      className={readingMode === "paginated" ? "reader-paginated" : ""}
+                      style={readingMode === "paginated"
+                        ? ({
+                            columnWidth: "100%",
+                            columnGap: "2.5rem",
+                            columnFill: "auto",
+                            height: "100%",
+                            transform: `translateX(calc(${(bookDir === "rtl" ? colIdx : -colIdx)} * (100% + 2.5rem)))`,
+                            transition: "transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)",
+                            willChange: "transform",
+                          } as React.CSSProperties)
+                        : undefined}
+                    >
+                      {blocks.map((block, i) => (
+                        <BlockRenderer
+                          key={i}
+                          block={block}
+                          fontSize={fontSize}
+                          index={i}
+                          pageIndex={pageIdx}
+                          savedHighlights={pageHighlights.map((h) => ({ id: h.id, text: h.text, color: h.color || "yellow" }))}
+                          onHighlightClick={() => setHighlightsOpen(true)}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               </motion.article>
