@@ -153,10 +153,10 @@ export const ImageReviewPanel = ({
     const ok = isAutoOk(it) || reviewed.has(it.key);
     const needs = !!it.attention || (it.type === "placeholder" && !!it.pendingSrc);
     if (sortMode === "attention-first") {
-      // missing-image (3) > mismatch (2) > missing-caption (1) > pending (1) > others (0) > ok (-1)
       if (it.attention === "missing-image") return 3;
       if (it.attention === "mismatch") return 2;
       if (it.attention === "missing-caption") return 1;
+      if (it.attention === "needs-confirm") return 1;
       if (needs) return 1;
       return ok ? -1 : 0;
     }
