@@ -415,15 +415,15 @@ function parsePPr(pPr: PNode | null): {
   for (const p of kidsOf(pPr, "w:pPr")) {
     const t = tagOf(p);
     if (!t) continue;
-    if (t === "w:pStyle") out.styleId = attr(p, "w:val");
+    if (t === "w:pStyle") out.styleId = attrLoose(p, "w:val");
     else if (t === "w:outlineLvl") {
-      const v = Number(attr(p, "w:val"));
+      const v = Number(attrLoose(p, "w:val"));
       if (Number.isFinite(v)) out.outlineLevel = v;
     } else if (t === "w:bidi") {
-      const v = attr(p, "w:val");
+      const v = attrLoose(p, "w:val");
       out.bidi = v !== "0" && v !== "false";
     } else if (t === "w:jc") {
-      const v = attr(p, "w:val");
+      const v = attrLoose(p, "w:val");
       if (v === "left" || v === "right" || v === "center" || v === "both" || v === "justify") {
         out.align = v === "both" ? "justify" : v;
       }
@@ -431,17 +431,17 @@ function parsePPr(pPr: PNode | null): {
       for (const np of kidsOf(p, "w:numPr")) {
         const tt = tagOf(np);
         if (tt === "w:numId") {
-          const v = Number(attr(np, "w:val"));
+          const v = Number(attrLoose(np, "w:val"));
           if (Number.isFinite(v)) out.numId = v;
         } else if (tt === "w:ilvl") {
-          const v = Number(attr(np, "w:val"));
+          const v = Number(attrLoose(np, "w:val"));
           if (Number.isFinite(v)) out.ilvl = v;
         }
       }
     } else if (t === "w:rPr") {
       for (const rp of kidsOf(p, "w:rPr")) {
         if (tagOf(rp) === "w:lang") {
-          out.lang = attr(rp, "w:val") ?? attr(rp, "w:bidi");
+          out.lang = attrLoose(rp, "w:val") ?? attrLoose(rp, "w:bidi");
         }
       }
     }
