@@ -142,17 +142,17 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
       const tex = p.startsWith("$") ? p.slice(1, -1) : p.slice(2, -2);
       return <MathRender key={key} tex={tex.trim()} />;
     }
-    // Bold
+    // Bold (may contain nested italic/underline → recurse)
     if (p.startsWith("**") && p.endsWith("**") && p.length > 4) {
-      return <strong key={key}>{p.slice(2, -2)}</strong>;
+      return <strong key={key}>{renderInlineMarkdown(p.slice(2, -2), `${key}-b`)}</strong>;
     }
-    // Underline
+    // Underline (may contain nested bold/italic → recurse)
     if (p.startsWith("__") && p.endsWith("__") && p.length > 4) {
-      return <u key={key}>{p.slice(2, -2)}</u>;
+      return <u key={key}>{renderInlineMarkdown(p.slice(2, -2), `${key}-u`)}</u>;
     }
-    // Italic (single *)
+    // Italic (single *) — recurse to allow nested marks
     if (p.startsWith("*") && p.endsWith("*") && p.length > 2 && !p.startsWith("**")) {
-      return <em key={key}>{p.slice(1, -1)}</em>;
+      return <em key={key}>{renderInlineMarkdown(p.slice(1, -1), `${key}-i`)}</em>;
     }
     // Markdown link [text](url)
     const linkM = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(p);
