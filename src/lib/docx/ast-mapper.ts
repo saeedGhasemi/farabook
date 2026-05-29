@@ -1033,7 +1033,44 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
   // Footnotes are now rendered inline as tooltips/popovers at their reference
   // location (see BlockRenderer / WordAddin preview). No appendix is emitted.
 
-
+  /* ----------------------------------------------------------------------
+   * Auto-extract image captions from the next paragraph(s).
+   * If an image has no caption and the next ≤3 paragraphs start with a
+   * caption keyword like «شکل ۱» / «Figure 1» / «Abbildung 2», take that
+   * line as the caption, mark it as pending user confirmation, and remove
+   * the duplicate paragraph from the flow.
+   * -------------------------------------------------------------------- */
+  const isCaptionableImage = (n: any): boolean =>
+    n?.type === "image" && !n.attrs?.caption;
+  const blockPlainText = (n: any): string => {
+    if (!n || (n.type !== "paragraph" && n.type !== "heading")) return "";
+    return (n.content ?? [])
+      .map((c: any) => (typeof c?.text === "string" ? c.text : ""))
+      .join("")
+      .trim();
+  };
+  for (let i = 0; i < content.length; i += 1) {
+    const img: any = content[i];
+    if (!isCaptionableImage(img)) continue;
+    for (let j = 1; j <= 3 && i + j < content.length; j += 1) {
+      const nx: any = content[i + j];
+      if (!nx) continue;
+      if (nx.type === "image" || nx.type === "image_placeholder") break;
+      const text = blockPlainText(nx);
+      if (!text) continue;
+      if (FIG_RE.test(text)) {
+        img.attrs = {
+          ...img.attrs,
+          caption: text,
+          captionPendingConfirm: true,
+        };
+        // Consume the source paragraph so the same text doesn't appear twice.
+        content.splice(i + j, 1);
+      }
+      // Whether matched or not, the first non-empty text block ends the search.
+      break;
+    }
+  }
 
 
   const doc: TiptapDoc = { type: "doc", content };
