@@ -354,7 +354,7 @@ const Upload = () => {
 
       const ingestResp = await supabase.functions.invoke("word-addin-ingest", {
         body: {
-          ast: local.prep.doc,
+          ast: promoteCustomHeadings(local.prep.doc),
           mediaUrlMap: Object.fromEntries(nameToUrl),
           replaceBookId: reconvertBookId,
           meta: {
@@ -365,6 +365,7 @@ const Upload = () => {
           },
         },
       });
+
       if (ingestResp.error) throw new Error(ingestResp.error.message);
       const bookId = (ingestResp.data as any)?.bookId;
       if (!bookId) throw new Error("شناسهٔ کتاب از سرور بازنگشت.");
