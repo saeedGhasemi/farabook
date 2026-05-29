@@ -21,6 +21,8 @@ export type Contributor = {
   name: string;
   role: ContributorRole;
   user_id?: string | null;
+  /** Organizational affiliation (university, publisher, institute…). */
+  affiliation?: string | null;
 };
 
 export type ContributorRole =
@@ -170,6 +172,33 @@ export const BookMetadataForm = ({ value, onChange, fa = true, hideDescription, 
     set({ contributors: next });
   };
 
+  /** Bulk-paste: one author per line. Empty lines and duplicates are skipped. */
+  const [bulkText, setBulkText] = useState("");
+  const [bulkRole, setBulkRole] = useState<ContributorRole>("author");
+  const importBulk = () => {
+    const lines = bulkText
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!lines.length) return;
+    const existing = new Set(m.contributors.map((c) => `${c.role}::${c.name.trim()}`));
+    const seedEmpty = m.contributors.length === 1 && !m.contributors[0].name.trim();
+    const base = seedEmpty ? [] : m.contributors.slice();
+    for (const raw of lines) {
+      // Allow "Name | Affiliation" or "Name — Affiliation" / "Name - Affiliation" per line.
+      const parts = raw.split(/\s*(?:\||—|–|-{1,2})\s*/);
+      const name = parts[0]?.trim();
+      const affiliation = parts.slice(1).join(" - ").trim() || undefined;
+      if (!name) continue;
+      const key = `${bulkRole}::${name}`;
+      if (existing.has(key)) continue;
+      existing.add(key);
+      base.push({ name, role: bulkRole, affiliation });
+    }
+    set({ contributors: base.length ? base : [{ name: "", role: "author" }] });
+    setBulkText("");
+  };
+
   const isbnOk = isValidIsbn(m.isbn ?? "");
 
   return (
@@ -253,49 +282,59 @@ export const BookMetadataForm = ({ value, onChange, fa = true, hideDescription, 
         </div>
         <div className="space-y-2">
           {m.contributors.map((c, i) => (
-            <div key={i} className="flex items-center gap-1.5 rounded-lg border p-2 bg-background/40">
-              <div className="flex flex-col gap-0.5">
-                <button
+            <div key={i} className="rounded-lg border p-2 bg-background/40 space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <div className="flex flex-col gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => moveContributor(i, -1)}
+                    className="p-0.5 rounded hover:bg-muted text-muted-foreground"
+                    title={fa ? "بالا" : "Up"}
+                  >
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveContributor(i, 1)}
+                    className="p-0.5 rounded hover:bg-muted text-muted-foreground"
+                    title={fa ? "پایین" : "Down"}
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <Input
+                  value={c.name}
+                  onChange={(e) => setContributor(i, { name: e.target.value })}
+                  placeholder={fa ? "نام و نام خانوادگی" : "Full name"}
+                  className="flex-1 h-9"
+                />
+                <Select value={c.role} onValueChange={(v) => setContributor(i, { role: v as ContributorRole })}>
+                  <SelectTrigger className="w-[140px] h-9 shrink-0"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(ROLE_LABELS) as ContributorRole[]).map((r) => (
+                      <SelectItem key={r} value={r}>{ROLE_LABELS[r][fa ? "fa" : "en"]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
                   type="button"
-                  onClick={() => moveContributor(i, -1)}
-                  className="p-0.5 rounded hover:bg-muted text-muted-foreground"
-                  title={fa ? "بالا" : "Up"}
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-destructive shrink-0"
+                  onClick={() => removeContributor(i)}
+                  title={fa ? "حذف" : "Remove"}
                 >
-                  <ChevronUp className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveContributor(i, 1)}
-                  className="p-0.5 rounded hover:bg-muted text-muted-foreground"
-                  title={fa ? "پایین" : "Down"}
-                >
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
               <Input
-                value={c.name}
-                onChange={(e) => setContributor(i, { name: e.target.value })}
-                placeholder={fa ? "نام و نام خانوادگی" : "Full name"}
-                className="flex-1 h-9"
+                value={c.affiliation ?? ""}
+                onChange={(e) => setContributor(i, { affiliation: e.target.value })}
+                placeholder={fa
+                  ? "وابستگی سازمانی (مثلاً: دانشگاه تهران، گروه فلسفه)"
+                  : "Affiliation (e.g. University of Tehran, Dept. of Philosophy)"}
+                className="h-8 text-xs ms-7"
               />
-              <Select value={c.role} onValueChange={(v) => setContributor(i, { role: v as ContributorRole })}>
-                <SelectTrigger className="w-[140px] h-9 shrink-0"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(ROLE_LABELS) as ContributorRole[]).map((r) => (
-                    <SelectItem key={r} value={r}>{ROLE_LABELS[r][fa ? "fa" : "en"]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 text-destructive shrink-0"
-                onClick={() => removeContributor(i)}
-                title={fa ? "حذف" : "Remove"}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
             </div>
           ))}
         </div>
@@ -312,6 +351,44 @@ export const BookMetadataForm = ({ value, onChange, fa = true, hideDescription, 
           <Button type="button" size="sm" variant="outline" className="h-7" onClick={() => addContributor("illustrator")}>
             <Plus className="w-3.5 h-3.5 me-1" /> {fa ? "تصویرگر" : "Illustrator"}
           </Button>
+        </div>
+
+        {/* Bulk paste */}
+        <div className="mt-3 rounded-lg border border-dashed p-2.5 bg-secondary/20 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-xs">
+              {fa ? "افزودن گروهی (هر سطر یک نفر)" : "Bulk add (one per line)"}
+            </Label>
+            <Select value={bulkRole} onValueChange={(v) => setBulkRole(v as ContributorRole)}>
+              <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(Object.keys(ROLE_LABELS) as ContributorRole[]).map((r) => (
+                  <SelectItem key={r} value={r}>{ROLE_LABELS[r][fa ? "fa" : "en"]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Textarea
+            value={bulkText}
+            onChange={(e) => setBulkText(e.target.value)}
+            rows={3}
+            placeholder={fa
+              ? "علی حسینی | دانشگاه تهران\nمریم رضایی - دانشگاه شیراز\n…"
+              : "Jane Doe | Stanford University\nJohn Smith - MIT\n…"}
+            className="text-xs font-mono"
+            dir="auto"
+          />
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] text-muted-foreground">
+              {fa
+                ? "می‌توانید نام و وابستگی را با |، —، – یا - جدا کنید."
+                : "Separate name and affiliation with |, —, – or -."}
+            </p>
+            <Button type="button" size="sm" className="h-7" onClick={importBulk} disabled={!bulkText.trim()}>
+              <Plus className="w-3.5 h-3.5 me-1" />
+              {fa ? "افزودن" : "Add all"}
+            </Button>
+          </div>
         </div>
       </div>
 

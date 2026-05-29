@@ -69,6 +69,8 @@ const Upload = () => {
   const [uploadPct, setUploadPct] = useState(0);
   const [uploadPhase, setUploadPhase] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [createdBookId, setCreatedBookId] = useState<string | null>(null);
+  const [savingMeta, setSavingMeta] = useState(false);
   const blobUrlsRef = useRef<string[]>([]);
 
   /* -------- auth gate -------- */
@@ -305,18 +307,65 @@ const Upload = () => {
 
       setUploadPct(100);
       setUploadPhase("انجام شد");
+      setCreatedBookId(bookId);
       setStage("done");
 
       // Cleanup all in-memory data
       releaseBlobs();
-      toast.success(reconvertBookId ? "تبدیل مجدد انجام شد." : "کتاب با موفقیت ایجاد شد.");
-      setTimeout(() => nav(`/edit/${bookId}`), 600);
+      toast.success(reconvertBookId
+        ? "تبدیل مجدد انجام شد. می‌توانید اطلاعات کتابشناختی را تکمیل کنید."
+        : "کتاب ایجاد شد. اکنون اطلاعات کتابشناختی را تکمیل کنید.");
     } catch (e: any) {
       console.error("[upload-wizard] upload failed", e);
       setError(e?.message ?? String(e));
       toast.error(`آپلود ناموفق بود: ${e?.message ?? e}`);
       setStage("review");
     }
+  };
+
+  /* -------- save bibliographic metadata after upload -------- */
+  const saveMetadataAndContinue = async () => {
+    if (!createdBookId) return;
+    setSavingMeta(true);
+    try {
+      const normalized = normalizeMetadata(meta);
+      const firstAuthor = (normalized.contributors ?? [])
+        .find((c) => (c.role === "author" || c.role === "coauthor") && c.name?.trim());
+      const { error: upErr } = await supabase.from("books").update({
+        title: normalized.title || undefined,
+        subtitle: normalized.subtitle || null,
+        description: normalized.description || null,
+        author: firstAuthor?.name?.trim() || undefined,
+        publisher: normalized.publisher || null,
+        isbn: normalized.isbn || null,
+        edition: normalized.edition || null,
+        publication_year: normalized.publication_year ?? null,
+        page_count: normalized.page_count ?? null,
+        language: normalized.language || null,
+        original_title: normalized.original_title || null,
+        original_language: normalized.original_language || null,
+        categories: normalized.categories ?? [],
+        subjects: normalized.subjects ?? [],
+        series_name: normalized.series_name || null,
+        series_index: normalized.series_index ?? null,
+        book_type: normalized.book_type || null,
+        contributors: normalized.contributors as any,
+        metadata: normalized as any,
+      }).eq("id", createdBookId);
+      if (upErr) throw upErr;
+      toast.success("مشخصات کتاب ذخیره شد.");
+      nav(`/edit/${createdBookId}`);
+    } catch (e: any) {
+      console.error("[upload-wizard] save metadata failed", e);
+      toast.error(`ذخیرهٔ مشخصات ناموفق بود: ${e?.message ?? e}`);
+    } finally {
+      setSavingMeta(false);
+    }
+  };
+
+  const skipMetadata = () => {
+    if (!createdBookId) return;
+    nav(`/edit/${createdBookId}`);
   };
 
   const reset = () => {
@@ -328,6 +377,7 @@ const Upload = () => {
     setValidation([]);
     setStage("drop");
     setError(null);
+    setCreatedBookId(null);
   };
 
   /* -------- render -------- */
@@ -454,10 +504,19 @@ const Upload = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">اطلاعات کتاب</CardTitle>
+              <CardTitle className="text-base">عنوان کتاب</CardTitle>
             </CardHeader>
-            <CardContent>
-              <BookMetadataForm value={meta} onChange={setMeta} fa={fa} />
+            <CardContent className="space-y-2">
+              <Label className="text-xs">عنوان<span className="text-destructive ms-1">*</span></Label>
+              <Input
+                value={meta.title}
+                onChange={(e) => setMeta({ ...meta, title: e.target.value })}
+                placeholder="عنوان کتاب"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                باقی مشخصات کتابشناختی (نویسندگان، شابک، ناشر، سال انتشار و …) را می‌توانید
+                هم‌زمان با شروع آپلود و در پسِ‌زمینه تکمیل کنید.
+              </p>
             </CardContent>
           </Card>
 
@@ -479,26 +538,51 @@ const Upload = () => {
         </div>
       )}
 
-      {stage === "uploading" && (
-        <Card>
-          <CardContent className="py-10 space-y-4">
-            <div className="text-center space-y-2">
-              <Loader2 className="h-7 w-7 animate-spin text-primary mx-auto" />
-              <p className="text-sm font-medium">{uploadPhase}</p>
-            </div>
-            <Progress value={uploadPct} />
-            <p className="text-center text-xs text-muted-foreground tabular-nums">{uploadPct}٪</p>
-          </CardContent>
-        </Card>
-      )}
+      {(stage === "uploading" || stage === "done") && (
+        <div className="space-y-4">
+          <Card>
+            <CardContent className="py-6 space-y-4">
+              <div className="text-center space-y-2">
+                {stage === "done" ? (
+                  <CheckCircle2 className="h-8 w-8 text-emerald-600 mx-auto" />
+                ) : (
+                  <Loader2 className="h-7 w-7 animate-spin text-primary mx-auto" />
+                )}
+                <p className="text-sm font-medium">
+                  {stage === "done" ? "آپلود کامل شد" : uploadPhase}
+                </p>
+              </div>
+              <Progress value={uploadPct} />
+              <p className="text-center text-xs text-muted-foreground tabular-nums">{uploadPct}٪</p>
+              {stage === "uploading" && (
+                <p className="text-center text-[11px] text-muted-foreground">
+                  می‌توانید هم‌زمان فرم اطلاعات کتابشناختی زیر را تکمیل کنید؛ پس از پایان آپلود، ذخیره می‌شود.
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
-      {stage === "done" && (
-        <Card>
-          <CardContent className="py-10 text-center space-y-2">
-            <CheckCircle2 className="h-10 w-10 text-emerald-600 mx-auto" />
-            <p className="font-medium">انجام شد — در حال انتقال به ادیتور…</p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">اطلاعات کتابشناختی</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BookMetadataForm value={meta} onChange={setMeta} fa={fa} />
+            </CardContent>
+          </Card>
+
+          {stage === "done" && (
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={saveMetadataAndContinue} disabled={savingMeta} className="flex-1 sm:flex-initial">
+                {savingMeta ? <Loader2 className="h-4 w-4 me-1 animate-spin" /> : <CheckCircle2 className="h-4 w-4 me-1" />}
+                ذخیرهٔ مشخصات و رفتن به ادیتور
+              </Button>
+              <Button variant="outline" onClick={skipMetadata} disabled={savingMeta}>
+                فعلاً رد شو (در ادیتور تکمیل می‌کنم)
+              </Button>
+            </div>
+          )}
+        </div>
       )}
 
       {error && stage !== "uploading" && (
