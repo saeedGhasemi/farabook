@@ -47,7 +47,7 @@ export type Block =
   | { type: "paragraph"; text: string; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }
   | { type: "quote"; text: string; author?: string; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }
   | { type: "highlight"; text: string }
-  | { type: "image"; src: string; caption?: string; figureNumber?: string; hotspots?: Hotspot[]; hideCaption?: boolean }
+  | { type: "image"; src: string; caption?: string; figureNumber?: string; hotspots?: Hotspot[]; hideCaption?: boolean; width?: number; height?: number }
   | { type: "image_placeholder"; pendingSrc?: string; bytes?: number; contentType?: string; reason?: string; caption?: string; figureNumber?: string; originalPath?: string; slot?: number }
   | { type: "gallery"; images: string[]; caption?: string }
   | { type: "slideshow"; images: { src: string; caption?: string }[]; autoplay?: boolean; interval?: number; hideCaption?: boolean }
@@ -225,8 +225,8 @@ const renderWithHighlights = (
 /* ---------- Sub-components ---------- */
 
 const InteractiveImage = ({
-  src, caption, hotspots, mediaKey, figureNumber,
-}: { src: string; caption?: string; hotspots?: Hotspot[]; mediaKey?: string; figureNumber?: string }) => {
+  src, caption, hotspots, mediaKey, figureNumber, width, height,
+}: { src: string; caption?: string; hotspots?: Hotspot[]; mediaKey?: string; figureNumber?: string; width?: number; height?: number }) => {
   const [zoomed, setZoomed] = useState(false);
   useEffect(() => {
     if (!mediaKey) return;
@@ -246,7 +246,7 @@ const InteractiveImage = ({
   }, [zoomed]);
 
   return (
-    <figure ref={figureRef} className="my-6 group">
+    <figure ref={figureRef} className="my-6 group" style={width ? { maxWidth: `${width}px`, marginInline: width < 400 ? "auto" : undefined } : undefined}>
       <div className="relative overflow-hidden rounded-2xl book-shadow bg-foreground/5">
         <button
           type="button"
@@ -646,7 +646,7 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
           {block.hideCaption && block.caption ? (
             <HiddenCaptionImage src={block.src} caption={block.caption} figureNumber={block.figureNumber} />
           ) : (
-            <InteractiveImage src={block.src} caption={block.caption} hotspots={block.hotspots} mediaKey={blockId} figureNumber={block.figureNumber} />
+            <InteractiveImage src={block.src} caption={block.caption} hotspots={block.hotspots} mediaKey={blockId} figureNumber={block.figureNumber} width={block.width} height={block.height} />
           )}
         </motion.div>
       );
