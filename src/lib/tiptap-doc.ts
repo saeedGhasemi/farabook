@@ -83,6 +83,7 @@ export type DocNode =
   | TableNode
   | TimelineNode
   | ScrollyNode
+  | PrintPageNode
   // Lists are passed through as-is from Tiptap (StarterKit) — we only
   // care about reading them back out for the legacy renderer below.
   | { type: "bulletList" | "orderedList"; content?: any[] }
