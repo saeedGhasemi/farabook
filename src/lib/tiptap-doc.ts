@@ -541,6 +541,9 @@ export const docToLegacyBlocks = (doc: TiptapDoc): any[] => {
       case "scrollytelling":
         out.push({ type: "scrollytelling", title: n.attrs.title, steps: n.attrs.steps });
         break;
+      case "print_page":
+        out.push({ type: "print_page", number: String(n.attrs?.number ?? "") });
+        break;
       case "bulletList":
       case "orderedList": {
         const itemData = (n.content ?? [])
