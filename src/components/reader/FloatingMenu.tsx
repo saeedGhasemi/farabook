@@ -204,6 +204,22 @@ export const FloatingMenu = ({
                 active={isSpeaking}
               />
               <Item icon={BookmarkCheck} label={lang === "fa" ? "نشان‌ها" : "Notes"} onClick={onOpenHighlights} badge={highlightCount} />
+              <Item
+                icon={readingMode === "paginated" ? ScrollText : Columns}
+                label={readingMode === "paginated"
+                  ? (lang === "fa" ? "حالت اسکرول" : "Scroll mode")
+                  : (lang === "fa" ? "حالت لیکویید" : "Page mode")}
+                onClick={onToggleReadingMode}
+                active={readingMode === "paginated"}
+              />
+              <Item
+                icon={fullscreen ? Minimize2 : Maximize2}
+                label={fullscreen
+                  ? (lang === "fa" ? "خروج تمام‌صفحه" : "Exit full")
+                  : (lang === "fa" ? "تمام‌صفحه" : "Full")}
+                onClick={onToggleFullscreen}
+                active={fullscreen}
+              />
               <Item icon={ambient === "off" ? VolumeOff : CloudRain} label={t("ambient")} onClick={() => setAmbOpen((v) => !v)} active={ambient !== "off"} />
               <Item icon={dark ? Sun : Moon} label={dark ? t("light") : t("dark")} onClick={onToggleDark} />
               <Item icon={Settings2} label={t("settings")} onClick={onOpenSettings} />
