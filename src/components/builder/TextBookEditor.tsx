@@ -427,6 +427,10 @@ export const TextBookEditor = ({ initial }: Props) => {
             author: author || initial.author,
             cover_url: coverUrl,
             cover_focus: coverFocus,
+            back_cover_url: backCoverUrl,
+            back_cover_focus: backCoverFocus,
+            cover_spread_url: coverSpreadUrl,
+            cover_crop: coverCrop as any,
             pages: dbPages,
             typography_preset: typography,
           })
