@@ -261,6 +261,12 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
     initial?.typography_preset || "editorial",
   );
 
+  // All images currently present in the book — reusable in gallery/slideshow
+  // pickers so the user can compose interactive blocks without re-uploading.
+  const bookImages = useMemo(() => collectBookImages(pages), [pages]);
+
+
+
   const [activePageIdx, setActivePageIdx] = useState(0);
   const [selectedBlockIdx, setSelectedBlockIdx] = useState<number | null>(null);
   const [insertAt, setInsertAt] = useState<number | null>(null); // shows QuickInsert at this position
