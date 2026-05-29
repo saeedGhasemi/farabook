@@ -1926,17 +1926,55 @@ const HotspotEditor = ({
 /* ------------------------------------------------------------------ */
 
 const BookImagePicker = ({
-  bookImages, excludeSrcs, onPick, lang,
+  bookImages, excludeSrcs, onPick, lang, currentPageIdx,
 }: {
-  bookImages: { src: string; caption?: string }[];
+  bookImages: { src: string; caption?: string; pageIdx?: number }[];
   excludeSrcs: Set<string>;
   onPick: (chosen: { src: string; caption?: string }[]) => void;
   lang: "fa" | "en";
+  /** Page where the interactive block lives. Images from this page (and
+   *  adjacent pages) are surfaced first so the user usually sees the
+   *  relevant images at the top of the picker. */
+  currentPageIdx?: number;
 }) => {
   const fa = lang === "fa";
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const available = bookImages.filter((i) => !excludeSrcs.has(i.src));
+  const [scope, setScope] = useState<"nearby" | "all">("nearby");
+
+  const availableAll = useMemo(
+    () => bookImages.filter((i) => !excludeSrcs.has(i.src)),
+    [bookImages, excludeSrcs],
+  );
+
+  // Sort by distance to currentPageIdx (closer = first). Stable order for
+  // equal distance preserves original document order.
+  const sorted = useMemo(() => {
+    if (currentPageIdx == null) return availableAll;
+    return [...availableAll]
+      .map((it, idx) => ({
+        it,
+        idx,
+        dist: typeof it.pageIdx === "number" ? Math.abs(it.pageIdx - currentPageIdx) : 9999,
+      }))
+      .sort((a, b) => a.dist - b.dist || a.idx - b.idx)
+      .map((x) => x.it);
+  }, [availableAll, currentPageIdx]);
+
+  const samePageCount = useMemo(
+    () => (currentPageIdx == null ? 0 : availableAll.filter((i) => i.pageIdx === currentPageIdx).length),
+    [availableAll, currentPageIdx],
+  );
+
+  const visible = useMemo(() => {
+    if (scope === "all" || currentPageIdx == null) return sorted;
+    // Nearby = same page + 2 pages on either side. If no nearby images,
+    // fall back to showing everything so the picker is never empty.
+    const filtered = sorted.filter(
+      (i) => typeof i.pageIdx === "number" && Math.abs((i.pageIdx as number) - currentPageIdx) <= 2,
+    );
+    return filtered.length ? filtered : sorted;
+  }, [sorted, scope, currentPageIdx]);
 
   const toggle = (src: string) => {
     setPicked((s) => {
@@ -1947,7 +1985,7 @@ const BookImagePicker = ({
   };
 
   const confirm = () => {
-    const chosen = available.filter((i) => picked.has(i.src));
+    const chosen = sorted.filter((i) => picked.has(i.src));
     if (chosen.length) onPick(chosen);
     setPicked(new Set());
     setOpen(false);
