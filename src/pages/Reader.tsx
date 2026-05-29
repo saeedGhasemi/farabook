@@ -90,6 +90,9 @@ const Reader = () => {
 
   const [book, setBook] = useState<Book | null>(null);
   const [pageIdx, setPageIdx] = useState(0);
+  /** When non-null, show the cover page overlay instead of regular content. */
+  const [coverView, setCoverView] = useState<"front" | "back" | null>("front");
+  const coverDismissedRef = useRef(false);
   const [flipDir, setFlipDir] = useState<1 | -1>(1);
   const [fontSize, setFontSize] = useState(16);
   const [voiceSpeed, setVoiceSpeed] = useState(1);
