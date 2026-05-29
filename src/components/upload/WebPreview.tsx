@@ -1,7 +1,7 @@
 // Local web-preview of the imported book — text, images (blob URLs),
 // math, footnotes, special inline marks — so the user can verify the
-// conversion before uploading. Limited to the first 50 print pages
-// (or 400 blocks when the doc has no print-page markers) to stay fast.
+// conversion before uploading. Limited to the first 60 print pages
+// (or 480 blocks when the doc has no print-page markers) to stay fast.
 
 import { useEffect, useMemo, useRef } from "react";
 import type { TiptapDoc } from "@/lib/tiptap-doc";
