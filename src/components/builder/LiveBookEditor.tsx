@@ -1922,8 +1922,124 @@ const HotspotEditor = ({
 };
 
 /* ------------------------------------------------------------------ */
+/*  BookImagePicker — pick already-present book images into a block   */
+/* ------------------------------------------------------------------ */
+
+const BookImagePicker = ({
+  bookImages, excludeSrcs, onPick, lang,
+}: {
+  bookImages: { src: string; caption?: string }[];
+  excludeSrcs: Set<string>;
+  onPick: (chosen: { src: string; caption?: string }[]) => void;
+  lang: "fa" | "en";
+}) => {
+  const fa = lang === "fa";
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const available = bookImages.filter((i) => !excludeSrcs.has(i.src));
+
+  const toggle = (src: string) => {
+    setPicked((s) => {
+      const n = new Set(s);
+      if (n.has(src)) n.delete(src); else n.add(src);
+      return n;
+    });
+  };
+
+  const confirm = () => {
+    const chosen = available.filter((i) => picked.has(i.src));
+    if (chosen.length) onPick(chosen);
+    setPicked(new Set());
+    setOpen(false);
+  };
+
+  if (!bookImages.length) return null;
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 text-xs gap-1.5 w-full"
+        onClick={() => setOpen(true)}
+      >
+        <Images className="w-3.5 h-3.5" />
+        {fa ? `انتخاب از تصاویر کتاب (${available.length})` : `Pick from book images (${available.length})`}
+      </Button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-[120] bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="bg-card border border-border rounded-xl shadow-xl max-w-3xl w-full max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-3 border-b border-border">
+              <div className="text-sm font-semibold">
+                {fa ? "انتخاب از تصاویر داخل کتاب" : "Pick from book images"}
+                <span className="text-xs text-muted-foreground ms-2">
+                  {fa ? `${picked.size} انتخاب‌شده` : `${picked.size} selected`}
+                </span>
+              </div>
+              <button onClick={() => setOpen(false)} className="p-1.5 hover:bg-foreground/5 rounded">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <ScrollArea className="flex-1">
+              <div className="p-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                {available.length === 0 ? (
+                  <p className="col-span-full text-xs text-muted-foreground text-center py-8">
+                    {fa ? "تصویر بدون تکراری برای افزودن وجود ندارد." : "No more unique book images to add."}
+                  </p>
+                ) : available.map((img) => {
+                  const isOn = picked.has(img.src);
+                  return (
+                    <button
+                      key={img.src}
+                      type="button"
+                      onClick={() => toggle(img.src)}
+                      className={`relative aspect-square rounded-md overflow-hidden border-2 transition ${
+                        isOn ? "border-accent ring-2 ring-accent/40" : "border-transparent hover:border-accent/40"
+                      }`}
+                    >
+                      <img src={img.src} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      {isOn && (
+                        <div className="absolute top-1 end-1 w-5 h-5 rounded-full bg-accent text-accent-foreground text-[10px] font-bold flex items-center justify-center">
+                          ✓
+                        </div>
+                      )}
+                      {img.caption && (
+                        <div className="absolute inset-x-0 bottom-0 bg-black/55 text-white text-[10px] px-1 py-0.5 truncate">
+                          {img.caption}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+            <div className="p-3 border-t border-border flex items-center justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
+                {fa ? "انصراف" : "Cancel"}
+              </Button>
+              <Button size="sm" onClick={confirm} disabled={picked.size === 0}>
+                {fa ? `افزودن ${picked.size} تصویر` : `Add ${picked.size} image(s)`}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+/* ------------------------------------------------------------------ */
 /*  Inspector — rich controls for the selected block                  */
 /* ------------------------------------------------------------------ */
+
 
 const Inspector = ({
   block, onUpdate, onReplace, onSplit, uploadFile, bookImages, lang,
