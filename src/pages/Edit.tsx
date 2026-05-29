@@ -37,7 +37,7 @@ const Edit = () => {
       const [{ data, error }, { data: pagesData }] = await Promise.all([
         supabase
           .from("books")
-          .select("id, title, author, description, cover_url, cover_focus, publisher_id, status, typography_preset, author_user_id, category, price")
+          .select("id, title, author, description, cover_url, cover_focus, back_cover_url, back_cover_focus, cover_spread_url, cover_crop, publisher_id, status, typography_preset, author_user_id, category, price")
           .eq("id", id)
           .maybeSingle(),
         (supabase.rpc as any)("get_book_content", { _book_id: id }),
