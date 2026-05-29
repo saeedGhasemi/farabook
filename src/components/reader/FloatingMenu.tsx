@@ -42,6 +42,7 @@ export const FloatingMenu = ({
   onAi, onSpeak, onStopSpeak, isSpeaking, onOpenSearch,
   onOpenSettings, onOpenChapters, onOpenHighlights, onOpenChat, highlightCount,
   dark, onToggleDark, ambient, onAmbient,
+  readingMode, onToggleReadingMode, fullscreen, onToggleFullscreen,
 }: Props) => {
   const { t, lang } = useI18n();
   const [aiOpen, setAiOpen] = useState(false);
