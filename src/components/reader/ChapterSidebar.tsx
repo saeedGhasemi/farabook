@@ -36,6 +36,7 @@ export const ChapterSidebar = ({
   logoUrl,
   publicationYear,
   bookVersion,
+  onTitleClick,
 }: Props) => {
   const { t, lang } = useI18n();
   const fa = lang === "fa";
