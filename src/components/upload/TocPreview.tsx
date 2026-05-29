@@ -335,6 +335,16 @@ export const TocPreview = ({
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     )}
+                    {(n.sourceStyleName || n.sourceStyleId) && (
+                      <Button
+                        size="icon" variant="ghost"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:text-amber-600"
+                        onClick={() => toggleExcluded((n.sourceStyleName || n.sourceStyleId) as string)}
+                        title="حذف این Style از فهرست (همهٔ ردیف‌های هم‌Style)"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
                   </>
                 )}
               </div>
