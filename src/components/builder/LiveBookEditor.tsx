@@ -2415,6 +2415,7 @@ const Inspector = ({
               images: [...block.images, ...chosen.map((c) => ({ src: c.src, caption: c.caption || "" }))],
             } as any)}
             lang={lang}
+            currentPageIdx={currentPageIdx}
           />
 
 
