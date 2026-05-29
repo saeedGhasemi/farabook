@@ -335,8 +335,36 @@ const Reader = () => {
 
   useEffect(() => {
     setJumpValue(String(pageIdx + 1));
+    setCurrentPrintPage(null);
     requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
   }, [pageIdx]);
+
+  // Track which print-page marker is closest to the top of the viewport.
+  useEffect(() => {
+    if (coverView) return;
+    const root = articleRef.current;
+    if (!root) return;
+    const markers = Array.from(root.querySelectorAll<HTMLElement>("[data-print-page]"));
+    if (!markers.length) return;
+    const update = () => {
+      let best: { num: string; top: number } | null = null;
+      for (const m of markers) {
+        const r = m.getBoundingClientRect();
+        if (r.top <= 120) {
+          if (!best || r.top > best.top) best = { num: m.dataset.printPage || "", top: r.top };
+        }
+      }
+      setCurrentPrintPage(best?.num ?? null);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [pageIdx, coverView, book]);
+
 
   const pageText = useMemo(() => {
     if (!currentPage) return "";
