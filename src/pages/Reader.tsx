@@ -146,7 +146,7 @@ const Reader = () => {
       // page content through the ownership-checked RPC.
       const { data, error } = await supabase
         .from("books")
-        .select("id, title, author, cover_url, cover_focus, description, price, publisher_id, status, review_status, typography_preset, ambient_theme, preview_pages, language, isbn, publication_year, edition, page_count, subtitle, book_type, original_title, original_language, series_name, series_index, categories, subjects, contributors, content_version, content_updated_at, comments_enabled, ai_summary")
+        .select("id, title, author, cover_url, cover_focus, back_cover_url, back_cover_focus, cover_spread_url, cover_crop, description, price, publisher_id, status, review_status, typography_preset, ambient_theme, preview_pages, language, isbn, publication_year, edition, page_count, subtitle, book_type, original_title, original_language, series_name, series_index, categories, subjects, contributors, content_version, content_updated_at, comments_enabled, ai_summary")
         .eq("id", id)
         .maybeSingle();
       if (cancelled) return;
