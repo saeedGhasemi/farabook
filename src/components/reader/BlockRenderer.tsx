@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n";
 import { normalizeImportedText } from "@/lib/tiptap-doc";
 import { SmartImage } from "@/components/SmartImage";
 import { Timeline, type TimelineStep } from "./Timeline";
+import { ImageLightbox } from "./ImageLightbox";
 import { Math as MathRender } from "./Math";
 import { Scrollytelling, type ScrollyStep } from "./Scrollytelling";
 
