@@ -24,6 +24,10 @@ interface Props {
   onToggleDark: () => void;
   ambient: string;
   onAmbient: (a: string) => void;
+  readingMode: "scroll" | "paginated";
+  onToggleReadingMode: () => void;
+  fullscreen: boolean;
+  onToggleFullscreen: () => void;
 }
 
 const ambientOpts = [
