@@ -1,17 +1,18 @@
 // Compact cover editor.
 //
-// • Default view: a small thumbnail row showing the front and back covers.
-//   Clicking a thumbnail opens a large preview lightbox. Clicking the
-//   pencil opens a 2-step wizard (front → back) where the user uploads
-//   an image and sets the focal point (cropping for `object-cover`).
-// • The two-image data model (`coverUrl` / `backCoverUrl` + focus) is the
-//   primary path. Existing "spread" data is still rendered via
-//   <CoverImage/>, but the editor itself no longer offers a spread mode —
-//   editing replaces the spread with two separate images.
-import { useRef, useState } from "react";
+// • Thumbnail row for front + back covers.
+// • Click an empty thumbnail (or the small upload icon on a filled one) →
+//   pick a file → crop dialog (2:3 aspect, draggable + zoomable frame) →
+//   the cropped image is uploaded and stored as `coverUrl` /
+//   `backCoverUrl`. No focal-point handling needed; the stored image is
+//   already cropped to cover ratio.
+// • Click a filled thumbnail (via the eye icon) opens a large preview.
+import { useCallback, useRef, useState } from "react";
+import Cropper, { type Area } from "react-easy-crop";
 import { Button } from "@/components/ui/button";
-import { Image as ImageIcon, Pencil, Trash2, BookOpen, ChevronRight, ChevronLeft, Upload, Check, X, Loader2 } from "lucide-react";
+import { Image as ImageIcon, Eye, Upload, Loader2, Check, X, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Slider } from "@/components/ui/slider";
 import { useI18n } from "@/lib/i18n";
 import { useImageUpload } from "./tiptap-nodes";
 import { CoverImage, type CoverCrop } from "@/components/reader/CoverImage";
@@ -31,14 +32,46 @@ interface Props {
   onChange: (next: Partial<CoverState>) => void;
 }
 
-const clamp = (n: number) => Math.max(0, Math.min(100, n));
+const COVER_ASPECT = 2 / 3;
 
-/* ------------------------------- Thumbnail row ----------------------- */
+/* ---- Crop helper: produce a cropped JPEG blob from an image ---- */
+async function getCroppedBlob(src: string, area: Area): Promise<Blob> {
+  const img = await new Promise<HTMLImageElement>((res, rej) => {
+    const i = new Image();
+    i.crossOrigin = "anonymous";
+    i.onload = () => res(i);
+    i.onerror = rej;
+    i.src = src;
+  });
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(area.width);
+  canvas.height = Math.round(area.height);
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, area.x, area.y, area.width, area.height, 0, 0, canvas.width, canvas.height);
+  return await new Promise<Blob>((res, rej) =>
+    canvas.toBlob((b) => (b ? res(b) : rej(new Error("canvas empty"))), "image/jpeg", 0.92)!,
+  );
+}
+
+/* ---------------------------- Thumbnail row -------------------------- */
 export function CoverEditor({ value, onChange }: Props) {
   const { lang } = useI18n();
   const fa = lang === "fa";
   const [previewSide, setPreviewSide] = useState<"front" | "back" | null>(null);
-  const [wizardOpen, setWizardOpen] = useState(false);
+  const [cropSide, setCropSide] = useState<"front" | "back" | null>(null);
+  const [pickedSrc, setPickedSrc] = useState<string | null>(null);
+
+  const frontInputRef = useRef<HTMLInputElement | null>(null);
+  const backInputRef = useRef<HTMLInputElement | null>(null);
+
+  const openPicker = (side: "front" | "back") =>
+    (side === "front" ? frontInputRef : backInputRef).current?.click();
+
+  const onFile = (side: "front" | "back", file: File) => {
+    const url = URL.createObjectURL(file);
+    setPickedSrc(url);
+    setCropSide(side);
+  };
 
   const Thumb = ({ side }: { side: "front" | "back" }) => {
     const hasImage =
@@ -46,62 +79,105 @@ export function CoverEditor({ value, onChange }: Props) {
         ? Boolean(value.coverUrl || (value.spreadUrl && value.crop?.mode === "half"))
         : Boolean(value.backCoverUrl || (value.spreadUrl && value.crop?.mode === "half"));
     return (
-      <button
-        type="button"
-        onClick={() => hasImage && setPreviewSide(side)}
-        className="group relative w-14 h-20 rounded-md overflow-hidden border bg-muted hover:ring-2 hover:ring-accent/40 transition shrink-0"
-        title={hasImage ? (fa ? "نمایش بزرگ" : "View") : ""}
-      >
-        {hasImage ? (
-          <CoverImage
-            side={side}
-            coverUrl={value.coverUrl}
-            backCoverUrl={value.backCoverUrl}
-            spreadUrl={value.spreadUrl}
-            crop={value.crop}
-            focus={value.coverFocus}
-            backFocus={value.backCoverFocus}
-            title={side === "front" ? "Front" : "Back"}
-            width={200}
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <ImageIcon className="w-5 h-5 text-muted-foreground/60" />
-          </div>
+      <div className="relative shrink-0 group">
+        <button
+          type="button"
+          onClick={() => openPicker(side)}
+          className="relative w-14 h-20 rounded-md overflow-hidden border bg-muted hover:ring-2 hover:ring-accent/40 transition"
+          title={hasImage ? (fa ? "تغییر تصویر" : "Replace image") : (fa ? "بارگذاری تصویر" : "Upload image")}
+        >
+          {hasImage ? (
+            <CoverImage
+              side={side}
+              coverUrl={value.coverUrl}
+              backCoverUrl={value.backCoverUrl}
+              spreadUrl={value.spreadUrl}
+              crop={value.crop}
+              focus={value.coverFocus}
+              backFocus={value.backCoverFocus}
+              title={side === "front" ? "Front" : "Back"}
+              width={200}
+            />
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-muted-foreground/70">
+              <Upload className="w-4 h-4" />
+            </div>
+          )}
+          <span className="absolute bottom-0 inset-x-0 text-[9px] py-0.5 text-center bg-background/80 backdrop-blur-sm border-t">
+            {side === "front" ? (fa ? "جلو" : "Front") : (fa ? "پشت" : "Back")}
+          </span>
+        </button>
+        {hasImage && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setPreviewSide(side); }}
+            className="absolute -top-1.5 -end-1.5 w-5 h-5 rounded-full bg-background border shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+            title={fa ? "نمایش بزرگ" : "Preview"}
+          >
+            <Eye className="w-3 h-3" />
+          </button>
         )}
-        <span className="absolute bottom-0 inset-x-0 text-[9px] py-0.5 text-center bg-background/80 backdrop-blur-sm border-t">
-          {side === "front" ? (fa ? "جلو" : "Front") : (fa ? "پشت" : "Back")}
-        </span>
-      </button>
+      </div>
     );
   };
 
   return (
     <div className="rounded-lg border bg-card/50 p-2.5 mb-3 flex items-center gap-3">
       <div className="text-xs font-semibold flex items-center gap-1.5 me-1">
-        <BookOpen className="w-3.5 h-3.5 text-accent" />
+        <ImageIcon className="w-3.5 h-3.5 text-accent" />
         {fa ? "جلد" : "Cover"}
       </div>
       <Thumb side="front" />
       <Thumb side="back" />
       <div className="flex-1" />
-      <Button
-        size="sm"
-        variant="outline"
-        className="h-7 text-[11px] gap-1"
-        onClick={() => setWizardOpen(true)}
-      >
-        <Pencil className="w-3 h-3" />
-        {fa ? "ویرایش" : "Edit"}
-      </Button>
+      <span className="text-[10px] text-muted-foreground hidden sm:inline">
+        {fa ? "برای بارگذاری/تغییر روی هر تصویر کلیک کنید" : "Click a tile to upload or replace"}
+      </span>
 
-      {/* ---- Preview lightbox ---- */}
+      <input
+        ref={frontInputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onFile("front", f);
+          if (frontInputRef.current) frontInputRef.current.value = "";
+        }}
+      />
+      <input
+        ref={backInputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onFile("back", f);
+          if (backInputRef.current) backInputRef.current.value = "";
+        }}
+      />
+
+      {/* Preview lightbox */}
       <Dialog open={previewSide !== null} onOpenChange={(o) => !o && setPreviewSide(null)}>
         <DialogContent className="max-w-md p-0 overflow-hidden">
-          <DialogHeader className="px-4 py-2 border-b">
+          <DialogHeader className="px-4 py-2 border-b flex-row items-center justify-between">
             <DialogTitle className="text-sm">
               {previewSide === "front" ? (fa ? "روی جلد" : "Front cover") : (fa ? "پشت جلد" : "Back cover")}
             </DialogTitle>
+            {previewSide && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs gap-1 text-destructive"
+                onClick={() => {
+                  if (previewSide === "front") onChange({ coverUrl: null });
+                  else onChange({ backCoverUrl: null });
+                  setPreviewSide(null);
+                }}
+              >
+                <Trash2 className="w-3.5 h-3.5" /> {fa ? "حذف" : "Remove"}
+              </Button>
+            )}
           </DialogHeader>
           {previewSide && (
             <div className="aspect-[2/3] bg-muted">
@@ -121,162 +197,126 @@ export function CoverEditor({ value, onChange }: Props) {
         </DialogContent>
       </Dialog>
 
-      {/* ---- Wizard ---- */}
-      {wizardOpen && (
-        <CoverWizard
-          value={value}
+      {/* Crop dialog */}
+      {cropSide && pickedSrc && (
+        <CropDialog
+          side={cropSide}
+          src={pickedSrc}
+          onCancel={() => { URL.revokeObjectURL(pickedSrc); setPickedSrc(null); setCropSide(null); }}
+          onDone={(blob) => {
+            URL.revokeObjectURL(pickedSrc);
+            setPickedSrc(null);
+            const side = cropSide;
+            setCropSide(null);
+            return { blob, side };
+          }}
           onChange={onChange}
-          onClose={() => setWizardOpen(false)}
+          spreadUrl={value.spreadUrl}
+          crop={value.crop}
         />
       )}
     </div>
   );
 }
 
-/* ------------------------------- Wizard ------------------------------ */
-function CoverWizard({
-  value, onChange, onClose,
-}: { value: CoverState; onChange: (next: Partial<CoverState>) => void; onClose: () => void }) {
+/* ----------------------------- Crop dialog --------------------------- */
+function CropDialog({
+  side, src, onCancel, onChange, spreadUrl, crop,
+}: {
+  side: "front" | "back";
+  src: string;
+  onCancel: () => void;
+  onDone: (b: Blob) => void;
+  onChange: (next: Partial<CoverState>) => void;
+  spreadUrl: string | null;
+  crop: CoverCrop;
+}) {
   const { lang } = useI18n();
   const fa = lang === "fa";
   const { upload, busy } = useImageUpload();
-  const [step, setStep] = useState<0 | 1>(0); // 0 = front, 1 = back
 
-  // Local draft (committed on Save / Next so the user can cancel)
-  const [draftFrontUrl, setDraftFrontUrl] = useState<string | null>(value.coverUrl);
-  const [draftFrontFocus, setDraftFrontFocus] = useState(value.coverFocus);
-  const [draftBackUrl, setDraftBackUrl] = useState<string | null>(value.backCoverUrl);
-  const [draftBackFocus, setDraftBackFocus] = useState(value.backCoverFocus);
+  const [crop2, setCrop2] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [pixels, setPixels] = useState<Area | null>(null);
+  const onComplete = useCallback((_a: Area, p: Area) => setPixels(p), []);
 
-  const fileRef = useRef<HTMLInputElement | null>(null);
-
-  const isFront = step === 0;
-  const url = isFront ? draftFrontUrl : draftBackUrl;
-  const focus = isFront ? draftFrontFocus : draftBackFocus;
-  const setUrl = (u: string | null) => isFront ? setDraftFrontUrl(u) : setDraftBackUrl(u);
-  const setFocus = (f: { x: number; y: number }) => isFront ? setDraftFrontFocus(f) : setDraftBackFocus(f);
-
-  const handleFile = async (f: File) => {
-    const u = await upload(f);
-    if (u) {
-      setUrl(u);
-      setFocus({ x: 50, y: 50 });
-      toast.success(fa ? "بارگذاری شد" : "Uploaded");
+  const save = async () => {
+    if (!pixels) return;
+    try {
+      const blob = await getCroppedBlob(src, pixels);
+      const file = new File([blob], `cover-${side}-${Date.now()}.jpg`, { type: "image/jpeg" });
+      const url = await upload(file);
+      if (!url) return;
+      const patch: Partial<CoverState> = {
+        // If the book was using spread mode, replace with separate images
+        // for clarity.
+        ...(spreadUrl && crop?.mode === "half" ? { spreadUrl: null, crop: null } : {}),
+      };
+      if (side === "front") {
+        patch.coverUrl = url;
+        patch.coverFocus = { x: 50, y: 50 };
+      } else {
+        patch.backCoverUrl = url;
+        patch.backCoverFocus = { x: 50, y: 50 };
+      }
+      onChange(patch);
+      toast.success(fa ? "ذخیره شد" : "Saved");
+      onCancel();
+    } catch (e: any) {
+      toast.error(e?.message || (fa ? "خطا در برش" : "Crop failed"));
     }
   };
 
-  const onClickArea = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!url) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    setFocus({
-      x: clamp(Math.round(((e.clientX - rect.left) / rect.width) * 100)),
-      y: clamp(Math.round(((e.clientY - rect.top) / rect.height) * 100)),
-    });
-  };
-
-  const commitAndClose = () => {
-    onChange({
-      coverUrl: draftFrontUrl,
-      coverFocus: draftFrontFocus,
-      backCoverUrl: draftBackUrl,
-      backCoverFocus: draftBackFocus,
-      // Editing in wizard always normalises to the "two images" model.
-      spreadUrl: null,
-      crop: null,
-    });
-    onClose();
-  };
-
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-xl p-0 overflow-hidden">
+    <Dialog open onOpenChange={(o) => !o && onCancel()}>
+      <DialogContent className="max-w-lg p-0 overflow-hidden">
         <DialogHeader className="px-4 py-3 border-b">
-          <DialogTitle className="text-sm flex items-center gap-2">
-            <span className={`flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${isFront ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"}`}>1</span>
-            <span className={isFront ? "" : "text-muted-foreground"}>{fa ? "روی جلد" : "Front cover"}</span>
-            <ChevronRight className="w-3 h-3 text-muted-foreground" />
-            <span className={`flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${!isFront ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"}`}>2</span>
-            <span className={!isFront ? "" : "text-muted-foreground"}>{fa ? "پشت جلد" : "Back cover"}</span>
+          <DialogTitle className="text-sm">
+            {fa
+              ? side === "front" ? "برش روی جلد" : "برش پشت جلد"
+              : side === "front" ? "Crop front cover" : "Crop back cover"}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="p-4 space-y-3">
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void handleFile(f);
-              if (fileRef.current) fileRef.current.value = "";
-            }}
+        <div className="relative w-full h-[60vh] bg-black/90">
+          <Cropper
+            image={src}
+            crop={crop2}
+            zoom={zoom}
+            aspect={COVER_ASPECT}
+            onCropChange={setCrop2}
+            onZoomChange={setZoom}
+            onCropComplete={onComplete}
+            showGrid
+            objectFit="contain"
           />
-
-          <div
-            className={`relative w-full max-w-xs mx-auto aspect-[2/3] rounded-md overflow-hidden border bg-muted flex items-center justify-center ${url ? "cursor-crosshair" : ""}`}
-            onClick={onClickArea}
-            title={url ? (fa ? "برای تنظیم نقطه مرکزی کلیک کنید" : "Click to set focal point") : ""}
-          >
-            {url ? (
-              <>
-                <img src={url} alt="" className="w-full h-full object-cover" style={{ objectPosition: `${focus.x}% ${focus.y}%` }} />
-                <div
-                  className="absolute w-4 h-4 rounded-full border-2 border-white shadow bg-accent pointer-events-none -translate-x-1/2 -translate-y-1/2"
-                  style={{ left: `${focus.x}%`, top: `${focus.y}%` }}
-                />
-              </>
-            ) : (
-              <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                <ImageIcon className="w-8 h-8 opacity-60" />
-                <span className="text-xs">{fa ? "تصویری بارگذاری کنید" : "Upload an image"}</span>
-              </div>
-            )}
-          </div>
-
-          <p className="text-[11px] text-muted-foreground text-center">
-            {url
-              ? (fa ? "روی تصویر کلیک کنید تا نقطهٔ مرکزی برای برش انتخاب شود." : "Click the image to set the focal point used when cropped.")
-              : (fa ? "تصویری برای این صفحه از جلد انتخاب کنید." : "Choose an image for this cover side.")}
-          </p>
-
-          <div className="flex items-center justify-center gap-2">
-            <Button size="sm" variant="outline" className="gap-1" onClick={() => fileRef.current?.click()} disabled={busy}>
-              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-              {url ? (fa ? "تغییر تصویر" : "Replace") : (fa ? "بارگذاری" : "Upload")}
-            </Button>
-            {url && (
-              <Button size="sm" variant="ghost" className="gap-1 text-destructive" onClick={() => setUrl(null)}>
-                <Trash2 className="w-3.5 h-3.5" />
-                {fa ? "حذف" : "Remove"}
-              </Button>
-            )}
-          </div>
         </div>
 
-        <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/30">
-          <Button size="sm" variant="ghost" onClick={onClose} className="gap-1">
-            <X className="w-3.5 h-3.5" />
-            {fa ? "انصراف" : "Cancel"}
-          </Button>
-          <div className="flex items-center gap-2">
-            {!isFront && (
-              <Button size="sm" variant="outline" className="gap-1" onClick={() => setStep(0)}>
-                <ChevronRight className="w-3.5 h-3.5" />
-                {fa ? "قبلی" : "Back"}
-              </Button>
-            )}
-            {isFront ? (
-              <Button size="sm" className="gap-1 bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => setStep(1)}>
-                {fa ? "بعدی (پشت جلد)" : "Next (back cover)"}
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </Button>
-            ) : (
-              <Button size="sm" className="gap-1 bg-accent text-accent-foreground hover:bg-accent/90" onClick={commitAndClose}>
-                <Check className="w-3.5 h-3.5" />
-                {fa ? "ذخیره" : "Save"}
-              </Button>
-            )}
+        <div className="px-4 py-3 border-t space-y-3 bg-muted/30">
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-muted-foreground w-12">{fa ? "بزرگ‌نمایی" : "Zoom"}</span>
+            <Slider
+              value={[zoom]}
+              min={1}
+              max={4}
+              step={0.01}
+              onValueChange={(v) => setZoom(v[0])}
+              className="flex-1"
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <Button size="sm" variant="ghost" onClick={onCancel} className="gap-1">
+              <X className="w-3.5 h-3.5" /> {fa ? "انصراف" : "Cancel"}
+            </Button>
+            <Button
+              size="sm"
+              className="gap-1 bg-accent text-accent-foreground hover:bg-accent/90"
+              onClick={save}
+              disabled={busy || !pixels}
+            >
+              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              {fa ? "ذخیره" : "Save"}
+            </Button>
           </div>
         </div>
       </DialogContent>
