@@ -203,6 +203,29 @@ export const TextBookEditor = ({ initial }: Props) => {
     return n;
   }, [pages]);
   const unreviewedCount = Math.max(0, totalImages - reviewedImages.size);
+  // All images currently in the book — fed to gallery/media node-views via
+  // BookImagesContext so users can reuse them without re-uploading.
+  const bookImages = useMemo<BookImageEntry[]>(() => {
+    const seen = new Set<string>();
+    const out: BookImageEntry[] = [];
+    const push = (src?: any, caption?: any) => {
+      if (typeof src !== "string" || !src) return;
+      if (seen.has(src)) return;
+      seen.add(src);
+      out.push({ src, caption: typeof caption === "string" ? caption : undefined });
+    };
+    for (const p of pages) {
+      for (const node of (p.doc?.content ?? []) as any[]) {
+        const t = node?.type;
+        const a = node?.attrs ?? {};
+        if (t === "image") push(a.src, a.caption);
+        else if (t === "image_placeholder") push(a.pendingSrc, a.caption);
+        else if (t === "gallery" && Array.isArray(a.images)) a.images.forEach((s: any) => push(s));
+        else if (t === "slideshow" && Array.isArray(a.images)) a.images.forEach((it: any) => push(it?.src, it?.caption));
+      }
+    }
+    return out;
+  }, [pages]);
   // Track which chapters changed since last save and whether the
   // structural shape (chapter order/count, metadata) changed. Autosave
   // sends only the dirty chapters via an RPC; manual Save (or any
