@@ -24,6 +24,7 @@ import {
   Undo2, Redo2, X, ArrowLeftRight, ChevronsLeft, ChevronsRight, Scissors,
   Eraser, Info, Combine, ListTree, FunctionSquare,
   ChevronRight, ChevronDown, ArrowUp, ArrowDown, IndentIncrease, IndentDecrease,
+  ChevronsDownUp, ChevronsUpDown,
 } from "lucide-react";
 import { ChapterTocDialog } from "./ChapterTocDialog";
 import { isAutoPageTitle } from "@/lib/page-title";
