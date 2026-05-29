@@ -135,14 +135,20 @@ export const ChapterSidebar = ({
           <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground/80 mb-1">
             {fa ? "کتاب در دست مطالعه" : "Now reading"}
           </div>
-          {/* Book title — single-line marquee-scroll on overflow */}
+          {/* Book title — clickable, returns to the front cover. Marquees on overflow. */}
           <div
             className="relative overflow-hidden group"
             title={bookTitle || ""}
           >
-            <h3 className="font-display font-bold text-base leading-snug whitespace-nowrap chapter-title-marquee">
+            <button
+              type="button"
+              onClick={onTitleClick}
+              disabled={!onTitleClick}
+              className="block w-full text-start font-display font-bold text-base leading-snug whitespace-nowrap chapter-title-marquee hover:text-accent transition-colors disabled:cursor-default disabled:hover:text-foreground"
+              aria-label={fa ? "بازگشت به جلد کتاب" : "Back to cover"}
+            >
               {bookTitle || (fa ? "فهرست فصل‌ها" : "Chapters")}
-            </h3>
+            </button>
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
