@@ -107,14 +107,21 @@ function normalizePersianHalfSpaces(value: string): string {
 }
 
 function normalizeTextNodes(nodes: TextNode[]): TextNode[] {
+  if (nodes.length === 0) return nodes;
+  const hasMarks = nodes.some((n) => n.marks && n.marks.length > 0);
+  if (hasMarks) {
+    // Preserve marks: normalize each node individually. Cross-run half-space
+    // joins are lost in this case, but mark fidelity (sup/sub/bold/...) wins.
+    return nodes
+      .map((n) => ({ ...n, text: normalizePersianHalfSpaces(n.text ?? "") }))
+      .filter((n) => n.text.length > 0);
+  }
   const raw = nodes.map((n) => n.text ?? "").join("");
   const normalized = normalizePersianHalfSpaces(raw);
   if (normalized === raw) return nodes;
-  // When Word splits a half-space sequence across multiple runs, preserving
-  // exact run marks while replacing/removing separator characters is unsafe.
-  // Prefer textual correctness for Persian import and keep a clean paragraph.
   return normalized ? [{ type: "text", text: normalized }] : [];
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Styles                                                              */
