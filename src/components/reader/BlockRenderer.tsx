@@ -612,6 +612,25 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
   };
 
   switch (block.type) {
+    case "print_page": {
+      const num = String(block.number ?? "").trim();
+      return (
+        <div
+          {...({} as any)}
+          data-print-page={num}
+          id={`print-page-${num}`}
+          aria-label={`صفحه چاپی ${num}`}
+          className="my-4 flex items-center gap-2 opacity-40 hover:opacity-80 transition-opacity select-none"
+        >
+          <span className="h-px flex-1 bg-border" />
+          <span className="text-[10px] font-mono tabular-nums tracking-wide text-muted-foreground border border-border/60 rounded-sm px-1.5 py-0.5">
+            {num || "—"}
+          </span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+      );
+    }
+
     case "heading":
       return (
         <motion.h3 {...fade} dir={block.dir} className="text-xl md:text-2xl font-display font-bold gold-text mt-6 mb-3 leading-tight" style={textBlockStyle(block)}>
