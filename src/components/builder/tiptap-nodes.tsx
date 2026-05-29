@@ -831,3 +831,28 @@ export const useImageUpload = () => {
 
   return { busy, upload, inputRef };
 };
+
+/* ------------------------------------------------------------------ */
+/* Footnote mark — preserves footnote references from Word imports     */
+/* so pages with footnotes don't blow up Tiptap's schema validation    */
+/* (unknown marks throw during setContent, leaving the page empty).    */
+/* ------------------------------------------------------------------ */
+export const Footnote = Mark.create({
+  name: "footnote",
+  inclusive: false,
+  addAttributes() {
+    return {
+      kind: { default: "footnote" },
+      id: { default: "" },
+      text: { default: "" },
+    };
+  },
+  parseHTML() { return [{ tag: "sup[data-footnote]" }]; },
+  renderHTML({ HTMLAttributes }) {
+    return ["sup", mergeAttributes(HTMLAttributes, {
+      "data-footnote": "true",
+      class: "text-accent cursor-help underline decoration-dotted",
+      title: (HTMLAttributes as any)?.text || "",
+    }), 0];
+  },
+});
