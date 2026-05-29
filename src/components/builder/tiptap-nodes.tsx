@@ -2,7 +2,7 @@
 // blocks (callout, quote) are editable. Media blocks (image / video /
 // gallery / timeline / scrollytelling) are atom node-views with full
 // inline editing UIs (upload images, paste URLs, add steps, etc.).
-import { Node, mergeAttributes } from "@tiptap/core";
+import { Node, Mark, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { resolveBookMedia, resolveBookCover } from "@/lib/book-media";
