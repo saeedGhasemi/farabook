@@ -47,7 +47,7 @@ export interface CalloutNode {
 }
 export interface ImageNode {
   type: "image";
-  attrs: { src: string; caption?: string; hideCaption?: boolean; width?: number; height?: number };
+  attrs: { src: string; caption?: string; hideCaption?: boolean; width?: number; height?: number; captionPendingConfirm?: boolean };
 }
 export interface ImagePlaceholderNode {
   type: "image_placeholder";
