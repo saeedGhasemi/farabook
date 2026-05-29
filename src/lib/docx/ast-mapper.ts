@@ -956,6 +956,8 @@ export interface MapResult {
     /** Unique paragraph styles seen in the document. Useful for the wizard
      *  to suggest names when the user picks a custom heading style. */
     paragraphStyles: Array<{ id: string; name?: string; count: number }>;
+    /** Style→level hints extracted from any TOC field in the source. */
+    tocFieldStyles: Array<{ name: string; level: number }>;
   };
 }
 
