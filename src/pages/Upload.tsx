@@ -377,6 +377,7 @@ const Upload = () => {
     setValidation([]);
     setStage("drop");
     setError(null);
+    setCreatedBookId(null);
   };
 
   /* -------- render -------- */
