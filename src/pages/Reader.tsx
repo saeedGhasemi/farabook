@@ -54,6 +54,9 @@ interface Book {
   back_cover_focus?: { x?: number; y?: number } | null;
   cover_spread_url?: string | null;
   cover_crop?: CoverCrop;
+  publication_year?: number | null;
+  content_version?: number | string | null;
+  publisher_logo_url?: string | null;
 }
 
 const ambientSrc: Record<string, string> = {
