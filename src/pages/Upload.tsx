@@ -435,7 +435,7 @@ const Upload = () => {
     releaseBlobs();
     setLocal(null);
     setMeta({ ...DEFAULT_METADATA });
-    setCustomHeadingStyle("");
+    setCustomHeadings([]);
     setPrintStartPage("");
     setValidation([]);
     setStage("drop");
