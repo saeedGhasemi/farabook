@@ -35,6 +35,7 @@ import { buildToc } from "@/lib/docx/toc-builder";
 import { validateUpload, hasBlockingErrors, type ValidationItem } from "@/lib/docx/validator";
 import { TocPreview } from "@/components/upload/TocPreview";
 import { ValidationReport } from "@/components/upload/ValidationReport";
+import { WebPreview } from "@/components/upload/WebPreview";
 import {
   BookMetadataForm, DEFAULT_METADATA, normalizeMetadata,
   type BookMetadata,
@@ -174,6 +175,34 @@ const Upload = () => {
       printStartPageFromDoc: local.printStartPageFromDoc,
     }));
   }, [local, meta, toc, printStartPage]);
+
+  /* -------- TOC edit / delete (mutate AST locally) -------- */
+  const editHeading = (index: number, level: 1|2|3|4|5|6|7|8, title: string) => {
+    if (!local) return;
+    const doc = local.prep.doc;
+    const node: any = doc.content?.[index];
+    if (!node || node.type !== "heading") return;
+    node.attrs = { ...(node.attrs ?? {}), level };
+    node.content = [{ type: "text", text: title }];
+    setLocal({ ...local, prep: { ...local.prep, doc: { ...doc, content: [...(doc.content ?? [])] } } });
+  };
+
+  const deleteHeading = (index: number) => {
+    if (!local) return;
+    const doc = local.prep.doc;
+    const node: any = doc.content?.[index];
+    if (!node || node.type !== "heading") return;
+    // Demote to a normal paragraph so the underlying text is preserved.
+    const newNode: any = {
+      type: "paragraph",
+      attrs: { dir: node.attrs?.dir ?? null, textAlign: node.attrs?.textAlign ?? null },
+      content: node.content,
+    };
+    const next = [...(doc.content ?? [])];
+    next[index] = newNode;
+    setLocal({ ...local, prep: { ...local.prep, doc: { ...doc, content: next } } });
+  };
+
 
   /* -------- blob URLs for preview images -------- */
   const mediaUrls = useMemo(() => {
@@ -376,6 +405,8 @@ const Upload = () => {
                 availableStyleNames={local.prep.diagnostics.paragraphStyles
                   .map((s) => s.name || s.id)
                   .filter(Boolean) as string[]}
+                onEditHeading={editHeading}
+                onDeleteHeading={deleteHeading}
               />
               {customHeadingStyle.trim() && (
                 <Button variant="secondary" size="sm" onClick={reanalyzeWithCustomHeading}>
@@ -383,6 +414,15 @@ const Upload = () => {
                   اعمال Style سفارشی و تحلیل مجدد
                 </Button>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">پیش‌نمایش وب کتاب</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <WebPreview doc={local.prep.doc} mediaUrls={mediaUrls} />
             </CardContent>
           </Card>
 

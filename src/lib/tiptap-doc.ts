@@ -38,7 +38,7 @@ export interface TextNode {
 
 export interface TextBlockAttrs { textAlign?: "left" | "center" | "right" | "justify" | null; dir?: "rtl" | "ltr" | null }
 export interface ParagraphNode { type: "paragraph"; attrs?: TextBlockAttrs; content?: TextNode[] }
-export interface HeadingNode { type: "heading"; attrs: { level: 1 | 2 | 3 } & TextBlockAttrs; content?: TextNode[] }
+export interface HeadingNode { type: "heading"; attrs: { level: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 } & TextBlockAttrs; content?: TextNode[] }
 export interface QuoteNode { type: "quote"; attrs?: { author?: string } & TextBlockAttrs; content?: TextNode[] }
 export interface CalloutNode {
   type: "callout";
