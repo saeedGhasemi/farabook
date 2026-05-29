@@ -723,25 +723,25 @@ function parseNumbering(xml: any | null): NumInfo {
   for (const c of kidsOf(root, "w:numbering")) {
     const t = tagOf(c);
     if (t === "w:num") {
-      const numId = Number(attr(c, "w:numId"));
+      const numId = Number(attrLoose(c, "w:numId"));
       for (const cc of kidsOf(c, "w:num")) {
         if (tagOf(cc) === "w:abstractNumId") {
-          const aid = Number(attr(cc, "w:val"));
+          const aid = Number(attrLoose(cc, "w:val"));
           if (Number.isFinite(numId) && Number.isFinite(aid)) info.numToAbstract.set(numId, aid);
         }
       }
     } else if (t === "w:abstractNum") {
-      const aid = Number(attr(c, "w:abstractNumId"));
+      const aid = Number(attrLoose(c, "w:abstractNumId"));
       if (!Number.isFinite(aid)) continue;
       const levels = new Map<number, NumLevelFmt>();
       for (const lvl of kidsOf(c, "w:abstractNum")) {
         if (tagOf(lvl) !== "w:lvl") continue;
-        const ilvl = Number(attr(lvl, "w:ilvl"));
+        const ilvl = Number(attrLoose(lvl, "w:ilvl"));
         const fmt: NumLevelFmt = {};
         for (const lp of kidsOf(lvl, "w:lvl")) {
           const lt = tagOf(lp);
-          if (lt === "w:numFmt") fmt.numFmt = attr(lp, "w:val");
-          else if (lt === "w:lvlText") fmt.lvlText = attr(lp, "w:val");
+          if (lt === "w:numFmt") fmt.numFmt = attrLoose(lp, "w:val");
+          else if (lt === "w:lvlText") fmt.lvlText = attrLoose(lp, "w:val");
         }
         if (Number.isFinite(ilvl)) levels.set(ilvl, fmt);
       }
