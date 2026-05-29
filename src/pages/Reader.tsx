@@ -731,9 +731,16 @@ const Reader = () => {
             <span>{book.author}</span>
           </div>
           <div className="text-xs text-muted-foreground tabular-nums">
+            {currentPrintPage ? (
+              <span title={lang === "fa" ? "صفحه چاپی" : "Print page"}>
+                <span className="opacity-60">{lang === "fa" ? "ص." : "p."}</span> {currentPrintPage}
+                <span className="opacity-40 mx-1.5">·</span>
+              </span>
+            ) : null}
             {pageIdx + 1} / {total}
           </div>
         </div>
+
 
         {/* Progress */}
         <div className="h-1 bg-foreground/5 rounded-full overflow-hidden mb-8 max-w-5xl mx-auto">
