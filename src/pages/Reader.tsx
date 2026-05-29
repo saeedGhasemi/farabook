@@ -59,11 +59,14 @@ interface Book {
   publisher_logo_url?: string | null;
 }
 
+// Built-in ambient tracks (hosted on our own origin → no CORS issues).
+// Files live in /public/ambient/*.mp3 and ship with the app.
 const ambientSrc: Record<string, string> = {
-  rain: "https://cdn.pixabay.com/audio/2022/03/15/audio_e1bf6db78f.mp3",
-  forest: "https://cdn.pixabay.com/audio/2022/02/07/audio_5cab6f9395.mp3",
-  cafe: "https://cdn.pixabay.com/audio/2022/03/09/audio_d8c80cd3e8.mp3",
-  night: "https://cdn.pixabay.com/audio/2022/10/30/audio_347111d662.mp3",
+  rain: "/ambient/rain.mp3",
+  forest: "/ambient/forest.mp3",
+  cafe: "/ambient/cafe.mp3",
+  night: "/ambient/night.mp3",
+  ocean: "/ambient/ocean.mp3",
 };
 
 type AiMode = "summary" | "quiz" | "mindmap" | "explain" | "timeline";
@@ -108,6 +111,8 @@ const Reader = () => {
   const [voiceSpeed, setVoiceSpeed] = useState(1);
   const [dark, setDark] = useState(false);
   const [ambient, setAmbient] = useState<string>("off");
+  /** User-uploaded ambient tracks: { id: storage-path, label: display-name, url }. */
+  const [userAmbient, setUserAmbient] = useState<Array<{ id: string; label: string; url: string }>>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [aiOpen, setAiOpen] = useState(false);
@@ -353,7 +358,7 @@ const Reader = () => {
       audioRef.current = null;
     }
     if (ambient === "off") return;
-    const src = ambientSrc[ambient];
+    const src = ambientSrc[ambient] || userAmbient.find((t) => t.id === ambient)?.url;
     if (!src) return;
     const a = new Audio();
     // NOTE: do NOT set crossOrigin — the Pixabay CDN does not return
@@ -409,7 +414,32 @@ const Reader = () => {
       a.src = "";
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ambient]);
+  }, [ambient, userAmbient]);
+
+  // Load the current user's personal ambient playlist from storage.
+  useEffect(() => {
+    if (!user?.id) { setUserAmbient([]); return; }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.storage
+        .from("user-ambient")
+        .list(user.id, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
+      if (error || cancelled || !data) return;
+      const items = data
+        .filter((f) => f.name && !f.name.endsWith("/"))
+        .map((f) => {
+          const path = `${user.id}/${f.name}`;
+          const { data: pub } = supabase.storage.from("user-ambient").getPublicUrl(path);
+          return {
+            id: `user:${path}`,
+            label: f.name.replace(/\.[^.]+$/, ""),
+            url: pub.publicUrl,
+          };
+        });
+      if (!cancelled) setUserAmbient(items);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   useEffect(() => () => { stopSpeakSmart(); }, []);
   useEffect(() => {
@@ -1162,6 +1192,7 @@ const Reader = () => {
         onToggleDark={() => setDark(!dark)}
         ambient={ambient}
         onAmbient={setAmbient}
+        userAmbient={userAmbient}
         readingMode={readingMode}
         onToggleReadingMode={() => setReadingMode((m) => (m === "scroll" ? "paginated" : "scroll"))}
         fullscreen={fullscreen}

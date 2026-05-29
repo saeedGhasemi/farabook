@@ -86,6 +86,8 @@ const dict: Dict = {
   amb_forest: { fa: "جنگل", en: "Forest" },
   amb_cafe: { fa: "کافه", en: "Café" },
   amb_night: { fa: "شب", en: "Night" },
+  amb_ocean: { fa: "اقیانوس", en: "Ocean" },
+  amb_my: { fa: "پلی‌لیست من", en: "My playlist" },
   reading_speed: { fa: "سرعت خواندن", en: "Voice speed" },
   email: { fa: "ایمیل", en: "Email" },
   password: { fa: "رمز عبور", en: "Password" },

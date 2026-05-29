@@ -5,7 +5,7 @@ import {
   Volume2, VolumeX, Settings2, Sun, Moon, Search,
   CloudRain, Trees, Coffee, Stars, VolumeOff, Menu, BookmarkCheck,
   ChevronUp, ChevronDown, Clock, MessageSquare,
-  Columns, ScrollText, Maximize2, Minimize2,
+  Columns, ScrollText, Maximize2, Minimize2, Waves, Music2,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
@@ -24,6 +24,7 @@ interface Props {
   onToggleDark: () => void;
   ambient: string;
   onAmbient: (a: string) => void;
+  userAmbient?: Array<{ id: string; label: string; url: string }>;
   readingMode: "scroll" | "paginated";
   onToggleReadingMode: () => void;
   fullscreen: boolean;
@@ -36,12 +37,13 @@ const ambientOpts = [
   { id: "forest", icon: Trees },
   { id: "cafe", icon: Coffee },
   { id: "night", icon: Stars },
+  { id: "ocean", icon: Waves },
 ];
 
 export const FloatingMenu = ({
   onAi, onSpeak, onStopSpeak, isSpeaking, onOpenSearch,
   onOpenSettings, onOpenChapters, onOpenHighlights, onOpenChat, highlightCount,
-  dark, onToggleDark, ambient, onAmbient,
+  dark, onToggleDark, ambient, onAmbient, userAmbient = [],
   readingMode, onToggleReadingMode, fullscreen, onToggleFullscreen,
 }: Props) => {
   const { t, lang } = useI18n();
@@ -150,7 +152,7 @@ export const FloatingMenu = ({
                 <button
                   key={id}
                   onClick={() => { onAmbient(id); setAmbOpen(false); }}
-                  className={`flex flex-col items-center gap-1 w-14 h-14 rounded-xl transition-all ${
+                  className={`flex flex-col items-center gap-1 w-14 h-14 shrink-0 rounded-xl transition-all ${
                     ambient === id
                       ? "bg-gradient-warm text-primary-foreground shadow-glow"
                       : "hover:bg-accent/15"
@@ -159,6 +161,24 @@ export const FloatingMenu = ({
                 >
                   <Icon className="w-4 h-4" />
                   <span className="text-[10px]">{t(`amb_${id}` as never)}</span>
+                </button>
+              ))}
+              {userAmbient.length > 0 && (
+                <div className="w-px self-stretch bg-border/60 mx-1" />
+              )}
+              {userAmbient.map((track) => (
+                <button
+                  key={track.id}
+                  onClick={() => { onAmbient(track.id); setAmbOpen(false); }}
+                  className={`flex flex-col items-center gap-1 w-16 h-14 shrink-0 rounded-xl transition-all px-1 ${
+                    ambient === track.id
+                      ? "bg-gradient-warm text-primary-foreground shadow-glow"
+                      : "hover:bg-accent/15"
+                  }`}
+                  title={track.label}
+                >
+                  <Music2 className="w-4 h-4" />
+                  <span className="text-[10px] truncate max-w-full">{track.label}</span>
                 </button>
               ))}
             </motion.div>

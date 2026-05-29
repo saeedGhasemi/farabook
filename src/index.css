@@ -749,8 +749,11 @@
 .reader-paginated {
   column-fill: auto;
   column-gap: 2.5rem;
-  height: var(--paginated-height, 78vh);
-  overflow: hidden;
+  height: 100%;
+  /* IMPORTANT: leave overflow visible so the multi-column container
+     reports the full content extent via scrollWidth. The wrapping
+     host element handles clipping. */
+  overflow: visible;
 }
 .reader-paginated > * {
   break-inside: avoid;
