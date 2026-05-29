@@ -598,6 +598,164 @@ const Slideshow = ({
   );
 };
 
+/* Gallery as a non-autoplay slideshow with thumbnail strip below.
+   Images are NEVER cropped — they're shown full (object-contain) inside a
+   letterboxed stage. */
+const GallerySlideshow = ({ images }: { images: string[] }) => {
+  const { dir } = useI18n();
+  const [i, setI] = useState(0);
+  const [lightbox, setLightbox] = useState(false);
+  const total = images.length;
+  const PrevIcon = dir === "rtl" ? ChevronRight : ChevronLeft;
+  const NextIcon = dir === "rtl" ? ChevronLeft : ChevronRight;
+  const go = (d: 1 | -1) => setI((p) => (p + d + total) % total);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(false);
+      if (e.key === "ArrowRight") setI((p) => (p + 1) % total);
+      if (e.key === "ArrowLeft") setI((p) => (p - 1 + total) % total);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox, total]);
+
+  if (!total) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border bg-foreground/5 aspect-[16/10] flex items-center justify-center text-sm text-muted-foreground">
+        —
+      </div>
+    );
+  }
+  const cur = images[Math.min(i, total - 1)];
+
+  return (
+    <div className="w-full">
+      {/* Main stage — letterboxed, no crop */}
+      <div className="relative overflow-hidden rounded-2xl book-shadow bg-foreground/5 aspect-[16/10]">
+        <AnimatePresence mode="wait">
+          <motion.button
+            type="button"
+            key={i}
+            onClick={() => setLightbox(true)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-0 w-full h-full flex items-center justify-center cursor-zoom-in"
+            aria-label="zoom"
+          >
+            <img
+              src={resolveImg(cur)}
+              alt=""
+              loading="lazy"
+              className="max-w-full max-h-full object-contain"
+            />
+          </motion.button>
+        </AnimatePresence>
+
+        {total > 1 && (
+          <>
+            <button
+              onClick={(e) => { e.stopPropagation(); go(-1); }}
+              className="absolute start-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full glass-strong flex items-center justify-center hover:bg-accent/30 transition-colors"
+              aria-label="previous"
+            >
+              <PrevIcon className="w-5 h-5" />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); go(1); }}
+              className="absolute end-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full glass-strong flex items-center justify-center hover:bg-accent/30 transition-colors"
+              aria-label="next"
+            >
+              <NextIcon className="w-5 h-5" />
+            </button>
+            <div className="absolute top-3 end-3 px-2.5 py-1 rounded-full glass-strong text-xs tabular-nums">
+              {i + 1} / {total}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Thumbnail strip */}
+      {total > 1 && (
+        <div className="mt-3 flex gap-2 overflow-x-auto scrollbar-thin pb-1">
+          {images.map((img, idx) => (
+            <button
+              key={idx}
+              onClick={() => setI(idx)}
+              className={`shrink-0 w-20 h-14 rounded-lg overflow-hidden border-2 bg-foreground/5 flex items-center justify-center transition-all ${
+                idx === i
+                  ? "border-accent shadow-glow scale-105"
+                  : "border-transparent opacity-60 hover:opacity-100"
+              }`}
+              aria-label={`thumbnail ${idx + 1}`}
+            >
+              <img
+                src={resolveImg(img)}
+                alt=""
+                loading="lazy"
+                className="max-w-full max-h-full object-contain"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {lightbox && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setLightbox(false)}
+          >
+            <button
+              onClick={(e) => { e.stopPropagation(); setLightbox(false); }}
+              className="absolute top-4 end-4 w-10 h-10 rounded-full glass-strong flex items-center justify-center"
+              aria-label="close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            {total > 1 && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); go(-1); }}
+                  className="absolute start-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full glass-strong flex items-center justify-center"
+                  aria-label="previous"
+                >
+                  <PrevIcon className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); go(1); }}
+                  className="absolute end-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full glass-strong flex items-center justify-center"
+                  aria-label="next"
+                >
+                  <NextIcon className="w-6 h-6" />
+                </button>
+              </>
+            )}
+            <motion.img
+              key={i}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              src={resolveImg(cur)}
+              alt=""
+              onClick={(e) => e.stopPropagation()}
+              className="max-w-full max-h-full object-contain rounded-lg"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+
+
 /* ---------- Main renderer ---------- */
 
 const textBlockStyle = (block: { textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }, extra?: React.CSSProperties): React.CSSProperties => ({
@@ -731,30 +889,11 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
     case "gallery":
       return (
         <motion.figure {...fade} className="my-6">
-          <div className="grid grid-cols-2 gap-3">
-            {block.images.map((img, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4, delay: delay + i * 0.1 }}
-                whileHover={{ scale: 1.02, y: -2 }}
-                className="overflow-hidden rounded-xl book-shadow"
-              >
-                <img
-                  src={resolveImg(img)}
-                  alt=""
-                  loading="lazy"
-                  width={640}
-                  height={384}
-                  className="w-full h-48 object-cover"
-                />
-              </motion.div>
-            ))}
-          </div>
+          <GallerySlideshow images={block.images} />
           {block.caption && <figcaption className="book-figcaption">{block.caption}</figcaption>}
         </motion.figure>
       );
+
 
     case "video": {
       const embed = toVideoEmbed(block.src);
