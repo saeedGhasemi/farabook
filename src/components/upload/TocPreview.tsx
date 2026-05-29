@@ -199,10 +199,23 @@ export const TocPreview = ({
                     <span className={`text-[10px] tabular-nums px-1 rounded ${LEVEL_BG[n.level] ?? LEVEL_BG[3]}`}>
                       H{n.level}
                     </span>
+                    {(n.sourceStyleName || n.sourceStyleId) && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-muted/70 text-muted-foreground border border-border/60 max-w-[160px] truncate"
+                        title={(n.sourceStyleName || n.sourceStyleId) + (n.promoted ? " (promoted)" : "")}
+                        dir="ltr"
+                      >
+                        {n.sourceStyleName || n.sourceStyleId}
+                      </span>
+                    )}
                     <span className="truncate flex-1" dir="auto">{n.title}</span>
+                    {n.promoted && (
+                      <span className="text-[10px] text-emerald-600" title="بر اساس Style سفارشی شما به فهرست افزوده شد">●</span>
+                    )}
                     {n.contentNodes < 2 && n.children.length === 0 && (
                       <span className="text-[10px] text-amber-600">فصل کوچک</span>
                     )}
+
                     {onEditHeading && (
                       <Button
                         size="icon" variant="ghost"

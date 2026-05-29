@@ -1140,7 +1140,12 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle, opts: MapOptions = {}): MapRe
       nodes.unshift({ type: "text", text: prefix });
       content.push({
         type: "paragraph",
-        attrs: { dir: detectDir(info.text, info.bidi), textAlign: info.align ?? null },
+        attrs: {
+          dir: detectDir(info.text, info.bidi),
+          textAlign: info.align ?? null,
+          srcStyleId: info.styleId ?? null,
+          srcStyleName: info.styleId ? (stylesMap.get(info.styleId)?.name ?? null) : null,
+        },
         content: nodes,
       } as ParagraphNode);
       continue;
@@ -1153,7 +1158,13 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle, opts: MapOptions = {}): MapRe
       const level = Math.min(8, Math.max(1, (info.outlineLevel ?? 0) + 1)) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
       content.push({
         type: "heading",
-        attrs: { level, dir: detectDir(info.text, info.bidi), textAlign: info.align ?? null },
+        attrs: {
+          level,
+          dir: detectDir(info.text, info.bidi),
+          textAlign: info.align ?? null,
+          srcStyleId: info.styleId ?? null,
+          srcStyleName: info.styleId ? (stylesMap.get(info.styleId)?.name ?? null) : null,
+        },
         content: info.textNodes,
       } as HeadingNode);
       continue;
@@ -1168,10 +1179,16 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle, opts: MapOptions = {}): MapRe
     if (!info.text.trim()) continue;
     content.push({
       type: "paragraph",
-      attrs: { dir: detectDir(info.text, info.bidi), textAlign: info.align ?? null },
+      attrs: {
+        dir: detectDir(info.text, info.bidi),
+        textAlign: info.align ?? null,
+        srcStyleId: info.styleId ?? null,
+        srcStyleName: info.styleId ? (stylesMap.get(info.styleId)?.name ?? null) : null,
+      },
       content: info.textNodes,
     } as ParagraphNode);
   }
+
 
   // Footnotes are now rendered inline as tooltips/popovers at their reference
   // location (see BlockRenderer / WordAddin preview). No appendix is emitted.

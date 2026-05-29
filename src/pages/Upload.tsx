@@ -15,8 +15,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Upload as UploadIcon, Loader2, FileText, CheckCircle2,
-  ArrowRight, ArrowLeft, Sparkles, RotateCcw,
+  ArrowRight, ArrowLeft, Sparkles,
 } from "lucide-react";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/lib/i18n";
@@ -31,7 +32,7 @@ import { readDocx } from "@/lib/docx/ooxml-reader";
 import { mapOoxmlToDoc, type MapResult } from "@/lib/docx/ast-mapper";
 import { extractPrintStartPage, shiftPrintPages } from "@/lib/docx/print-pages";
 import { processImagesLocally, rewriteMediaPlaceholders, type PipelineResult } from "@/lib/docx/image-pipeline";
-import { buildToc } from "@/lib/docx/toc-builder";
+import { buildTocLive } from "@/lib/docx/toc-builder";
 import { validateUpload, hasBlockingErrors, type ValidationItem } from "@/lib/docx/validator";
 import { TocPreview } from "@/components/upload/TocPreview";
 import { ValidationReport } from "@/components/upload/ValidationReport";
@@ -215,19 +216,43 @@ const Upload = () => {
     }
   };
 
-  /* -------- re-run mapping when user picks custom heading styles -------- */
-  const reanalyzeWithCustomHeading = async () => {
-    if (!local) return;
+  /* -------- promote paragraphs whose Word style matches the user's
+   *           custom-heading rules. Mutates a shallow copy of doc.content. */
+  const promoteCustomHeadings = (doc: any) => {
+    if (!customHeadings.length) return doc;
+    const norm = (s: string) => (s || "").trim().toLowerCase();
     const map = new Map<string, number>();
-    for (const h of customHeadings) {
-      const name = h.name.trim();
-      if (name) map.set(name, Math.min(8, Math.max(1, Math.floor(h.level || 1))));
+    for (const c of customHeadings) {
+      const k = norm(c.name);
+      if (k) map.set(k, Math.min(8, Math.max(1, Math.floor(c.level || 1))));
     }
-    await processFile(local.file, local.fileBuffer, map);
+    if (!map.size) return doc;
+    const next = [...(doc.content ?? [])];
+    for (let i = 0; i < next.length; i += 1) {
+      const n: any = next[i];
+      if (!n || n.type !== "paragraph") continue;
+      const sid = norm(n.attrs?.srcStyleId ?? "");
+      const sname = norm(n.attrs?.srcStyleName ?? "");
+      const lv = map.get(sid) ?? map.get(sname);
+      if (!lv) continue;
+      const title = (n.content ?? []).map((c: any) => c?.text ?? "").join("").trim();
+      if (!title) continue;
+      next[i] = {
+        type: "heading",
+        attrs: { ...n.attrs, level: lv },
+        content: n.content,
+      };
+    }
+    return { ...doc, content: next };
   };
 
+
   /* -------- validation re-runs whenever inputs change -------- */
-  const toc = useMemo(() => local ? buildToc(local.prep.doc) : [], [local]);
+  const toc = useMemo(
+    () => (local ? buildTocLive(local.prep.doc, customHeadings) : []),
+    [local, customHeadings],
+  );
+
   useEffect(() => {
     if (!local) return;
     const effectiveStart = typeof printStartPage === "number" ? printStartPage : 1;
@@ -330,7 +355,7 @@ const Upload = () => {
 
       const ingestResp = await supabase.functions.invoke("word-addin-ingest", {
         body: {
-          ast: local.prep.doc,
+          ast: promoteCustomHeadings(local.prep.doc),
           mediaUrlMap: Object.fromEntries(nameToUrl),
           replaceBookId: reconvertBookId,
           meta: {
@@ -341,6 +366,7 @@ const Upload = () => {
           },
         },
       });
+
       if (ingestResp.error) throw new Error(ingestResp.error.message);
       const bookId = (ingestResp.data as any)?.bookId;
       if (!bookId) throw new Error("شناسهٔ کتاب از سرور بازنگشت.");
@@ -521,12 +547,10 @@ const Upload = () => {
                 onEditHeading={editHeading}
                 onDeleteHeading={deleteHeading}
               />
-              {customHeadings.length > 0 && (
-                <Button variant="secondary" size="sm" onClick={reanalyzeWithCustomHeading}>
-                  <RotateCcw className="h-3.5 w-3.5 me-1" />
-                  اعمال Styleهای سفارشی و تحلیل مجدد
-                </Button>
-              )}
+              <p className="text-[11px] text-muted-foreground">
+                فهرست بالا با تغییر Styleهای سفارشی به‌صورت زنده به‌روزرسانی می‌شود؛ نیازی به تبدیل دوباره نیست.
+              </p>
+
             </CardContent>
           </Card>
 
