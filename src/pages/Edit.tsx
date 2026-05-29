@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Loader2, Pencil, Eye, Rocket } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Pencil, Eye, Rocket, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/lib/i18n";
@@ -142,6 +142,16 @@ const Edit = () => {
         >
           <Eye className="w-4 h-4" />
           <span className="hidden sm:inline">{lang === "fa" ? "پیش‌نمایش فروشگاه" : "Store preview"}</span>
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5"
+          onClick={() => id && nav(`/upload?reconvert=${id}`)}
+          title={lang === "fa" ? "تبدیل مجدد از فایل ورد" : "Re-convert from Word"}
+        >
+          <RefreshCw className="w-4 h-4" />
+          <span className="hidden md:inline">{lang === "fa" ? "تبدیل مجدد" : "Re-convert"}</span>
         </Button>
         <Button
           size="sm"
