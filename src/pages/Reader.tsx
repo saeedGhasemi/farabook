@@ -777,9 +777,42 @@ const Reader = () => {
   };
   const searchResults: SearchResult[] = (() => {
     if (!book) return [];
-    const term = searchTerm.trim().toLowerCase();
+    const rawTerm = searchTerm.trim();
+    const term = rawTerm.toLowerCase();
     if (!term) return [];
-    return book.pages.flatMap((page, pIndex) => {
+    const normTerm = normalizeDigits(rawTerm);
+    const isNumericQuery = /^\d+$/.test(normTerm);
+
+    // 1) Print-page hits — match the digits typed against `print_page` markers.
+    const printPageHits: SearchResult[] = [];
+    if (normTerm.length > 0) {
+      book.pages.forEach((page, pIndex) => {
+        const blocks = pageToBlocks(page);
+        blocks.forEach((block, bIndex) => {
+          if (block.type !== "print_page") return;
+          const num = normalizeDigits(String((block as any).number ?? "").trim());
+          if (!num) return;
+          const match = isNumericQuery ? num === normTerm : num.includes(normTerm);
+          if (!match) return;
+          // Build a short excerpt from the next text block on the same page.
+          const next = blocks.slice(bIndex + 1).find((bb) =>
+            bb.type === "paragraph" || bb.type === "heading" || bb.type === "quote" || bb.type === "callout"
+          ) as any;
+          const excerpt = next?.text ? String(next.text).slice(0, 140) : (page.title || "");
+          printPageHits.push({
+            pageIndex: pIndex,
+            blockIndex: bIndex,
+            title: `${lang === "fa" ? "صفحه چاپی" : "Print page"} ${num}`,
+            excerpt,
+            printPage: num,
+            mediaKey: `print-page-${num}`,
+          });
+        });
+      });
+    }
+
+    // 2) Regular text / chapter / media hits.
+    const textHits = book.pages.flatMap((page, pIndex) => {
       const pageBlocks = pageToBlocks(page);
       const firstMedia = pageBlocks.map((candidate, candidateIndex) => {
         const src = candidate.type === "image" ? candidate.src : candidate.type === "gallery" ? candidate.images[0] : candidate.type === "slideshow" ? candidate.images[0]?.src : undefined;
@@ -811,11 +844,19 @@ const Reader = () => {
           mediaKey: blockMediaKey || firstMedia?.key,
         }];
       });
-    }).slice(0, 30);
+    });
+
+    return [...printPageHits, ...textHits].slice(0, 60);
   })();
   const openSearchResult = (result: SearchResult) => {
     goTo(result.pageIndex);
     setSearchOpen(false);
+    if (result.printPage) {
+      window.setTimeout(() => {
+        document.getElementById(`print-page-${result.printPage}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 500);
+      return;
+    }
     if (result.mediaKey) {
       window.setTimeout(() => {
         document.getElementById(result.mediaKey || "")?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -823,6 +864,7 @@ const Reader = () => {
       }, 700);
     }
   };
+
 
   const watermarkLabel = (user?.email || user?.id || (lang === "fa" ? "کاربر مهمان" : "Guest user")) + " · " + (book?.title || "");
 
