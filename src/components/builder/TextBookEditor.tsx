@@ -156,6 +156,13 @@ export const TextBookEditor = ({ initial }: Props) => {
     x: Math.max(0, Math.min(100, initial?.cover_focus?.x ?? 50)),
     y: Math.max(0, Math.min(100, initial?.cover_focus?.y ?? 50)),
   });
+  const [backCoverUrl, setBackCoverUrl] = useState<string | null>(initial?.back_cover_url ?? null);
+  const [backCoverFocus, setBackCoverFocus] = useState<{ x: number; y: number }>({
+    x: Math.max(0, Math.min(100, initial?.back_cover_focus?.x ?? 50)),
+    y: Math.max(0, Math.min(100, initial?.back_cover_focus?.y ?? 50)),
+  });
+  const [coverSpreadUrl, setCoverSpreadUrl] = useState<string | null>(initial?.cover_spread_url ?? null);
+  const [coverCrop, setCoverCrop] = useState<{ mode: "half"; front_side: "left" | "right" } | null>(initial?.cover_crop ?? null);
   const coverFileRef = useRef<HTMLInputElement | null>(null);
 
   const [pages, setPages] = useState<TextPage[]>(
