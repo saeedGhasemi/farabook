@@ -420,15 +420,15 @@ function parseParagraph(p: PNode, rels: Map<string, string>): ParaInfo {
       // Inspect run properties for size / bold stats and image
       const rChildren = kidsOf(c, "w:r");
       const rPr = findFirst(rChildren, "w:rPr");
-      const fmt = parseRunProps(rPr);
-      textNodes.push(...runToTextNodes(c, styles));
+      const fmt = parseRunProps(rPr, styles);
+      if (fmt.fontSizeHalfPt) {
         sumSize += fmt.fontSizeHalfPt;
         sizeCount++;
       }
       if (fmt.bold) anyBold = true;
       // images via w:drawing > … > a:blip r:embed
       collectImageRels(rChildren, imageRels);
-      textNodes.push(...runToTextNodes(c));
+      textNodes.push(...runToTextNodes(c, styles));
     } else if (t === "w:hyperlink") {
       // unwrap hyperlink runs; record href
       const hChildren = kidsOf(c, "w:hyperlink");
@@ -436,7 +436,7 @@ function parseParagraph(p: PNode, rels: Map<string, string>): ParaInfo {
       const href = ridAttr ? rels.get(ridAttr) : undefined;
       for (const hc of hChildren) {
         if (tagOf(hc) === "w:r") {
-          const nodes = runToTextNodes(hc);
+          const nodes = runToTextNodes(hc, styles);
           if (href) {
             for (const n of nodes) {
               n.marks = [...(n.marks ?? []), { type: "link", attrs: { href } }];
@@ -449,8 +449,9 @@ function parseParagraph(p: PNode, rels: Map<string, string>): ParaInfo {
       // tracked-insertions / smart tags: unwrap runs
       const inner = kidsOf(c, t);
       for (const ic of inner) {
-        if (tagOf(ic) === "w:r") textNodes.push(...runToTextNodes(ic));
+        if (tagOf(ic) === "w:r") textNodes.push(...runToTextNodes(ic, styles));
       }
+
     } else if (t === "m:oMath" || t === "m:oMathPara") {
       hasMath = true;
       const tex = ommlToLatex(c);
