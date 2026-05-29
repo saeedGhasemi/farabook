@@ -72,6 +72,10 @@ const Edit = () => {
         description: data.description,
         cover_url: data.cover_url,
         cover_focus: (data as any).cover_focus ?? null,
+        back_cover_url: (data as any).back_cover_url ?? null,
+        back_cover_focus: (data as any).back_cover_focus ?? null,
+        cover_spread_url: (data as any).cover_spread_url ?? null,
+        cover_crop: (data as any).cover_crop ?? null,
         // Pass raw DB pages straight through — TextBookEditor handles
         // both new (`doc`) and legacy (`blocks`) shapes via dbPagesToTextPages.
         pages: (Array.isArray(pagesData) ? pagesData : []) as any[],
