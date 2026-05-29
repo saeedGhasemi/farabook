@@ -7,7 +7,7 @@
 //   `backCoverUrl`. No focal-point handling needed; the stored image is
 //   already cropped to cover ratio.
 // • Click a filled thumbnail (via the eye icon) opens a large preview.
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 import { Button } from "@/components/ui/button";
 import { Image as ImageIcon, Eye, Upload, Loader2, Check, X, Trash2 } from "lucide-react";
