@@ -426,7 +426,35 @@ interface ParaInfo {
   noteRefs?: Array<{ kind: "footnote" | "endnote"; id: string }>;
   isTitle?: boolean;
   isSubtitle?: boolean;
+  /** Count of Word page breaks (explicit <w:br type="page"/> or
+   *  rendered <w:lastRenderedPageBreak/>) inside this paragraph. Used to
+   *  emit `print_page` markers so the reader can show "صفحه چاپی N". */
+  pageBreaks?: number;
 }
+
+/** Recursively count Word page-break elements (explicit + rendered) inside a node. */
+function countPageBreaks(node: PNode): number {
+  if (!node || typeof node !== "object") return 0;
+  let n = 0;
+  for (const key of Object.keys(node)) {
+    if (key === ":@" || key === "#text") continue;
+    const v = (node as any)[key];
+    if (key === "w:br") {
+      const list = Array.isArray(v) ? v : [v];
+      for (const it of list) {
+        const type = attrLoose(it, "w:type");
+        if (type === "page") n += 1;
+      }
+    } else if (key === "w:lastRenderedPageBreak") {
+      const list = Array.isArray(v) ? v : [v];
+      n += list.length;
+    } else if (Array.isArray(v)) {
+      for (const child of v) n += countPageBreaks(child);
+    }
+  }
+  return n;
+}
+
 
 function parsePPr(pPr: PNode | null): {
   styleId?: string; outlineLevel?: number; bidi?: boolean;
