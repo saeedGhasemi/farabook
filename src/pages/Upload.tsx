@@ -101,25 +101,26 @@ const Upload = () => {
     if (!reconvertBookId || !user || local) return;
     (async () => {
       setStage("processing");
-      setUploadPhase("در حال دانلود فایل اصلی ذخیره‌شده…");
+      setUploadPhase("در حال یافتن جدیدترین فایل اصلی…");
 
-      // Candidate storage paths to try, in priority order:
-      //  1. word_imports.file_path  — legacy/normal Upload flow (e.g. `{uid}/book-{ts}.docx`)
-      //  2. `{uid}/{bookId}/source.docx` — newer wizard convention
-      //  3. same path but using the book's publisher_id instead of current user
-      //     (covers admins/editors re-converting on behalf of someone else)
-      const candidates: string[] = [];
+      // Build candidate paths from every place a source.docx may live.
+      // We then probe each, read its last-modified time, and pick the
+      // freshest — so if the user uploaded multiple times, the newest
+      // file always wins regardless of which folder convention was used.
+      type Cand = { path: string; fileName?: string };
+      const candidates: Cand[] = [];
 
-      const { data: imp } = await supabase
+      const { data: imps } = await supabase
         .from("word_imports")
-        .select("file_path,file_name")
+        .select("file_path,file_name,created_at")
         .eq("book_id", reconvertBookId)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (imp?.file_path) candidates.push(imp.file_path);
+        .limit(10);
+      (imps ?? []).forEach((row) => {
+        if (row.file_path) candidates.push({ path: row.file_path, fileName: row.file_name ?? undefined });
+      });
 
-      candidates.push(`${user.id}/${reconvertBookId}/source.docx`);
+      candidates.push({ path: `${user.id}/${reconvertBookId}/source.docx`, fileName: "source.docx" });
 
       const { data: bookRow } = await supabase
         .from("books")
@@ -127,26 +128,50 @@ const Upload = () => {
         .eq("id", reconvertBookId)
         .maybeSingle();
       if (bookRow?.publisher_id && bookRow.publisher_id !== user.id) {
-        candidates.push(`${bookRow.publisher_id}/${reconvertBookId}/source.docx`);
+        candidates.push({
+          path: `${bookRow.publisher_id}/${reconvertBookId}/source.docx`,
+          fileName: "source.docx",
+        });
       }
 
+      // Probe each candidate's last-modified time (via list on its parent folder).
+      // Pick the one with the most recent `updated_at`. Skip non-existent paths.
+      const probed: { cand: Cand; updatedAt: number }[] = [];
+      for (const cand of candidates) {
+        const slash = cand.path.lastIndexOf("/");
+        const folder = slash >= 0 ? cand.path.slice(0, slash) : "";
+        const name = slash >= 0 ? cand.path.slice(slash + 1) : cand.path;
+        const { data: listing } = await supabase.storage.from("book-uploads").list(folder, {
+          limit: 100, search: name,
+        });
+        const entry = (listing ?? []).find((o) => o.name === name);
+        if (!entry) continue;
+        const ts = new Date(entry.updated_at || entry.created_at || 0).getTime();
+        probed.push({ cand, updatedAt: isNaN(ts) ? 0 : ts });
+      }
+
+      probed.sort((a, b) => b.updatedAt - a.updatedAt);
+
       let blob: Blob | null = null;
-      let triedPaths: string[] = [];
-      for (const path of candidates) {
-        triedPaths.push(path);
-        const { data, error } = await supabase.storage.from("book-uploads").download(path);
-        if (!error && data) { blob = data; break; }
+      let chosenName = "source.docx";
+      for (const p of probed) {
+        const { data, error } = await supabase.storage.from("book-uploads").download(p.cand.path);
+        if (!error && data) {
+          blob = data;
+          chosenName = p.cand.fileName || "source.docx";
+          console.log("[reconvert] picked newest source", { path: p.cand.path, updatedAt: new Date(p.updatedAt).toISOString() });
+          break;
+        }
       }
 
       if (!blob) {
-        console.warn("[reconvert] source not found in any path", triedPaths);
+        console.warn("[reconvert] source not found", candidates.map((c) => c.path));
         toast.error("فایل اصلی این کتاب برای تبدیل مجدد در دسترس نیست. لطفاً دوباره از صفحهٔ آپلود بارگذاری کنید.");
         setStage("drop");
         return;
       }
       const buf = await blob.arrayBuffer();
-      const fileName = imp?.file_name || "source.docx";
-      const file = new File([buf], fileName, { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      const file = new File([buf], chosenName, { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
       await processFile(file, buf);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
