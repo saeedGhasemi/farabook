@@ -69,6 +69,7 @@ export interface VideoNode { type: "video"; attrs: { src: string; caption?: stri
 export interface TableNode { type: "table"; attrs: { headers: string[]; rows: string[][]; caption?: string; tableNumber?: string } }
 export interface TimelineNode { type: "timeline"; attrs: { title?: string; steps: TimelineStep[] } }
 export interface ScrollyNode { type: "scrollytelling"; attrs: { title?: string; steps: ScrollyStep[] } }
+export interface PrintPageNode { type: "print_page"; attrs: { number: string } }
 
 export type DocNode =
   | ParagraphNode
