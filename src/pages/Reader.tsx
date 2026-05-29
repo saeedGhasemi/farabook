@@ -175,6 +175,7 @@ const Reader = () => {
   // Paginated-mode state
   const [colIdx, setColIdx] = useState(0);
   const [colCount, setColCount] = useState(1);
+  const [colWidthPx, setColWidthPx] = useState(0);
   const paginatedHostRef = useRef<HTMLDivElement | null>(null);
   const paginatedTrackRef = useRef<HTMLDivElement | null>(null);
 
@@ -528,6 +529,7 @@ const Reader = () => {
       const cw = host.clientWidth;
       if (cw <= 0) return;
       const gap = 40; // 2.5rem column-gap
+      setColWidthPx(cw);
       const total = track.scrollWidth;
       const n = Math.max(1, Math.round((total + gap) / (cw + gap)));
       setColCount(n);
@@ -1052,7 +1054,7 @@ const Reader = () => {
                       className={readingMode === "paginated" ? "reader-paginated" : ""}
                       style={readingMode === "paginated"
                         ? ({
-                            columnWidth: "100%",
+                            columnWidth: colWidthPx > 0 ? `${colWidthPx}px` : "100%",
                             columnGap: "2.5rem",
                             columnFill: "auto",
                             height: "100%",
