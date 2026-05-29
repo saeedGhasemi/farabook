@@ -845,14 +845,18 @@ export const Footnote = Mark.create({
       kind: { default: "footnote" },
       id: { default: "" },
       text: { default: "" },
+      // Resolved footnote body text — populated by the Word importer so the
+      // Reader can show the footnote content in a tooltip/popover.
+      content: { default: "" },
     };
   },
   parseHTML() { return [{ tag: "sup[data-footnote]" }]; },
   renderHTML({ HTMLAttributes }) {
+    const body = (HTMLAttributes as any)?.content || (HTMLAttributes as any)?.text || "";
     return ["sup", mergeAttributes(HTMLAttributes, {
       "data-footnote": "true",
-      class: "text-accent cursor-help underline decoration-dotted",
-      title: (HTMLAttributes as any)?.text || "",
+      class: "text-destructive font-semibold cursor-help",
+      title: body,
     }), 0];
   },
 });
