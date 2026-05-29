@@ -1351,72 +1351,26 @@ export const TextBookEditor = ({ initial }: Props) => {
 
       {/* ============ Main editor ============ */}
       <section className="min-w-0">
-        {/* Book cover */}
-        <div className="flex items-center gap-3 mb-3 p-2 rounded-lg border bg-card/50">
-          <div
-            className={`relative w-14 h-20 rounded-md overflow-hidden border bg-muted shrink-0 flex items-center justify-center ${coverUrl ? "cursor-crosshair" : ""}`}
-            title={coverUrl ? (fa ? "روی نقطه‌ای کلیک کنید تا مرکز کادر بندانگشتی تنظیم شود" : "Click a point to set thumbnail focal point") : ""}
-            onClick={(e) => {
-              if (!coverUrl) return;
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
-              const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
-              setCoverFocus({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
-              markStructureDirty();
-            }}
-          >
-            {coverUrl ? (
-              <>
-                <img
-                  src={coverUrl}
-                  alt="cover"
-                  className="w-full h-full object-cover"
-                  style={{ objectPosition: `${coverFocus.x}% ${coverFocus.y}%` }}
-                />
-                <div
-                  className="absolute w-3 h-3 rounded-full border-2 border-white shadow-md bg-accent pointer-events-none -translate-x-1/2 -translate-y-1/2"
-                  style={{ left: `${coverFocus.x}%`, top: `${coverFocus.y}%` }}
-                  aria-hidden
-                />
-              </>
-            ) : (
-              <ImageIcon className="w-5 h-5 text-muted-foreground" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold mb-0.5">{fa ? "کاور کتاب" : "Book cover"}</div>
-            <div className="text-[11px] text-muted-foreground truncate mb-1.5">
-              {coverUrl ? (fa ? `مرکز بندانگشتی: ${coverFocus.x}٪، ${coverFocus.y}٪ — برای تغییر روی تصویر کلیک کنید` : `Thumb focus: ${coverFocus.x}%, ${coverFocus.y}% — click image to move`) : (fa ? "هنوز کاوری انتخاب نشده" : "No cover yet")}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <input
-                ref={coverFileRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void handleCoverUpload(f);
-                  if (coverFileRef.current) coverFileRef.current.value = "";
-                }}
-              />
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => coverFileRef.current?.click()}>
-                <ImageIcon className="w-3.5 h-3.5 me-1" />
-                {coverUrl ? (fa ? "تغییر" : "Change") : (fa ? "بارگذاری" : "Upload")}
-              </Button>
-              {coverUrl && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs text-destructive"
-                  onClick={() => { setCoverUrl(null); markStructureDirty(); }}
-                >
-                  <Trash2 className="w-3.5 h-3.5 me-1" /> {fa ? "حذف" : "Remove"}
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
+        {/* Book cover — front, back, or single spread image */}
+        <CoverEditor
+          value={{
+            coverUrl,
+            coverFocus,
+            backCoverUrl,
+            backCoverFocus,
+            spreadUrl: coverSpreadUrl,
+            crop: coverCrop,
+          }}
+          onChange={(next) => {
+            if ("coverUrl" in next) setCoverUrl(next.coverUrl ?? null);
+            if ("coverFocus" in next && next.coverFocus) setCoverFocus(next.coverFocus);
+            if ("backCoverUrl" in next) setBackCoverUrl(next.backCoverUrl ?? null);
+            if ("backCoverFocus" in next && next.backCoverFocus) setBackCoverFocus(next.backCoverFocus);
+            if ("spreadUrl" in next) setCoverSpreadUrl(next.spreadUrl ?? null);
+            if ("crop" in next) setCoverCrop(next.crop ?? null);
+            markStructureDirty();
+          }}
+        />
 
         {/* Chapter title + meta */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
