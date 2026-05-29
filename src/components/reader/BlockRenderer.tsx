@@ -103,20 +103,23 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
       let content = "";
       try { content = decodeURIComponent(fnM[1]); } catch { content = fnM[1]; }
       const inner = fnM[2];
+      const hasBody = !!content.trim();
       return (
         <Popover key={key}>
           <PopoverTrigger asChild>
             <button
               type="button"
-              title={content}
-              className="text-primary font-medium focus:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded cursor-help"
+              title={content || "پاورقی"}
+              className="align-super text-[0.72em] mx-[1px] px-[3px] py-[1px] rounded font-bold text-destructive hover:bg-destructive/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-destructive cursor-help"
               aria-label="پاورقی"
             >
               {renderInlineMarkdown(inner, `${key}-fn`)}
             </button>
           </PopoverTrigger>
           <PopoverContent side="top" align="center" className="max-w-xs text-sm leading-relaxed whitespace-pre-wrap" dir="auto">
-            {content || <span className="text-muted-foreground">—</span>}
+            {hasBody
+              ? content
+              : <span className="text-muted-foreground italic">متن پاورقی در فایل اصلی موجود نیست</span>}
           </PopoverContent>
         </Popover>
       );

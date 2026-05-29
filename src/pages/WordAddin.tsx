@@ -468,6 +468,8 @@ function docToLegacyBlocks(doc: any, mediaUrls: Map<string, string>): any[] {
       });
     } else if (n.type === "table") {
       out.push({ type: "table", headers: n.attrs?.headers ?? [], rows: n.attrs?.rows ?? [] });
+    } else if (n.type === "print_page") {
+      out.push({ type: "print_page", number: String(n.attrs?.number ?? "") });
     }
   }
   return out;
@@ -505,6 +507,18 @@ function renderInline(nodes: any[]) {
 
 function PreviewBlock({ b }: { b: any }) {
   const dir = b.dir ?? undefined;
+  if (b.type === "print_page") {
+    const num = String(b.number ?? "").trim();
+    return (
+      <div className="my-4 flex items-center gap-2 opacity-60 select-none">
+        <span className="h-px flex-1 bg-border" />
+        <span className="text-[10px] font-mono tabular-nums tracking-wide text-muted-foreground border border-border/60 rounded px-1.5 py-0.5">
+          صفحه چاپی {num || "—"}
+        </span>
+        <span className="h-px flex-1 bg-border" />
+      </div>
+    );
+  }
   if (b.type === "heading") {
     const lv = b.level ?? 2;
     const cls =

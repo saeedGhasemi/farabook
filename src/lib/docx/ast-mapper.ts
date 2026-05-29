@@ -426,7 +426,35 @@ interface ParaInfo {
   noteRefs?: Array<{ kind: "footnote" | "endnote"; id: string }>;
   isTitle?: boolean;
   isSubtitle?: boolean;
+  /** Count of Word page breaks (explicit <w:br type="page"/> or
+   *  rendered <w:lastRenderedPageBreak/>) inside this paragraph. Used to
+   *  emit `print_page` markers so the reader can show "صفحه چاپی N". */
+  pageBreaks?: number;
 }
+
+/** Recursively count Word page-break elements (explicit + rendered) inside a node. */
+function countPageBreaks(node: PNode): number {
+  if (!node || typeof node !== "object") return 0;
+  let n = 0;
+  for (const key of Object.keys(node)) {
+    if (key === ":@" || key === "#text") continue;
+    const v = (node as any)[key];
+    if (key === "w:br") {
+      const list = Array.isArray(v) ? v : [v];
+      for (const it of list) {
+        const type = attrLoose(it, "w:type");
+        if (type === "page") n += 1;
+      }
+    } else if (key === "w:lastRenderedPageBreak") {
+      const list = Array.isArray(v) ? v : [v];
+      n += list.length;
+    } else if (Array.isArray(v)) {
+      for (const child of v) n += countPageBreaks(child);
+    }
+  }
+  return n;
+}
+
 
 function parsePPr(pPr: PNode | null): {
   styleId?: string; outlineLevel?: number; bidi?: boolean;
@@ -536,6 +564,7 @@ function parseParagraph(p: PNode, rels: Map<string, string>, styles?: Map<string
 
   const normalizedTextNodes = normalizeTextNodes(textNodes);
   const text = normalizedTextNodes.map((n) => n.text).join("");
+  const pageBreaks = countPageBreaks(p);
   return {
     text,
     textNodes: normalizedTextNodes,
@@ -547,6 +576,7 @@ function parseParagraph(p: PNode, rels: Map<string, string>, styles?: Map<string
     imageRels: imageRels.length ? imageRels : undefined,
     hasMath: hasMath || undefined,
     noteRefs: noteRefs.length ? noteRefs : undefined,
+    pageBreaks: pageBreaks || undefined,
   };
 }
 
@@ -960,6 +990,19 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
     }
   };
 
+  // Running "Word page" number — incremented every time a paragraph contains
+  // an explicit or rendered page break. We emit a `print_page` node BEFORE
+  // the paragraph that opens each new page so the reader can show
+  // "صفحه چاپی N". Only active when the doc actually has page breaks.
+  const totalPageBreaks = topBlocks.reduce(
+    (s, b) => s + (b.kind === "para" ? (b.info.pageBreaks ?? 0) : 0),
+    0,
+  );
+  let wordPageNum = 1;
+  if (totalPageBreaks > 0) {
+    content.push({ type: "print_page", attrs: { number: String(wordPageNum) } } as any);
+  }
+
   for (const b of topBlocks) {
     if (b.kind === "table") {
       const tbl = parseTable(b.node);
@@ -967,6 +1010,12 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
       continue;
     }
     const info = b.info;
+    if (info.pageBreaks && totalPageBreaks > 0) {
+      for (let i = 0; i < info.pageBreaks; i += 1) {
+        wordPageNum += 1;
+        content.push({ type: "print_page", attrs: { number: String(wordPageNum) } } as any);
+      }
+    }
 
     if (info.hasMath) formulasDetected++;
 
