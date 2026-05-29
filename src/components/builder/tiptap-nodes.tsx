@@ -139,7 +139,7 @@ const BlockShell = ({
 
 const ImageView = (props: NodeViewProps) => {
   const { user } = useAuth();
-  const { src, caption, hideCaption } = props.node.attrs;
+  const { src, caption, hideCaption, width } = props.node.attrs;
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -153,9 +153,12 @@ const ImageView = (props: NodeViewProps) => {
 
   return (
     <NodeViewWrapper className="my-4 group/img relative">
-      <figure className="overflow-hidden rounded-xl border bg-secondary">
+      <figure
+        className="overflow-hidden rounded-xl border bg-secondary"
+        style={width ? { maxWidth: `${width}px`, marginInline: width < 400 ? "auto" : undefined } : undefined}
+      >
         {src ? (
-          <img src={resolveBookMedia(src)} alt={caption || ""} className="w-full max-h-[420px] object-cover" />
+          <img src={resolveBookMedia(src)} alt={caption || ""} className="w-full h-auto" />
         ) : (
           <button
             type="button"
@@ -214,7 +217,13 @@ export const ImageBlock = Node.create({
   atom: true,
   draggable: true,
   addAttributes() {
-    return { src: { default: "" }, caption: { default: "" }, hideCaption: { default: false } };
+    return {
+      src: { default: "" },
+      caption: { default: "" },
+      hideCaption: { default: false },
+      width: { default: null },
+      height: { default: null },
+    };
   },
   parseHTML() { return [{ tag: "img[src]" }]; },
   renderHTML({ HTMLAttributes }) { return ["img", mergeAttributes(HTMLAttributes)]; },
