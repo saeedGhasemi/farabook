@@ -196,6 +196,7 @@ export default function WordAddin() {
         meta: {
           sourceFileName: prep.fileName,
           diagnostics: prep.diagnostics,
+          metadata: prep.metadata,
         },
       });
 
@@ -364,6 +365,9 @@ export default function WordAddin() {
               </div>
               <div>تصاویر: <b>{prep.diagnostics.imagesEmbedded}</b></div>
               <div>فرمول‌ها: <b>{prep.diagnostics.formulasDetected}</b></div>
+              <div>پاورقی‌ها: <b>{prep.diagnostics.footnotesDetected}</b></div>
+              {prep.metadata.title && <div>عنوان تشخیص‌داده‌شده: <b>{prep.metadata.title}</b></div>}
+              {prep.metadata.subtitle && <div>زیرعنوان تشخیص‌داده‌شده: <b>{prep.metadata.subtitle}</b></div>}
               {prep.diagnostics.cleanedMarker && (
                 <div className="text-emerald-600">این فایل قبلاً پاک‌سازی شده است.</div>
               )}
