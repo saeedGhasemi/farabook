@@ -18,8 +18,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Loader2, Upload, Download, FileCheck2, Sparkles } from "lucide-react";
+import { Loader2, Upload, Download, FileCheck2, Sparkles, UserCircle2, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { readDocx } from "@/lib/docx/ooxml-reader";
@@ -54,7 +55,24 @@ export default function WordAddin() {
   const [office, setOffice] = useState<{ ready: boolean; host?: string }>({ ready: false });
   const [busy, setBusy] = useState(false);
   const [prep, setPrep] = useState<PreparedDoc | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadPhase, setUploadPhase] = useState<string>("");
+  const [profile, setProfile] = useState<{ display_name?: string | null; username?: string | null } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /* -------- Load minimal profile info for the "ارسال به" badge -------- */
+  useEffect(() => {
+    if (!user) { setProfile(null); return; }
+    let alive = true;
+    supabase
+      .from("profiles")
+      .select("display_name, username")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => { if (alive) setProfile(data ?? null); });
+    return () => { alive = false; };
+  }, [user]);
+
 
   /* -------- Office.js bootstrap (lazy, no-op when standalone) -------- */
   useEffect(() => {
@@ -155,7 +173,7 @@ export default function WordAddin() {
     await processBuffer(await f.arrayBuffer(), f.name);
   };
 
-  /* -------- Upload to publisher account -------- */
+  /* -------- Upload to publisher account (with real progress) -------- */
   const uploadToPublisher = async () => {
     if (!prep) return;
     if (!user) {
@@ -164,24 +182,60 @@ export default function WordAddin() {
       return;
     }
     setBusy(true);
+    setUploadProgress(0);
+    setUploadPhase("در حال آماده‌سازی فایل…");
     try {
       const media = prep.media.map((m) => ({
         name: m.name,
         contentType: m.contentType,
         base64: bufToBase64(m.bytes),
       }));
-      const { data, error } = await supabase.functions.invoke("word-addin-ingest", {
-        body: {
-          ast: prep.doc,
-          media,
-          meta: {
-            sourceFileName: prep.fileName,
-            diagnostics: prep.diagnostics,
-          },
+      const payload = JSON.stringify({
+        ast: prep.doc,
+        media,
+        meta: {
+          sourceFileName: prep.fileName,
+          diagnostics: prep.diagnostics,
         },
       });
-      if (error) throw error;
-      const bookId = (data as any)?.bookId;
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("توکن احراز هویت یافت نشد.");
+
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/word-addin-ingest`;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      setUploadPhase("در حال آپلود به حساب شما…");
+      const result = await new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", url);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+        xhr.setRequestHeader("apikey", anonKey);
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 95));
+          }
+        };
+        xhr.upload.onload = () => {
+          setUploadProgress(97);
+          setUploadPhase("در حال پردازش روی سرور…");
+        };
+        xhr.onerror = () => reject(new Error("خطای شبکه"));
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try { resolve(JSON.parse(xhr.responseText)); }
+            catch { reject(new Error("پاسخ نامعتبر سرور")); }
+          } else {
+            reject(new Error(`خطای سرور (${xhr.status}): ${xhr.responseText.slice(0, 200)}`));
+          }
+        };
+        xhr.send(payload);
+      });
+
+      setUploadProgress(100);
+      const bookId = result?.bookId;
       if (!bookId) throw new Error("پاسخ سرور شناسه کتاب را برنگرداند.");
       toast.success("کتاب در حساب شما ایجاد شد. به ادیتور منتقل می‌شوید…");
       navigate(`/edit/${bookId}`);
@@ -190,8 +244,10 @@ export default function WordAddin() {
       toast.error(`آپلود ناموفق بود: ${e?.message ?? e}`);
     } finally {
       setBusy(false);
+      setTimeout(() => { setUploadProgress(null); setUploadPhase(""); }, 800);
     }
   };
+
 
   /* -------- Download cleaned .docx (with marker) -------- */
   const downloadCleaned = async () => {
@@ -325,16 +381,59 @@ export default function WordAddin() {
             </CardContent>
           </Card>
 
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={uploadToPublisher} disabled={busy || authLoading}>
-              <Upload className="me-2 h-4 w-4" />
-              آپلود به اکانت ناشر
-            </Button>
-            <Button variant="secondary" onClick={downloadCleaned} disabled={busy}>
-              <Download className="me-2 h-4 w-4" />
-              دانلود نسخه تمیز (.docx)
-            </Button>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">ارسال و خروجی</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Recipient info */}
+              <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <UserCircle2 className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-muted-foreground">آپلود به اکانت:</span>
+                  {user ? (
+                    <span className="font-semibold truncate">
+                      {profile?.display_name || profile?.username || user.email || user.id}
+                    </span>
+                  ) : (
+                    <span className="text-destructive">وارد نشده‌اید</span>
+                  )}
+                </div>
+                {user && (
+                  <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <ShieldCheck className="h-3.5 w-3.5 mt-0.5 text-emerald-600 shrink-0" />
+                    <span>
+                      این فایل فقط به همین کاربری که الان وارد شده ارسال می‌شود. اگر می‌خواهید
+                      به حساب دیگری برود، ابتدا با آن حساب وارد شوید.
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload progress */}
+              {uploadProgress !== null && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{uploadPhase}</span>
+                    <span className="tabular-nums font-medium">{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2" />
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button onClick={uploadToPublisher} disabled={busy || authLoading || !user}>
+                  <Upload className="me-2 h-4 w-4" />
+                  آپلود به اکانت ناشر
+                </Button>
+                <Button variant="secondary" onClick={downloadCleaned} disabled={busy}>
+                  <Download className="me-2 h-4 w-4" />
+                  دانلود نسخه تمیز (.docx)
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
         </>
       )}
     </div>
