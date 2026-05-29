@@ -94,6 +94,49 @@ const pageToBlocks = (page?: Page): Block[] => {
   return page.blocks ?? (page.content ? [{ type: "paragraph", text: page.content }] : []);
 };
 
+/**
+ * Scroll to the first occurrence of `term` within `root` and wrap it in a
+ * temporary <mark class="search-flash"> so the user sees a blinking highlight.
+ * Cleans up after ~3s and tolerates Persian/Arabic digits via normalization.
+ */
+const flashHighlightTerm = (root: HTMLElement | null, term: string) => {
+  if (!root || !term) return;
+  const needle = normalizeDigits(term).toLowerCase();
+  if (!needle) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => {
+      const parent = (node as Text).parentElement;
+      if (!parent) return NodeFilter.FILTER_REJECT;
+      if (parent.closest("script,style,mark.search-flash")) return NodeFilter.FILTER_REJECT;
+      const hay = normalizeDigits(node.nodeValue || "").toLowerCase();
+      return hay.includes(needle) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    },
+  });
+  const node = walker.nextNode() as Text | null;
+  if (!node) return;
+  const haystack = normalizeDigits(node.nodeValue || "").toLowerCase();
+  const idx = haystack.indexOf(needle);
+  if (idx < 0) return;
+  const range = document.createRange();
+  range.setStart(node, idx);
+  range.setEnd(node, idx + needle.length);
+  const mark = document.createElement("mark");
+  mark.className = "search-flash";
+  try {
+    range.surroundContents(mark);
+  } catch {
+    return;
+  }
+  mark.scrollIntoView({ behavior: "smooth", block: "center" });
+  window.setTimeout(() => {
+    const parent = mark.parentNode;
+    if (!parent) return;
+    while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+    parent.removeChild(mark);
+    parent.normalize();
+  }, 3200);
+};
+
 const Reader = () => {
   const { id } = useParams();
   const nav = useNavigate();
