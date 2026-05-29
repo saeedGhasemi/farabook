@@ -721,6 +721,28 @@ const Reader = () => {
           {/* Page */}
           <div className="relative">
             <AnimatePresence mode="wait">
+              {coverView ? (
+                <motion.div
+                  key={`cover-${coverView}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="min-h-[60vh] flex items-center justify-center py-6"
+                >
+                  <CoverPage
+                    side={coverView}
+                    title={book.title}
+                    author={book.author}
+                    coverUrl={book.cover_url}
+                    backCoverUrl={book.back_cover_url}
+                    spreadUrl={book.cover_spread_url}
+                    crop={book.cover_crop}
+                    focus={book.cover_focus}
+                    backFocus={book.back_cover_focus}
+                  />
+                </motion.div>
+              ) : (
               <motion.article
                 ref={articleRef}
                 key={pageIdx}
@@ -785,6 +807,7 @@ const Reader = () => {
                   </div>
                 </div>
               </motion.article>
+              )}
             </AnimatePresence>
 
             {/* Floating side arrows — always reachable without scrolling */}
