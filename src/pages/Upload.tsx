@@ -193,7 +193,7 @@ const Upload = () => {
     const node: any = doc.content?.[index];
     if (!node || node.type !== "heading") return;
     // Demote to a normal paragraph so the underlying text is preserved.
-    const newNode = {
+    const newNode: any = {
       type: "paragraph",
       attrs: { dir: node.attrs?.dir ?? null, textAlign: node.attrs?.textAlign ?? null },
       content: node.content,
