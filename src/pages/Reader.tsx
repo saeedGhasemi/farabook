@@ -54,6 +54,9 @@ interface Book {
   back_cover_focus?: { x?: number; y?: number } | null;
   cover_spread_url?: string | null;
   cover_crop?: CoverCrop;
+  publication_year?: number | null;
+  content_version?: number | string | null;
+  publisher_logo_url?: string | null;
 }
 
 const ambientSrc: Record<string, string> = {
@@ -122,6 +125,33 @@ const Reader = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
 
+  // Reading mode (persisted): scroll = traditional, paginated = liquid pages.
+  const [readingMode, setReadingMode] = useState<"scroll" | "paginated">(() => {
+    if (typeof window === "undefined") return "scroll";
+    return (window.localStorage.getItem("farabook:reading-mode") as "scroll" | "paginated") || "scroll";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("farabook:reading-mode", readingMode); } catch { /* ignore */ }
+  }, [readingMode]);
+
+  // Fullscreen reading: hides top bar, progress and side chrome to focus on text.
+  const [fullscreen, setFullscreen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("farabook:reader-fullscreen") === "1";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("farabook:reader-fullscreen", fullscreen ? "1" : "0"); } catch { /* ignore */ }
+  }, [fullscreen]);
+
+  // Publisher logo (for chapter-menu watermark). Falls back to book.publisher_logo_url override.
+  const [publisherLogoUrl, setPublisherLogoUrl] = useState<string | null>(null);
+
+  // Paginated-mode state
+  const [colIdx, setColIdx] = useState(0);
+  const [colCount, setColCount] = useState(1);
+  const paginatedHostRef = useRef<HTMLDivElement | null>(null);
+  const paginatedTrackRef = useRef<HTMLDivElement | null>(null);
+
   const Prev = dir === "rtl" ? ArrowRight : ArrowLeft;
   const Next = dir === "rtl" ? ArrowLeft : ArrowRight;
 
@@ -150,7 +180,7 @@ const Reader = () => {
       // page content through the ownership-checked RPC.
       const { data, error } = await supabase
         .from("books")
-        .select("id, title, author, cover_url, cover_focus, back_cover_url, back_cover_focus, cover_spread_url, cover_crop, description, price, publisher_id, status, review_status, typography_preset, ambient_theme, preview_pages, language, isbn, publication_year, edition, page_count, subtitle, book_type, original_title, original_language, series_name, series_index, categories, subjects, contributors, content_version, content_updated_at, comments_enabled, ai_summary")
+        .select("id, title, author, cover_url, cover_focus, back_cover_url, back_cover_focus, cover_spread_url, cover_crop, description, price, publisher_id, status, review_status, typography_preset, ambient_theme, preview_pages, language, isbn, publication_year, edition, page_count, subtitle, book_type, original_title, original_language, series_name, series_index, categories, subjects, contributors, content_version, content_updated_at, comments_enabled, ai_summary, publisher_logo_url")
         .eq("id", id)
         .maybeSingle();
       if (cancelled) return;
@@ -276,6 +306,23 @@ const Reader = () => {
     const p = book.pages[pageIdx];
     if (p?.ambient && ambient === "off") setAmbient(p.ambient);
   }, [pageIdx, book]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Resolve the publisher's brand logo so the chapter menu can show it as
+  // a faint background watermark. The per-book `publisher_logo_url` always
+  // wins so authors can override the default.
+  useEffect(() => {
+    if (!book?.publisher_id) { setPublisherLogoUrl(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("publisher_profiles")
+        .select("logo_url")
+        .eq("user_id", book.publisher_id as string)
+        .maybeSingle();
+      if (!cancelled) setPublisherLogoUrl((data?.logo_url as string | undefined) ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [book?.publisher_id]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -707,52 +754,57 @@ const Reader = () => {
         transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
       />
 
-      <div className="container py-6 md:py-10 relative">
-        {/* Top bar */}
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => nav("/library")} className="gap-1.5">
-              <Prev className="w-4 h-4" /> {t("back")}
-            </Button>
-            {/* Chapters trigger — collapsible drawer on all viewports */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setChaptersOpen(true)}
-              className="gap-1.5"
-            >
-              <Menu className="w-4 h-4" />
-              {lang === "fa" ? "فصل‌ها" : "Chapters"}
-            </Button>
+      <div className={`container relative ${fullscreen ? "py-2 md:py-3 max-w-none px-2 md:px-6" : "py-6 md:py-10"}`}>
+        {/* Top bar — hidden in fullscreen reading mode */}
+        {!fullscreen && (
+          <div className="flex items-center justify-between gap-3 mb-6">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => nav("/library")} className="gap-1.5">
+                <Prev className="w-4 h-4" /> {t("back")}
+              </Button>
+              {/* Chapters trigger — collapsible drawer on all viewports */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setChaptersOpen(true)}
+                className="gap-1.5"
+              >
+                <Menu className="w-4 h-4" />
+                {lang === "fa" ? "فصل‌ها" : "Chapters"}
+              </Button>
+            </div>
+            <div className="text-sm text-muted-foreground hidden sm:block text-center">
+              <span className="font-display font-semibold text-foreground">{book.title}</span>
+              <span className="mx-2">·</span>
+              <span>{book.author}</span>
+            </div>
+            <div className="text-xs text-muted-foreground tabular-nums">
+              {currentPrintPage ? (
+                <span title={lang === "fa" ? "صفحه چاپی" : "Print page"}>
+                  <span className="opacity-60">{lang === "fa" ? "ص." : "p."}</span> {currentPrintPage}
+                  <span className="opacity-40 mx-1.5">·</span>
+                </span>
+              ) : null}
+              {pageIdx + 1} / {total}
+            </div>
           </div>
-          <div className="text-sm text-muted-foreground hidden sm:block text-center">
-            <span className="font-display font-semibold text-foreground">{book.title}</span>
-            <span className="mx-2">·</span>
-            <span>{book.author}</span>
-          </div>
-          <div className="text-xs text-muted-foreground tabular-nums">
-            {currentPrintPage ? (
-              <span title={lang === "fa" ? "صفحه چاپی" : "Print page"}>
-                <span className="opacity-60">{lang === "fa" ? "ص." : "p."}</span> {currentPrintPage}
-                <span className="opacity-40 mx-1.5">·</span>
-              </span>
-            ) : null}
-            {pageIdx + 1} / {total}
-          </div>
-        </div>
+        )}
 
 
-        {/* Progress */}
-        <div className="h-1 bg-foreground/5 rounded-full overflow-hidden mb-8 max-w-5xl mx-auto">
-          <motion.div
-            className="h-full bg-gradient-warm"
-            animate={{ width: `${((pageIdx + 1) / total) * 100}%` }}
-            transition={{ duration: 0.4 }}
-          />
-        </div>
+        {/* Progress — hidden in fullscreen */}
+        {!fullscreen && (
+          <div className="h-1 bg-foreground/5 rounded-full overflow-hidden mb-8 max-w-5xl mx-auto">
+            <motion.div
+              className="h-full bg-gradient-warm"
+              animate={{ width: `${((pageIdx + 1) / total) * 100}%` }}
+              transition={{ duration: 0.4 }}
+            />
+          </div>
+        )}
 
         {/* Single-column layout — chapter sidebar is now always opened via drawer */}
-        <div className={`max-w-4xl mx-auto transition-all duration-300 ${allOverlaysOpen ? "blur-[2px] opacity-55" : ""}`}>
+        <div className={`${fullscreen ? "max-w-5xl" : "max-w-4xl"} mx-auto transition-all duration-300 ${allOverlaysOpen ? "blur-[2px] opacity-55" : ""}`}>
+
 
           {/* Page */}
           <div className="relative">
@@ -787,7 +839,7 @@ const Reader = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.22, ease: "easeOut" }}
-                className={`paper-card rounded-3xl p-6 md:p-12 min-h-[60vh] book-shadow relative overflow-hidden no-native-callout typo-${book.typography_preset || "editorial"}`}
+                className={`paper-card rounded-3xl ${fullscreen ? "p-4 md:p-10" : "p-6 md:p-12"} ${readingMode === "scroll" ? "min-h-[60vh]" : ""} book-shadow relative overflow-hidden no-native-callout typo-${book.typography_preset || "editorial"}`}
               >
                 <div className="absolute top-0 inset-x-0 h-1 bg-gradient-gold opacity-50" />
                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
@@ -828,7 +880,17 @@ const Reader = () => {
                     </div>
                   )}
 
-                  <div className="space-y-4 selectable selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text">
+                  <div
+                    ref={paginatedHostRef}
+                    className={`selectable selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text ${
+                      readingMode === "paginated"
+                        ? "reader-paginated space-y-4"
+                        : "space-y-4"
+                    }`}
+                    style={readingMode === "paginated"
+                      ? ({ columnWidth: "100%", ["--paginated-height" as any]: fullscreen ? "82vh" : "70vh" } as React.CSSProperties)
+                      : undefined}
+                  >
                     {blocks.map((block, i) => (
                       <BlockRenderer
                         key={i}
@@ -866,43 +928,47 @@ const Reader = () => {
 
 
             {/* Word page number footer */}
-            <div className="mt-10 flex items-center justify-center gap-3 text-[11px] text-muted-foreground tabular-nums select-none">
-              <span className="h-px w-12 bg-border" />
-              <span>
-                {lang === "fa" ? "صفحه" : "Page"} {pageIdx + 1} / {total}
-                {currentPrintPage ? (
-                  <span className="opacity-60 mx-2">· {lang === "fa" ? "چاپی" : "print"} {currentPrintPage}</span>
-                ) : null}
-              </span>
-              <span className="h-px w-12 bg-border" />
-            </div>
-
-            {/* Bottom navigation */}
-            <div className="mt-4 flex items-stretch justify-between gap-3 pb-32">
-              <div className="flex flex-col items-start gap-1 min-w-0">
-                <Button variant="outline" onClick={goPrev} disabled={pageIdx === 0} className="gap-2 glass-strong">
-                  <Prev className="w-4 h-4" /> {t("prev")}
-                </Button>
-                <span className="text-[10px] text-muted-foreground tabular-nums ps-1 leading-none">
-                  {pageIdx === 0 ? "—" : `${lang === "fa" ? "ص." : "p."} ${pageIdx}`}
-                </span>
-              </div>
-              <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-2 self-center">
-                <HlIcon className="w-3 h-3" />
+            {!fullscreen && (
+              <div className="mt-10 flex items-center justify-center gap-3 text-[11px] text-muted-foreground tabular-nums select-none">
+                <span className="h-px w-12 bg-border" />
                 <span>
-                  {lang === "fa" ? "متن را انتخاب کنید تا رنگ هایلایت ظاهر شود" : "Select text to highlight"}
+                  {lang === "fa" ? "صفحه" : "Page"} {pageIdx + 1} / {total}
+                  {currentPrintPage ? (
+                    <span className="opacity-60 mx-2">· {lang === "fa" ? "چاپی" : "print"} {currentPrintPage}</span>
+                  ) : null}
                 </span>
+                <span className="h-px w-12 bg-border" />
               </div>
-              <div className="flex flex-col items-end gap-1 min-w-0">
-                <Button variant="outline" onClick={goNext} disabled={pageIdx >= total - 1} className="gap-2 glass-strong">
-                  {t("next")} <Next className="w-4 h-4" />
-                </Button>
-                <span className="text-[10px] text-muted-foreground tabular-nums pe-1 leading-none">
-                  {pageIdx >= total - 1 ? "—" : `${lang === "fa" ? "ص." : "p."} ${pageIdx + 2}`}
-                </span>
+            )}
+
+            {/* Bottom navigation — hidden in fullscreen mode */}
+            {!fullscreen && (
+              <div className="mt-4 flex items-stretch justify-between gap-3 pb-32">
+                <div className="flex flex-col items-start gap-1 min-w-0">
+                  <Button variant="outline" onClick={goPrev} disabled={pageIdx === 0} className="gap-2 glass-strong">
+                    <Prev className="w-4 h-4" /> {t("prev")}
+                  </Button>
+                  <span className="text-[10px] text-muted-foreground tabular-nums ps-1 leading-none">
+                    {pageIdx === 0 ? "—" : `${lang === "fa" ? "ص." : "p."} ${pageIdx}`}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-2 self-center">
+                  <HlIcon className="w-3 h-3" />
+                  <span>
+                    {lang === "fa" ? "متن را انتخاب کنید تا رنگ هایلایت ظاهر شود" : "Select text to highlight"}
+                  </span>
+                </div>
+                <div className="flex flex-col items-end gap-1 min-w-0">
+                  <Button variant="outline" onClick={goNext} disabled={pageIdx >= total - 1} className="gap-2 glass-strong">
+                    {t("next")} <Next className="w-4 h-4" />
+                  </Button>
+                  <span className="text-[10px] text-muted-foreground tabular-nums pe-1 leading-none">
+                    {pageIdx >= total - 1 ? "—" : `${lang === "fa" ? "ص." : "p."} ${pageIdx + 2}`}
+                  </span>
+                </div>
               </div>
-            </div>
-            {id && pageIdx >= total - 1 && (
+            )}
+            {!fullscreen && id && pageIdx >= total - 1 && (
               <section className="pb-32">
                 <div className="paper-card rounded-2xl p-4 md:p-6">
                   <BookComments bookId={id} />
@@ -952,6 +1018,10 @@ const Reader = () => {
         onToggleDark={() => setDark(!dark)}
         ambient={ambient}
         onAmbient={setAmbient}
+        readingMode={readingMode}
+        onToggleReadingMode={() => setReadingMode((m) => (m === "scroll" ? "paginated" : "scroll"))}
+        fullscreen={fullscreen}
+        onToggleFullscreen={() => setFullscreen((v) => !v)}
       />
 
       {/* AI panel */}
@@ -1006,7 +1076,17 @@ const Reader = () => {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setChaptersOpen(false)} className="fixed inset-0 backdrop-blur-md z-40" />
             <motion.aside initial={{ x: 440, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 440, opacity: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className="fixed top-0 bottom-0 right-0 z-50 w-full sm:w-[440px] glass-strong shadow-book border-l border-glass-border flex flex-col">
-              <ChapterSidebar chapters={chapters} current={currentChapterIndex} variant="drawer" onSelect={(i) => { goTo(i); setChaptersOpen(false); }} onClose={() => setChaptersOpen(false)} />
+              <ChapterSidebar
+                chapters={chapters}
+                current={currentChapterIndex}
+                variant="drawer"
+                onSelect={(i) => { goTo(i); setChaptersOpen(false); }}
+                onClose={() => setChaptersOpen(false)}
+                bookTitle={book.title}
+                logoUrl={book.publisher_logo_url || publisherLogoUrl}
+                publicationYear={book.publication_year ?? null}
+                bookVersion={book.content_version ?? null}
+              />
             </motion.aside>
           </>
         )}

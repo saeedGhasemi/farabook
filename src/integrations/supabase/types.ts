@@ -299,6 +299,7 @@ export type Database = {
           published_at: string | null
           publisher: string | null
           publisher_id: string | null
+          publisher_logo_url: string | null
           reject_reason: string | null
           review_status: string | null
           reviewed_at: string | null
@@ -353,6 +354,7 @@ export type Database = {
           published_at?: string | null
           publisher?: string | null
           publisher_id?: string | null
+          publisher_logo_url?: string | null
           reject_reason?: string | null
           review_status?: string | null
           reviewed_at?: string | null
@@ -407,6 +409,7 @@ export type Database = {
           published_at?: string | null
           publisher?: string | null
           publisher_id?: string | null
+          publisher_logo_url?: string | null
           reject_reason?: string | null
           review_status?: string | null
           reviewed_at?: string | null

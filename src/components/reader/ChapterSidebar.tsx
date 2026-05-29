@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, Check, X, ChevronRight, ChevronDown, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
+import { Check, X, ChevronRight, ChevronDown, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
 interface ChapterItem {
@@ -15,10 +15,28 @@ interface Props {
   onSelect: (i: number) => void;
   onClose?: () => void;
   variant?: "panel" | "drawer";
+  /** Book title shown in the header (in place of the generic label). */
+  bookTitle?: string;
+  /** Optional faint background logo (publisher or per-book override). */
+  logoUrl?: string | null;
+  /** Year & version shown at the bottom. */
+  publicationYear?: number | null;
+  bookVersion?: number | string | null;
 }
 
-export const ChapterSidebar = ({ chapters, current, onSelect, onClose, variant = "panel" }: Props) => {
+export const ChapterSidebar = ({
+  chapters,
+  current,
+  onSelect,
+  onClose,
+  variant = "panel",
+  bookTitle,
+  logoUrl,
+  publicationYear,
+  bookVersion,
+}: Props) => {
   const { t, lang } = useI18n();
+  const fa = lang === "fa";
 
   // Collapsed parents (by chapter index). Children of a collapsed parent
   // are hidden until the user expands it again.
@@ -42,7 +60,6 @@ export const ChapterSidebar = ({ chapters, current, onSelect, onClose, variant =
     let c = current;
     while (set.has(c)) {
       set.delete(c);
-      // Find parent: the nearest earlier chapter with a lower level.
       const curLvl = chapters[c]?.level ?? 0;
       let p = c - 1;
       while (p >= 0 && (chapters[p]?.level ?? 0) >= curLvl) p -= 1;
@@ -71,37 +88,74 @@ export const ChapterSidebar = ({ chapters, current, onSelect, onClose, variant =
   };
   const expandAll = () => setCollapsed(new Set());
 
+  const formattedVersion = (() => {
+    if (bookVersion == null || bookVersion === "") return null;
+    return String(bookVersion);
+  })();
+
   return (
     <aside
       className={
         variant === "panel"
-          ? "h-full w-full glass-strong rounded-3xl p-4 flex flex-col"
-          : "h-full w-full p-4 flex flex-col bg-transparent"
+          ? "h-full w-full glass-strong rounded-3xl p-4 flex flex-col relative overflow-hidden"
+          : "h-full w-full p-4 flex flex-col bg-transparent relative overflow-hidden"
       }
     >
-      <header className="flex items-center justify-between px-2 py-2 mb-2 gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-gradient-warm flex items-center justify-center text-primary-foreground shrink-0">
-            <BookOpen className="w-4 h-4" />
+      {/* Faint publisher / per-book logo as a luxurious watermark backdrop */}
+      {logoUrl && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.045] dark:opacity-[0.07]"
+        >
+          <img
+            src={logoUrl}
+            alt=""
+            className="w-[78%] max-w-[320px] object-contain saturate-0"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+      )}
+      {/* Subtle accent halo behind the logo for depth */}
+      {logoUrl && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: "radial-gradient(60% 50% at 50% 50%, hsl(var(--accent) / 0.05), transparent 70%)",
+          }}
+        />
+      )}
+
+      <header className="relative flex items-start justify-between px-2 py-2 mb-3 gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground/80 mb-1">
+            {fa ? "کتاب در دست مطالعه" : "Now reading"}
           </div>
-          <h3 className="font-display font-bold text-sm truncate">
-            {lang === "fa" ? "فهرست فصل‌ها" : "Chapters"}
-          </h3>
+          {/* Book title — single-line marquee-scroll on overflow */}
+          <div
+            className="relative overflow-hidden group"
+            title={bookTitle || ""}
+          >
+            <h3 className="font-display font-bold text-base leading-snug whitespace-nowrap chapter-title-marquee">
+              {bookTitle || (fa ? "فهرست فصل‌ها" : "Chapters")}
+            </h3>
+          </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={collapseAll}
             className="w-8 h-8 rounded-full hover:bg-foreground/10 flex items-center justify-center text-muted-foreground hover:text-foreground"
-            aria-label={lang === "fa" ? "بستن همه" : "Collapse all"}
-            title={lang === "fa" ? "بستن همه" : "Collapse all"}
+            aria-label={fa ? "بستن همه" : "Collapse all"}
+            title={fa ? "بستن همه" : "Collapse all"}
           >
             <ChevronsDownUp className="w-4 h-4" />
           </button>
           <button
             onClick={expandAll}
             className="w-8 h-8 rounded-full hover:bg-foreground/10 flex items-center justify-center text-muted-foreground hover:text-foreground"
-            aria-label={lang === "fa" ? "باز کردن همه" : "Expand all"}
-            title={lang === "fa" ? "باز کردن همه" : "Expand all"}
+            aria-label={fa ? "باز کردن همه" : "Expand all"}
+            title={fa ? "باز کردن همه" : "Expand all"}
           >
             <ChevronsUpDown className="w-4 h-4" />
           </button>
@@ -117,7 +171,7 @@ export const ChapterSidebar = ({ chapters, current, onSelect, onClose, variant =
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto scrollbar-thin pe-1">
+      <div className="relative flex-1 overflow-y-auto scrollbar-thin pe-1">
         <ul className="space-y-1">
           {chapters.map((ch) => {
             if (hidden.has(ch.index)) return null;
@@ -176,10 +230,21 @@ export const ChapterSidebar = ({ chapters, current, onSelect, onClose, variant =
         </ul>
       </div>
 
-      <footer className="mt-3 pt-3 border-t border-border/60 px-2 text-xs text-muted-foreground">
-        {lang === "fa"
-          ? `${current + 1} از ${chapters.length} فصل`
-          : `${current + 1} of ${chapters.length} chapters`}
+      <footer className="relative mt-3 pt-3 border-t border-border/60 px-2 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+        <span>
+          {fa
+            ? `${current + 1} از ${chapters.length} فصل`
+            : `${current + 1} of ${chapters.length}`}
+        </span>
+        <span className="flex items-center gap-2 tabular-nums">
+          {publicationYear && <span>{publicationYear}</span>}
+          {publicationYear && formattedVersion && <span className="opacity-40">·</span>}
+          {formattedVersion && (
+            <span title={fa ? "نسخه محتوای کتاب" : "Content version"}>
+              v{formattedVersion}
+            </span>
+          )}
+        </span>
       </footer>
     </aside>
   );

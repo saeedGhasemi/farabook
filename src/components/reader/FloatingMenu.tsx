@@ -5,6 +5,7 @@ import {
   Volume2, VolumeX, Settings2, Sun, Moon, Search,
   CloudRain, Trees, Coffee, Stars, VolumeOff, Menu, BookmarkCheck,
   ChevronUp, ChevronDown, Clock, MessageSquare,
+  Columns, ScrollText, Maximize2, Minimize2,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
@@ -23,6 +24,10 @@ interface Props {
   onToggleDark: () => void;
   ambient: string;
   onAmbient: (a: string) => void;
+  readingMode: "scroll" | "paginated";
+  onToggleReadingMode: () => void;
+  fullscreen: boolean;
+  onToggleFullscreen: () => void;
 }
 
 const ambientOpts = [
@@ -37,6 +42,7 @@ export const FloatingMenu = ({
   onAi, onSpeak, onStopSpeak, isSpeaking, onOpenSearch,
   onOpenSettings, onOpenChapters, onOpenHighlights, onOpenChat, highlightCount,
   dark, onToggleDark, ambient, onAmbient,
+  readingMode, onToggleReadingMode, fullscreen, onToggleFullscreen,
 }: Props) => {
   const { t, lang } = useI18n();
   const [aiOpen, setAiOpen] = useState(false);
@@ -198,6 +204,22 @@ export const FloatingMenu = ({
                 active={isSpeaking}
               />
               <Item icon={BookmarkCheck} label={lang === "fa" ? "نشان‌ها" : "Notes"} onClick={onOpenHighlights} badge={highlightCount} />
+              <Item
+                icon={readingMode === "paginated" ? ScrollText : Columns}
+                label={readingMode === "paginated"
+                  ? (lang === "fa" ? "حالت اسکرول" : "Scroll mode")
+                  : (lang === "fa" ? "حالت لیکویید" : "Page mode")}
+                onClick={onToggleReadingMode}
+                active={readingMode === "paginated"}
+              />
+              <Item
+                icon={fullscreen ? Minimize2 : Maximize2}
+                label={fullscreen
+                  ? (lang === "fa" ? "خروج تمام‌صفحه" : "Exit full")
+                  : (lang === "fa" ? "تمام‌صفحه" : "Full")}
+                onClick={onToggleFullscreen}
+                active={fullscreen}
+              />
               <Item icon={ambient === "off" ? VolumeOff : CloudRain} label={t("ambient")} onClick={() => setAmbOpen((v) => !v)} active={ambient !== "off"} />
               <Item icon={dark ? Sun : Moon} label={dark ? t("light") : t("dark")} onClick={onToggleDark} />
               <Item icon={Settings2} label={t("settings")} onClick={onOpenSettings} />
