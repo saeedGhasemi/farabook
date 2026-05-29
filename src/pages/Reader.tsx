@@ -48,6 +48,12 @@ interface Book {
   pages: Page[];
   price?: number;
   publisher_id?: string | null;
+  cover_url?: string | null;
+  cover_focus?: { x?: number; y?: number } | null;
+  back_cover_url?: string | null;
+  back_cover_focus?: { x?: number; y?: number } | null;
+  cover_spread_url?: string | null;
+  cover_crop?: CoverCrop;
 }
 
 const ambientSrc: Record<string, string> = {
