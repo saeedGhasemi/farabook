@@ -166,8 +166,9 @@ const Reader = () => {
   const paginatedHostRef = useRef<HTMLDivElement | null>(null);
   const paginatedTrackRef = useRef<HTMLDivElement | null>(null);
 
-  const Prev = dir === "rtl" ? ArrowRight : ArrowLeft;
-  const Next = dir === "rtl" ? ArrowLeft : ArrowRight;
+  // Prev/Next icons follow the *book's* reading direction (assigned after
+  // bookDir is computed below). An LTR book always pages left→right even
+  // when the UI is in Persian, and vice-versa.
 
   // Load book — offline-first when a local encrypted copy exists, so the
   // reader opens instantly even with flaky/no internet. Then we refresh from
@@ -728,6 +729,8 @@ const Reader = () => {
   const rtlChars = (sampleText.match(/[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length;
   const ltrChars = (sampleText.match(/[A-Za-z]/g) || []).length;
   const bookDir: "rtl" | "ltr" = rtlChars >= ltrChars ? "rtl" : "ltr";
+  const Prev = bookDir === "rtl" ? ArrowRight : ArrowLeft;
+  const Next = bookDir === "rtl" ? ArrowLeft : ArrowRight;
   // Chapter & search drawers always slide from the RIGHT edge of the screen
   const allOverlaysOpen = chaptersOpen || searchOpen || settingsOpen || highlightsOpen || aiOpen || chatOpen;
   const goToPageNumber = () => {
@@ -951,12 +954,14 @@ const Reader = () => {
               )}
             </AnimatePresence>
 
-            {/* Floating side arrows — always reachable without scrolling */}
+            {/* Floating side arrows — positioned by the book's reading direction
+                so an LTR book always has Prev on the left and Next on the right,
+                regardless of UI language. */}
             <button
               onClick={goPrev}
               disabled={pageIdx === 0}
               aria-label={t("prev")}
-              className="fixed top-1/2 start-2 sm:start-4 -translate-y-1/2 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-accent text-accent-foreground shadow-book border-2 border-background/70 flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed hover:scale-110 active:scale-95 transition-transform"
+              className={`fixed top-1/2 ${bookDir === "rtl" ? "right-2 sm:right-4" : "left-2 sm:left-4"} -translate-y-1/2 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-accent text-accent-foreground shadow-book border-2 border-background/70 flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed hover:scale-110 active:scale-95 transition-transform`}
             >
               <Prev className="w-6 h-6" />
             </button>
@@ -964,7 +969,7 @@ const Reader = () => {
               onClick={goNext}
               disabled={pageIdx >= total - 1}
               aria-label={t("next")}
-              className="fixed top-1/2 end-2 sm:end-4 -translate-y-1/2 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-accent text-accent-foreground shadow-book border-2 border-background/70 flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed hover:scale-110 active:scale-95 transition-transform"
+              className={`fixed top-1/2 ${bookDir === "rtl" ? "left-2 sm:left-4" : "right-2 sm:right-4"} -translate-y-1/2 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-accent text-accent-foreground shadow-book border-2 border-background/70 flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed hover:scale-110 active:scale-95 transition-transform`}
             >
               <Next className="w-6 h-6" />
             </button>
@@ -986,7 +991,7 @@ const Reader = () => {
 
             {/* Bottom navigation — hidden in fullscreen mode */}
             {!fullscreen && (
-              <div className="mt-4 flex items-stretch justify-between gap-3 pb-32">
+              <div dir={bookDir} className="mt-4 flex items-stretch justify-between gap-3 pb-32">
                 <div className="flex flex-col items-start gap-1 min-w-0">
                   <Button variant="outline" onClick={goPrev} disabled={pageIdx === 0} className="gap-2 glass-strong">
                     <Prev className="w-4 h-4" /> {t("prev")}
