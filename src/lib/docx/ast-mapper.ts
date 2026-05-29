@@ -370,7 +370,7 @@ function runToTextNodes(run: PNode, styles?: Map<string, StyleInfo>): TextNode[]
       buf += "\u2011";
     } else if (t === "w:sym") {
       // symbol char — fallback to its char attr if present
-      const ch = attr(c, "w:char");
+      const ch = attrLoose(c, "w:char");
       if (ch) {
         const code = parseInt(ch, 16);
         if (Number.isFinite(code)) buf += String.fromCodePoint(code);
@@ -481,7 +481,7 @@ function parseParagraph(p: PNode, rels: Map<string, string>, styles?: Map<string
     } else if (t === "w:hyperlink") {
       // unwrap hyperlink runs; record href
       const hChildren = kidsOf(c, "w:hyperlink");
-      const ridAttr = attr(c, "r:id");
+      const ridAttr = attrLoose(c, "r:id");
       const href = ridAttr ? rels.get(ridAttr) : undefined;
       for (const hc of hChildren) {
         if (tagOf(hc) === "w:r") {
