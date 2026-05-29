@@ -204,6 +204,18 @@ const Upload = () => {
       }));
       setPrintStartPage(docStart ?? "");
 
+      // Pre-populate custom-heading rules from the source TOC field, if any.
+      // Built-in "Heading N" entries are reflected automatically by buildTocLive
+      // (they exist as heading nodes), so we only seed *custom* style names here.
+      const fieldHints = prep.diagnostics.tocFieldStyles ?? [];
+      const customFromField = fieldHints.filter(
+        (h) => !/^heading\s*\d+$/i.test(h.name.trim()),
+      );
+      if (customFromField.length && !customHeadings.length) {
+        setCustomHeadings(customFromField);
+      }
+      setExcludedStyles([]);
+
       setLocal({
         file, fileBuffer: buffer, prep, images,
         printStartPageFromDoc: !!docStart,
