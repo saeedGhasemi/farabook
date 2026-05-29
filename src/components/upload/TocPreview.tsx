@@ -190,6 +190,59 @@ export const TocPreview = ({
         )}
       </div>
 
+      <div className="rounded-md border bg-secondary/20 p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Styleهای دخیل در فهرست</Label>
+          <span className="text-[10px] text-muted-foreground">
+            تیک هر Style را برای حذف از فهرست بردارید
+          </span>
+        </div>
+        {includableStyles.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground">
+            هنوز Style‌ای برای فهرست شناسایی نشده است.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {includableStyles.map((s) => {
+              const excluded = isExcluded(s.name);
+              const srcLabel =
+                s.source === "field" ? "از TOC فایل"
+                : s.source === "custom" ? "سفارشی شما"
+                : s.source === "ast" ? "Heading شناسایی‌شده"
+                : "حذف‌شده";
+              return (
+                <button
+                  key={s.name}
+                  type="button"
+                  onClick={() => toggleExcluded(s.name)}
+                  title={`${srcLabel}${excluded ? " — اکنون حذف شده" : ""}`}
+                  className={`group inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] transition-colors ${
+                    excluded
+                      ? "bg-muted/40 text-muted-foreground line-through border-dashed"
+                      : "bg-background hover:bg-accent border-border"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3 w-3 rounded-sm border ${
+                      excluded ? "border-muted-foreground" : "bg-primary/80 border-primary"
+                    }`}
+                  />
+                  <span dir="ltr" className="max-w-[160px] truncate">{s.name}</span>
+                  {typeof s.level === "number" && (
+                    <span className="text-[9px] text-muted-foreground">H{s.level}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          اگر فایل ورد دارای TOC داخلی باشد، Style‌های آن به صورت خودکار پیشنهاد می‌شوند.
+          هر Style اشتباه را با یک کلیک می‌توانید از فهرست خارج کنید.
+        </p>
+      </div>
+
+
       {toc.length === 0 ? (
         <div className="rounded-md border border-amber-300/50 bg-amber-50/40 dark:bg-amber-950/20 p-3 flex items-start gap-2 text-sm">
           <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
