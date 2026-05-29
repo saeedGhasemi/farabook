@@ -148,6 +148,8 @@ interface StyleInfo {
   positionHalfPt?: number;
   isHeading?: boolean;       // explicit "Heading N"
   headingLevel?: 1 | 2 | 3;
+  isTitle?: boolean;
+  isSubtitle?: boolean;
 }
 
 function parseStyles(stylesXml: any | null): Map<string, StyleInfo> {
@@ -202,6 +204,8 @@ function parseStyles(stylesXml: any | null): Map<string, StyleInfo> {
     // Detect "Heading 1/2/3" by name or styleId
     const n = (info.name ?? id).toLowerCase();
     const m = n.match(/^heading\s*([1-9])$/) ?? id.match(/^Heading([1-9])$/);
+    info.isTitle = /^(title|book\s*title|عنوان|عنوان\s*کتاب)$/i.test((info.name ?? id).trim());
+    info.isSubtitle = /^(subtitle|sub\s*title|زیر\s*عنوان|زیرعنوان)$/i.test((info.name ?? id).trim());
     if (m) {
       const lv = Math.min(3, Math.max(1, Number(m[1]))) as 1 | 2 | 3;
       info.isHeading = true;
@@ -375,6 +379,12 @@ function runToTextNodes(run: PNode, styles?: Map<string, StyleInfo>): TextNode[]
         const code = parseInt(ch, 16);
         if (Number.isFinite(code)) buf += String.fromCodePoint(code);
       }
+    } else if (t === "w:footnoteReference" || t === "w:endnoteReference") {
+      const id = attrLoose(c, "w:id");
+      if (id && !id.startsWith("-")) {
+        flush();
+        out.push({ type: "text", text: id, marks: [{ type: "superscript" }] });
+      }
     }
   }
   flush();
@@ -403,6 +413,9 @@ interface ParaInfo {
   /** True if this paragraph contains an OMML math element. */
   hasMath?: boolean;
   align?: "left" | "center" | "right" | "justify";
+  noteRefs?: Array<{ kind: "footnote" | "endnote"; id: string }>;
+  isTitle?: boolean;
+  isSubtitle?: boolean;
 }
 
 function parsePPr(pPr: PNode | null): {
@@ -453,12 +466,14 @@ function parseParagraph(p: PNode, rels: Map<string, string>, styles?: Map<string
   const children = kidsOf(p, "w:p");
   const pPr = findFirst(children, "w:pPr");
   const meta = parsePPr(pPr);
+  const styleInfo = meta.styleId ? styles?.get(meta.styleId) : undefined;
   const textNodes: TextNode[] = [];
   let sumSize = 0;
   let sizeCount = 0;
   let anyBold = false;
   const imageRels: string[] = [];
   let hasMath = false;
+  const noteRefs: Array<{ kind: "footnote" | "endnote"; id: string }> = [];
 
   for (const c of children) {
     const t = tagOf(c);
@@ -477,6 +492,7 @@ function parseParagraph(p: PNode, rels: Map<string, string>, styles?: Map<string
       if (fmt.bold) anyBold = true;
       // images via w:drawing > … > a:blip r:embed
       collectImageRels(rChildren, imageRels);
+      collectNoteRefs(rChildren, noteRefs);
       textNodes.push(...runToTextNodes(c, styles));
     } else if (t === "w:hyperlink") {
       // unwrap hyperlink runs; record href
@@ -514,11 +530,28 @@ function parseParagraph(p: PNode, rels: Map<string, string>, styles?: Map<string
     text,
     textNodes: normalizedTextNodes,
     ...meta,
+    isTitle: styleInfo?.isTitle || undefined,
+    isSubtitle: styleInfo?.isSubtitle || undefined,
     dominantSizeHalfPt: sizeCount ? sumSize / sizeCount : undefined,
     anyBold,
     imageRels: imageRels.length ? imageRels : undefined,
     hasMath: hasMath || undefined,
+    noteRefs: noteRefs.length ? noteRefs : undefined,
   };
+}
+
+function collectNoteRefs(nodes: PNode[], out: Array<{ kind: "footnote" | "endnote"; id: string }>) {
+  for (const n of nodes ?? []) {
+    if (!n || typeof n !== "object") continue;
+    const t = tagOf(n);
+    if (!t) continue;
+    if (t === "w:footnoteReference" || t === "w:endnoteReference") {
+      const id = attrLoose(n, "w:id");
+      if (id && !id.startsWith("-")) out.push({ kind: t === "w:footnoteReference" ? "footnote" : "endnote", id });
+    } else if (Array.isArray(n[t])) {
+      collectNoteRefs(n[t], out);
+    }
+  }
 }
 
 function collectImageRels(nodes: PNode[], out: string[]) {
@@ -612,7 +645,8 @@ function ommlToLatex(node: PNode): string {
 function inferHeadings(paras: ParaInfo[], styles: Map<string, StyleInfo>): {
   promotedCount: number; levelDistribution: Record<number, number>;
 } {
-  // First, mark paragraphs that already resolve to a heading via style
+  // Match Word Navigation Panel: only explicit outline levels / built-in
+  // heading styles are considered headings. Do not promote bold/large text.
   for (const p of paras) {
     if (p.styleId) {
       const s = styles.get(p.styleId);
@@ -623,58 +657,6 @@ function inferHeadings(paras: ParaInfo[], styles: Map<string, StyleInfo>): {
       }
     }
   }
-
-  // Compute body median font size from paragraphs that are NOT already headings
-  const bodySizes: number[] = [];
-  for (const p of paras) {
-    if (p.outlineLevel !== undefined) continue;
-    if (p.dominantSizeHalfPt && p.text.trim().length > 30) {
-      bodySizes.push(p.dominantSizeHalfPt);
-    }
-  }
-  if (bodySizes.length === 0) {
-    const dist: Record<number, number> = {};
-    for (const p of paras) {
-      if (p.outlineLevel !== undefined) {
-        const lv = Math.min(3, p.outlineLevel + 1);
-        dist[lv] = (dist[lv] ?? 0) + 1;
-      }
-    }
-    return { promotedCount: 0, levelDistribution: dist };
-  }
-  bodySizes.sort((a, b) => a - b);
-  const median = bodySizes[Math.floor(bodySizes.length / 2)];
-
-  // Candidate headings: short, bold or larger, not already heading
-  type Cand = { p: ParaInfo; size: number };
-  const cands: Cand[] = [];
-  for (const p of paras) {
-    if (p.outlineLevel !== undefined) continue;
-    const t = p.text.trim();
-    if (!t || t.length > 200) continue;
-    const size = p.dominantSizeHalfPt ?? median;
-    const sizeRatio = size / median;
-    const looksHeading =
-      sizeRatio >= 1.15 ||
-      (p.anyBold && t.length <= 120 && sizeRatio >= 1.0) ||
-      /^(فصل|بخش|پیوست|chapter|part|appendix)\s+/i.test(t);
-    if (looksHeading) cands.push({ p, size });
-  }
-
-  // Cluster candidate sizes into up to 3 levels (largest = H1)
-  const uniqueSizes = Array.from(new Set(cands.map((c) => Math.round(c.size)))).sort(
-    (a, b) => b - a,
-  );
-  const levelBySize = new Map<number, 1 | 2 | 3>();
-  uniqueSizes.slice(0, 3).forEach((s, i) => levelBySize.set(s, (i + 1) as 1 | 2 | 3));
-
-  let promoted = 0;
-  for (const c of cands) {
-    const lv = levelBySize.get(Math.round(c.size)) ?? 3;
-    c.p.outlineLevel = lv - 1;
-    promoted++;
-  }
-
   const dist: Record<number, number> = {};
   for (const p of paras) {
     if (p.outlineLevel !== undefined) {
@@ -682,7 +664,7 @@ function inferHeadings(paras: ParaInfo[], styles: Map<string, StyleInfo>): {
       dist[lv] = (dist[lv] ?? 0) + 1;
     }
   }
-  return { promotedCount: promoted, levelDistribution: dist };
+  return { promotedCount: 0, levelDistribution: dist };
 }
 
 /* ------------------------------------------------------------------ */
@@ -751,6 +733,47 @@ function parseNumbering(xml: any | null): NumInfo {
   return info;
 }
 
+function textForFirstTag(nodes: PNode[] | null | undefined, tag: string): string | undefined {
+  for (const n of nodes ?? []) {
+    const t = tagOf(n);
+    if (!t) continue;
+    if (t === tag) {
+      const txt = getText(kidsOf(n, t)).trim();
+      if (txt) return txt;
+    }
+    const child = textForFirstTag(kidsOf(n, t), tag);
+    if (child) return child;
+  }
+  return undefined;
+}
+
+function parseNotes(
+  notesXml: any | null,
+  rootTag: "w:footnotes" | "w:endnotes",
+  itemTag: "w:footnote" | "w:endnote",
+  rels: Map<string, string>,
+  styles: Map<string, StyleInfo>,
+): Map<string, TextNode[]> {
+  const out = new Map<string, TextNode[]>();
+  const root = notesXml ? findFirst(notesXml, rootTag) : null;
+  if (!root) return out;
+  for (const note of kidsOf(root, rootTag)) {
+    if (tagOf(note) !== itemTag) continue;
+    const id = attrLoose(note, "w:id");
+    if (!id || id.startsWith("-")) continue;
+    const nodes: TextNode[] = [];
+    for (const child of kidsOf(note, itemTag)) {
+      if (tagOf(child) !== "w:p") continue;
+      const p = parseParagraph(child, rels, styles);
+      if (!p.textNodes.length) continue;
+      if (nodes.length) nodes.push({ type: "text", text: "\n" });
+      nodes.push(...p.textNodes);
+    }
+    if (nodes.length) out.set(id, nodes);
+  }
+  return out;
+}
+
 function numFmtFor(info: NumInfo, numId?: number, ilvl?: number): NumLevelFmt | null {
   if (numId === undefined) return null;
   const aid = info.numToAbstract.get(numId);
@@ -781,12 +804,14 @@ function renderListMarker(fmt: NumLevelFmt | null, counter: number, _ilvl: numbe
 export interface MapResult {
   doc: TiptapDoc;
   media: OoxmlMedia[];
+  metadata: { title?: string; subtitle?: string };
   diagnostics: {
     promotedHeadings: number;
     headingLevels: Record<number, number>;
     paragraphsTotal: number;
     imagesEmbedded: number;
     formulasDetected: number;
+    footnotesDetected: number;
     cleanedMarker: boolean;
   };
 }
@@ -796,6 +821,8 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
   const stylesMap = parseStyles(bundle.styles);
   const rels = parseRels(bundle.rels);
   const numInfo = parseNumbering(bundle.numbering);
+  const footnotes = parseNotes(bundle.footnotes, "w:footnotes", "w:footnote", rels, stylesMap);
+  const endnotes = parseNotes(bundle.endnotes, "w:endnotes", "w:endnote", rels, stylesMap);
   const root = findFirst(bundle.doc, "w:document");
   if (!root) throw new Error("ساختار XML سند نامعتبر است (w:document یافت نشد).");
   const body = findFirst(kidsOf(root, "w:document"), "w:body");
@@ -830,6 +857,11 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
 
   // Second pass: build TiptapDoc
   const content: TiptapDoc["content"] = [];
+  const metadata = {
+    title: textForFirstTag(bundle.coreProps, "dc:title") || paras.find((p) => p.isTitle)?.text,
+    subtitle: paras.find((p) => p.isSubtitle)?.text,
+  };
+  const emittedNotes = new Set<string>();
   const usedMediaNames = new Set<string>();
   let formulasDetected = 0;
   let imagesEmbedded = 0;
@@ -927,6 +959,21 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
       content: info.textNodes,
     } as ParagraphNode);
 
+    if (info.noteRefs?.length) {
+      for (const ref of info.noteRefs) {
+        const key = `${ref.kind}:${ref.id}`;
+        if (emittedNotes.has(key)) continue;
+        const note = ref.kind === "footnote" ? footnotes.get(ref.id) : endnotes.get(ref.id);
+        if (!note?.length) continue;
+        emittedNotes.add(key);
+        content.push({
+          type: "paragraph",
+          attrs: { dir: detectDir(note.map((n) => n.text).join(""), info.bidi) },
+          content: [{ type: "text", text: `${ref.id}. ` }, ...note],
+        } as ParagraphNode);
+      }
+    }
+
     // Inline images embedded WITH text: emit after paragraph
     if (info.imageRels && info.imageRels.length) {
       for (const rid of info.imageRels) {
@@ -948,12 +995,14 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
   return {
     doc,
     media,
+    metadata,
     diagnostics: {
       promotedHeadings: headingDiag.promotedCount,
       headingLevels: headingDiag.levelDistribution,
       paragraphsTotal: paras.length,
       imagesEmbedded,
       formulasDetected,
+      footnotesDetected: emittedNotes.size,
       cleanedMarker: bundle.hasCleanedMarker,
     },
   };

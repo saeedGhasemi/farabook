@@ -28,6 +28,7 @@ interface Body {
   meta?: {
     sourceFileName?: string;
     diagnostics?: Record<string, unknown>;
+    metadata?: { title?: string; subtitle?: string };
   };
 }
 
@@ -152,12 +153,15 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
   const sourceName = body.meta?.sourceFileName ?? "Word document";
-  const baseTitle = sourceName.replace(/\.docx$/i, "").trim() || "کتاب جدید";
+  const wordTitle = body.meta?.metadata?.title?.trim();
+  const wordSubtitle = body.meta?.metadata?.subtitle?.trim();
+  const baseTitle = wordTitle || sourceName.replace(/\.docx$/i, "").trim() || "کتاب جدید";
 
   const { data: inserted, error: insertErr } = await admin
     .from("books")
     .insert({
       title: baseTitle,
+      subtitle: wordSubtitle || null,
       author: "نامشخص",
       publisher_id: user.id,
       status: "draft",

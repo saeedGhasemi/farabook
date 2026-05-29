@@ -23,6 +23,12 @@ export interface OoxmlBundle {
   styles: any | null;
   /** Parsed word/numbering.xml (may be null). */
   numbering: any | null;
+  /** Parsed word/footnotes.xml (may be null). */
+  footnotes: any | null;
+  /** Parsed word/endnotes.xml (may be null). */
+  endnotes: any | null;
+  /** Parsed docProps/core.xml (may be null). */
+  coreProps: any | null;
   /** Parsed word/_rels/document.xml.rels (may be null). */
   rels: any | null;
   /** All images extracted from word/media/. */
@@ -72,10 +78,13 @@ export async function readDocx(input: ArrayBuffer | Blob | File): Promise<OoxmlB
     return parser.parse(xml);
   };
 
-  const [doc, styles, numbering, rels] = await Promise.all([
+  const [doc, styles, numbering, footnotes, endnotes, coreProps, rels] = await Promise.all([
     readXml("word/document.xml"),
     readXml("word/styles.xml"),
     readXml("word/numbering.xml"),
+    readXml("word/footnotes.xml"),
+    readXml("word/endnotes.xml"),
+    readXml("docProps/core.xml"),
     readXml("word/_rels/document.xml.rels"),
   ]);
 
@@ -118,7 +127,7 @@ export async function readDocx(input: ArrayBuffer | Blob | File): Promise<OoxmlB
     }
   }
 
-  return { doc, styles, numbering, rels, media, hasCleanedMarker };
+  return { doc, styles, numbering, footnotes, endnotes, coreProps, rels, media, hasCleanedMarker };
 }
 
 /* ------------------------------------------------------------------ */

@@ -321,7 +321,7 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
   let removedImages = 0;
   const files = unzipSync(new Uint8Array(input), {
     filter: (file: { name: string }) => {
-      const keep = file.name === "word/document.xml" || file.name === "word/_rels/document.xml.rels" || file.name === "[Content_Types].xml";
+      const keep = file.name === "word/document.xml" || file.name === "word/footnotes.xml" || file.name === "word/endnotes.xml" || file.name === "word/_rels/document.xml.rels" || file.name === "[Content_Types].xml";
       if (/^word\/media\//i.test(file.name)) {
         removedImages += 1;
         return false;
@@ -331,6 +331,8 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
   });
   const doc = files["word/document.xml"] ? strFromU8(files["word/document.xml"]) : "";
   if (!doc) return { pages: [], removedImages };
+  const footnotesXml = files["word/footnotes.xml"] ? strFromU8(files["word/footnotes.xml"]) : "";
+  const endnotesXml = files["word/endnotes.xml"] ? strFromU8(files["word/endnotes.xml"]) : "";
 
   const relsXml = files["word/_rels/document.xml.rels"] ? strFromU8(files["word/_rels/document.xml.rels"]) : "";
   const contentTypesXml = files["[Content_Types].xml"] ? strFromU8(files["[Content_Types].xml"]) : "";
@@ -357,14 +359,16 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
     }
     return refs;
   };
+  const noteText = (kind: "footnote" | "endnote", id: string): string => {
+    const src = kind === "footnote" ? footnotesXml : endnotesXml;
+    if (!src || id.startsWith("-")) return "";
+    const re = new RegExp(`<w:${kind}\\b[^>]*(?:w:)?id=["']${id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["'][^>]*>([\\s\\S]*?)<\\/w:${kind}>`, "i");
+    const body = re.exec(src)?.[1] || "";
+    return body ? textFromWordXml(body) : "";
+  };
 
-  // Detect whether the docx carries rendered-page-break markers. When it
-  // does, we trust them as the authoritative page boundaries (1 Word page
-  // = 1 book page) and skip heading-based promotion / tiny-chapter merging
-  // so the output mirrors the source pagination one-to-one. When it does
-  // not (file never opened in Word, so no <w:lastRenderedPageBreak/>), we
-  // fall back to the legacy heading-based split.
-  const hasRenderedBreaks = /<w:lastRenderedPageBreak\b/i.test(doc);
+  // Chaptering must mirror Word Navigation Panel: explicit Heading styles only.
+  const hasRenderedBreaks = false;
 
   const pages: Page[] = [];
   let cur: Page = { title: hasRenderedBreaks ? "صفحه 1" : "مقدمه", blocks: [] };
@@ -431,11 +435,12 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
     for (let i = 0; i < parts.length; i += 1) {
       const part = parts[i];
       const text = textFromWordXml(part);
+      const notes = [...part.matchAll(/<w:(footnoteReference|endnoteReference)\b[^>]*(?:w:)?id=["']([^"']+)["'][^>]*\/>/gi)]
+        .map((nm) => ({ kind: nm[1] === "footnoteReference" ? "footnote" as const : "endnote" as const, id: nm[2] }));
       if (text) {
         // Heading-based new-page promotion only when we don't have rendered
         // page breaks — otherwise real pagination already drives splits.
-        const looksLikeChapter = !hasRenderedBreaks && level === 0 && isStrictChapterTitle(text);
-        if (!hasRenderedBreaks && (level === 1 || level === 2 || looksLikeChapter)) {
+        if (!hasRenderedBreaks && (level === 1 || level === 2)) {
           pushPage();
           cur = { title: text.slice(0, 120), blocks: [] };
         } else {
@@ -443,9 +448,13 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
           cur.blocks.push(level ? { type: "heading", level: Math.min(level, 3), text } : { type: "paragraph", text });
           // Lift first real text into an auto-titled page so the chapter
           // sidebar shows something meaningful instead of "صفحه N".
-          if (/^صفحه\s+\d+\s*$/.test(cur.title) && cur.blocks.length === 1) {
+          if (false && /^صفحه\s+\d+\s*$/.test(cur.title) && cur.blocks.length === 1) {
             cur.title = text.slice(0, 120);
           }
+        }
+        for (const n of notes) {
+          const nt = noteText(n.kind, n.id);
+          if (nt) cur.blocks.push({ type: "paragraph", text: `${n.id}. ${nt}` });
         }
       }
       // Only honor a manual page break if the current page actually has
