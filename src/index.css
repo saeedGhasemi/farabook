@@ -724,3 +724,40 @@
   animation: ai-target-flash 1.5s ease-out;
   border-radius: 6px;
 }
+
+/* Chapter sidebar: pause-and-marquee scroll for long titles.
+   Plays only when the text actually overflows its container. */
+.chapter-title-marquee {
+  display: inline-block;
+  max-width: 100%;
+}
+@media (hover: hover) {
+  .group:hover .chapter-title-marquee {
+    animation: chapter-title-scroll 9s linear 0.4s infinite;
+  }
+}
+@keyframes chapter-title-scroll {
+  0%   { transform: translateX(0); }
+  15%  { transform: translateX(0); }
+  85%  { transform: translateX(calc(-100% + 100cqw)); }
+  100% { transform: translateX(calc(-100% + 100cqw)); }
+}
+
+/* Paginated (liquid) reading column.
+   The article is laid out as horizontal CSS columns and the user navigates
+   them by translating the inner content. */
+.reader-paginated {
+  column-fill: auto;
+  column-gap: 2.5rem;
+  height: var(--paginated-height, 78vh);
+  overflow: hidden;
+}
+.reader-paginated > * {
+  break-inside: avoid;
+}
+.reader-paginated img,
+.reader-paginated figure,
+.reader-paginated table {
+  break-inside: avoid;
+  max-height: 100%;
+}
