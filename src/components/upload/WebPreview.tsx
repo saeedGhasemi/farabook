@@ -57,7 +57,7 @@ export const WebPreview = ({ doc, mediaUrls, maxPrintPages = 60, maxBlocksFallba
       {truncated && (
         <div className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50/40 dark:bg-amber-950/20 border border-amber-300/40 rounded px-2 py-1.5 mb-2">
           برای جلوگیری از کندی، فقط بخشی از کتاب در پیش‌نمایش نشان داده شده است
-          (تا ۵۰ صفحهٔ چاپی یا ۴۰۰ بلوک نخست).
+          (تا ۶۰ صفحهٔ چاپی یا ۴۸۰ بلوک نخست).
         </div>
       )}
       <div className="rounded-md border bg-card max-h-[600px] overflow-auto p-4 prose prose-sm dark:prose-invert max-w-none">
