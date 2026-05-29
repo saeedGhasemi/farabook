@@ -258,6 +258,7 @@ interface RunFormat {
   vertAlign?: "superscript" | "subscript";
   color?: string;
   fontSizeHalfPt?: number;
+  positionHalfPt?: number;
 }
 
 
@@ -274,6 +275,7 @@ function parseRunProps(rPr: PNode | null, styles?: Map<string, StyleInfo>): RunF
         if (s.italic && out.italic === undefined) out.italic = true;
         if (s.vertAlign && !out.vertAlign) out.vertAlign = s.vertAlign;
         if (s.fontSizeHalfPt && out.fontSizeHalfPt === undefined) out.fontSizeHalfPt = s.fontSizeHalfPt;
+        if (s.positionHalfPt && out.positionHalfPt === undefined) out.positionHalfPt = s.positionHalfPt;
       }
     }
   }
@@ -293,6 +295,13 @@ function parseRunProps(rPr: PNode | null, styles?: Map<string, StyleInfo>): RunF
       const v = attr(p, "w:val");
       if (v === "superscript") out.vertAlign = "superscript";
       else if (v === "subscript") out.vertAlign = "subscript";
+    } else if (t === "w:position") {
+      const v = Number(attr(p, "w:val"));
+      if (Number.isFinite(v)) {
+        out.positionHalfPt = v;
+        if (v > 0) out.vertAlign = "superscript";
+        else if (v < 0) out.vertAlign = "subscript";
+      }
     } else if (t === "w:color") {
       const v = attr(p, "w:val");
       if (v && v !== "auto") out.color = "#" + v;
