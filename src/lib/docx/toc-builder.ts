@@ -100,10 +100,15 @@ export function buildToc(doc: TiptapDoc): TocNode[] {
  * Build a TOC that reflects (1) existing heading nodes and (2) paragraphs
  * whose source Word style matches one of `customHeadings`. The AST is
  * NOT mutated — this is for live preview only.
+ *
+ * `excludedStyles` is a set of style names/ids (case-insensitive) that the
+ * user has chosen to suppress from the TOC entirely — even if the paragraph
+ * is a true Heading node or matches a custom rule.
  */
 export function buildTocLive(
   doc: TiptapDoc,
   customHeadings: Array<{ name: string; level: number }>,
+  excludedStyles: Iterable<string> = [],
 ): TocNode[] {
   const normalize = (s: string) => (s || "").trim().toLowerCase();
   const customMap = new Map<string, number>();
@@ -112,24 +117,42 @@ export function buildTocLive(
     if (!key) continue;
     customMap.set(key, Math.min(8, Math.max(1, Math.floor(c.level || 1))));
   }
+  const excluded = new Set<string>();
+  for (const s of excludedStyles) {
+    const k = normalize(s);
+    if (k) excluded.add(k);
+  }
+  const isExcluded = (sid?: string | null, sname?: string | null, level?: number) => {
+    if (excluded.has(normalize(sid ?? ""))) return true;
+    if (excluded.has(normalize(sname ?? ""))) return true;
+    // Built-in headings: also match canonical "heading N" / "headingN" tokens.
+    if (level && level >= 1 && level <= 8) {
+      if (excluded.has(`heading ${level}`) || excluded.has(`heading${level}`)) return true;
+    }
+    return false;
+  };
 
   const flat: FlatEntry[] = [];
   const promotedIdx = new Set<number>();
   doc.content?.forEach((node: any, i: number) => {
     if (node?.type === "heading" && node.attrs?.level >= 1 && node.attrs?.level <= 8) {
+      const sid = node.attrs?.srcStyleId ?? null;
+      const sname = node.attrs?.srcStyleName ?? null;
+      if (isExcluded(sid, sname, node.attrs.level)) return;
       flat.push({
         id: `h-${i}`,
         level: node.attrs.level,
         title: plainText(node) || "—",
         index: i,
-        sourceStyleName: node.attrs?.srcStyleName ?? null,
-        sourceStyleId: node.attrs?.srcStyleId ?? null,
+        sourceStyleName: sname,
+        sourceStyleId: sid,
       });
       return;
     }
     if (node?.type === "paragraph" && customMap.size) {
       const sid = node.attrs?.srcStyleId;
       const sname = node.attrs?.srcStyleName;
+      if (isExcluded(sid, sname)) return;
       const keys = [normalize(sid ?? ""), normalize(sname ?? "")];
       for (const k of keys) {
         if (k && customMap.has(k)) {

@@ -25,7 +25,7 @@ import type {
   ImageNode,
 } from "@/lib/tiptap-doc";
 import type { OoxmlBundle, OoxmlMedia } from "./ooxml-reader";
-import { attr } from "./ooxml-reader";
+import { attr, extractTocFieldStyles } from "./ooxml-reader";
 import { FIG_RE } from "./figure-caption";
 
 /* ------------------------------------------------------------------ */
@@ -956,6 +956,8 @@ export interface MapResult {
     /** Unique paragraph styles seen in the document. Useful for the wizard
      *  to suggest names when the user picks a custom heading style. */
     paragraphStyles: Array<{ id: string; name?: string; count: number }>;
+    /** Style→level hints extracted from any TOC field in the source. */
+    tocFieldStyles: Array<{ name: string; level: number }>;
   };
 }
 
@@ -1249,6 +1251,7 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle, opts: MapOptions = {}): MapRe
       footnotesDetected: seenNote.size,
       cleanedMarker: bundle.hasCleanedMarker,
       paragraphStyles,
+      tocFieldStyles: extractTocFieldStyles(bundle.rawDocXml),
     },
   };
 }

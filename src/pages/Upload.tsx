@@ -65,6 +65,7 @@ const Upload = () => {
   const [local, setLocal] = useState<LocalState | null>(null);
   const [meta, setMeta] = useState<BookMetadata>({ ...DEFAULT_METADATA });
   const [customHeadings, setCustomHeadings] = useState<Array<{ name: string; level: number }>>([]);
+  const [excludedStyles, setExcludedStyles] = useState<string[]>([]);
   const [printStartPage, setPrintStartPage] = useState<number | "">("");
   const [validation, setValidation] = useState<ValidationItem[]>([]);
   const [uploadPct, setUploadPct] = useState(0);
@@ -203,6 +204,18 @@ const Upload = () => {
       }));
       setPrintStartPage(docStart ?? "");
 
+      // Pre-populate custom-heading rules from the source TOC field, if any.
+      // Built-in "Heading N" entries are reflected automatically by buildTocLive
+      // (they exist as heading nodes), so we only seed *custom* style names here.
+      const fieldHints = prep.diagnostics.tocFieldStyles ?? [];
+      const customFromField = fieldHints.filter(
+        (h) => !/^heading\s*\d+$/i.test(h.name.trim()),
+      );
+      if (customFromField.length && !customHeadings.length) {
+        setCustomHeadings(customFromField);
+      }
+      setExcludedStyles([]);
+
       setLocal({
         file, fileBuffer: buffer, prep, images,
         printStartPageFromDoc: !!docStart,
@@ -219,20 +232,38 @@ const Upload = () => {
   /* -------- promote paragraphs whose Word style matches the user's
    *           custom-heading rules. Mutates a shallow copy of doc.content. */
   const promoteCustomHeadings = (doc: any) => {
-    if (!customHeadings.length) return doc;
     const norm = (s: string) => (s || "").trim().toLowerCase();
+    const excluded = new Set(excludedStyles.map(norm));
+    const isExcluded = (sid: string, sname: string, level?: number) => {
+      if (excluded.has(sid) || excluded.has(sname)) return true;
+      if (level && (excluded.has(`heading ${level}`) || excluded.has(`heading${level}`))) return true;
+      return false;
+    };
     const map = new Map<string, number>();
     for (const c of customHeadings) {
       const k = norm(c.name);
-      if (k) map.set(k, Math.min(8, Math.max(1, Math.floor(c.level || 1))));
+      if (k && !excluded.has(k)) map.set(k, Math.min(8, Math.max(1, Math.floor(c.level || 1))));
     }
-    if (!map.size) return doc;
+    if (!map.size && !excluded.size) return doc;
     const next = [...(doc.content ?? [])];
     for (let i = 0; i < next.length; i += 1) {
       const n: any = next[i];
-      if (!n || n.type !== "paragraph") continue;
+      if (!n) continue;
       const sid = norm(n.attrs?.srcStyleId ?? "");
       const sname = norm(n.attrs?.srcStyleName ?? "");
+      // Demote any heading whose source style the user excluded from TOC,
+      // so the saved book matches what they saw in the live preview.
+      if (n.type === "heading" && isExcluded(sid, sname, n.attrs?.level)) {
+        next[i] = {
+          type: "paragraph",
+          attrs: { dir: n.attrs?.dir ?? null, textAlign: n.attrs?.textAlign ?? null,
+                   srcStyleId: n.attrs?.srcStyleId, srcStyleName: n.attrs?.srcStyleName },
+          content: n.content,
+        };
+        continue;
+      }
+      if (n.type !== "paragraph") continue;
+      if (isExcluded(sid, sname)) continue;
       const lv = map.get(sid) ?? map.get(sname);
       if (!lv) continue;
       const title = (n.content ?? []).map((c: any) => c?.text ?? "").join("").trim();
@@ -249,8 +280,8 @@ const Upload = () => {
 
   /* -------- validation re-runs whenever inputs change -------- */
   const toc = useMemo(
-    () => (local ? buildTocLive(local.prep.doc, customHeadings) : []),
-    [local, customHeadings],
+    () => (local ? buildTocLive(local.prep.doc, customHeadings, excludedStyles) : []),
+    [local, customHeadings, excludedStyles],
   );
 
   useEffect(() => {
@@ -544,6 +575,9 @@ const Upload = () => {
                 availableStyleNames={local.prep.diagnostics.paragraphStyles
                   .map((s) => s.name || s.id)
                   .filter(Boolean) as string[]}
+                excludedStyles={excludedStyles}
+                onExcludedStylesChange={setExcludedStyles}
+                detectedFromTocField={local.prep.diagnostics.tocFieldStyles}
                 onEditHeading={editHeading}
                 onDeleteHeading={deleteHeading}
               />

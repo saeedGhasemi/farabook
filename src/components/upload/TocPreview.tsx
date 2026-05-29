@@ -21,6 +21,12 @@ interface Props {
   customHeadings: CustomHeadingEntry[];
   onCustomHeadingsChange: (next: CustomHeadingEntry[]) => void;
   availableStyleNames: string[];
+  /** Style names/ids the user has chosen to exclude from the TOC. */
+  excludedStyles: string[];
+  onExcludedStylesChange: (next: string[]) => void;
+  /** Style hints auto-detected from the source TOC field (for the
+   *  "auto-detected" badge in the included-styles list). */
+  detectedFromTocField?: Array<{ name: string; level: number }>;
   /** Update the heading at AST index with new title/level. */
   onEditHeading?: (index: number, level: 1|2|3|4|5|6|7|8, title: string) => void;
   /** Remove the heading at AST index (demoted to paragraph or removed). */
@@ -40,6 +46,7 @@ const LEVEL_BG: Record<number, string> = {
 
 export const TocPreview = ({
   toc, customHeadings, onCustomHeadingsChange, availableStyleNames,
+  excludedStyles, onExcludedStylesChange, detectedFromTocField,
   onEditHeading, onDeleteHeading,
 }: Props) => {
   const flat = useMemo(() => flattenToc(toc), [toc]);
@@ -83,6 +90,45 @@ export const TocPreview = ({
     [next[i], next[j]] = [next[j], next[i]];
     onCustomHeadingsChange(next);
   };
+
+  const normalize = (s: string) => (s || "").trim().toLowerCase();
+  const excludedSet = useMemo(
+    () => new Set(excludedStyles.map(normalize)),
+    [excludedStyles],
+  );
+  const isExcluded = (name?: string | null) =>
+    !!name && excludedSet.has(normalize(name));
+  const toggleExcluded = (name: string) => {
+    const k = normalize(name);
+    if (!k) return;
+    const has = excludedStyles.some((s) => normalize(s) === k);
+    onExcludedStylesChange(
+      has ? excludedStyles.filter((s) => normalize(s) !== k) : [...excludedStyles, name.trim()],
+    );
+  };
+
+  // Union of: built-in heading styles seen in the file (Heading 1..8 present
+  // among AST headings), explicit custom-heading rules, TOC-field hints, and
+  // already-excluded names. We render this list with a checkbox per style so
+  // the user can include/exclude any of them — even auto-detected ones.
+  const includableStyles = useMemo(() => {
+    const map = new Map<string, { name: string; level?: number; source: "field" | "custom" | "ast" | "excluded" }>();
+    const put = (name: string, level: number | undefined, source: "field" | "custom" | "ast" | "excluded") => {
+      const k = normalize(name);
+      if (!k) return;
+      if (!map.has(k)) map.set(k, { name: name.trim(), level, source });
+    };
+    for (const h of detectedFromTocField ?? []) put(h.name, h.level, "field");
+    for (const c of customHeadings) if (c.name?.trim()) put(c.name, c.level, "custom");
+    // Headings present in the AST today (from buildTocLive output)
+    for (const n of flat) {
+      const nm = n.sourceStyleName || n.sourceStyleId || `Heading ${n.level}`;
+      put(nm, n.level, "ast");
+    }
+    for (const e of excludedStyles) put(e, undefined, "excluded");
+    return Array.from(map.values());
+  }, [detectedFromTocField, customHeadings, flat, excludedStyles]);
+
 
   return (
     <div className="space-y-3" dir="rtl">
@@ -143,6 +189,59 @@ export const TocPreview = ({
           </div>
         )}
       </div>
+
+      <div className="rounded-md border bg-secondary/20 p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Styleهای دخیل در فهرست</Label>
+          <span className="text-[10px] text-muted-foreground">
+            تیک هر Style را برای حذف از فهرست بردارید
+          </span>
+        </div>
+        {includableStyles.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground">
+            هنوز Style‌ای برای فهرست شناسایی نشده است.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {includableStyles.map((s) => {
+              const excluded = isExcluded(s.name);
+              const srcLabel =
+                s.source === "field" ? "از TOC فایل"
+                : s.source === "custom" ? "سفارشی شما"
+                : s.source === "ast" ? "Heading شناسایی‌شده"
+                : "حذف‌شده";
+              return (
+                <button
+                  key={s.name}
+                  type="button"
+                  onClick={() => toggleExcluded(s.name)}
+                  title={`${srcLabel}${excluded ? " — اکنون حذف شده" : ""}`}
+                  className={`group inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] transition-colors ${
+                    excluded
+                      ? "bg-muted/40 text-muted-foreground line-through border-dashed"
+                      : "bg-background hover:bg-accent border-border"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3 w-3 rounded-sm border ${
+                      excluded ? "border-muted-foreground" : "bg-primary/80 border-primary"
+                    }`}
+                  />
+                  <span dir="ltr" className="max-w-[160px] truncate">{s.name}</span>
+                  {typeof s.level === "number" && (
+                    <span className="text-[9px] text-muted-foreground">H{s.level}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          اگر فایل ورد دارای TOC داخلی باشد، Style‌های آن به صورت خودکار پیشنهاد می‌شوند.
+          هر Style اشتباه را با یک کلیک می‌توانید از فهرست خارج کنید.
+        </p>
+      </div>
+
 
       {toc.length === 0 ? (
         <div className="rounded-md border border-amber-300/50 bg-amber-50/40 dark:bg-amber-950/20 p-3 flex items-start gap-2 text-sm">
@@ -234,6 +333,16 @@ export const TocPreview = ({
                         title="حذف (تبدیل به پاراگراف)"
                       >
                         <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                    {(n.sourceStyleName || n.sourceStyleId) && (
+                      <Button
+                        size="icon" variant="ghost"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:text-amber-600"
+                        onClick={() => toggleExcluded((n.sourceStyleName || n.sourceStyleId) as string)}
+                        title="حذف این Style از فهرست (همهٔ ردیف‌های هم‌Style)"
+                      >
+                        <X className="h-3 w-3" />
                       </Button>
                     )}
                   </>
