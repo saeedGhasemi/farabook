@@ -80,29 +80,7 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
   // then color spans, bold (**), italic (*), underline, links, urls.
   const re =
     /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$\n]+?\$|\[c=[^\]\n]+\][\s\S]*?\[\/c\]|\[fn=[^\]\n]*\][\s\S]*?\[\/fn\]|\[sup\][\s\S]*?\[\/sup\]|\[sub\][\s\S]*?\[\/sub\]|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
-  const rawParts = text.split(re);
-
-  // Post-process: merge trailing plain-text word before each footnote so we
-  // can underline the word with a dotted border in the renderer.
-  const parts: string[] = [];
-  for (let i = 0; i < rawParts.length; i++) {
-    const p = rawParts[i];
-    const fnM = /^\[fn=([^\]\n]*)\]([\s\S]*?)\[\/fn\]$/.exec(p);
-    if (fnM && parts.length > 0) {
-      const prev = parts[parts.length - 1];
-      // Only strip from plain text (not from markdown tokens like **bold**, links, etc.)
-      const isPlainText = prev && !/^(\[|\*\*|\*|__|https?:\/\/|\$\$|\\\[|\\\()/.test(prev);
-      const wordMatch = isPlainText ? prev.match(/(\S+)(\s*)$/) : null;
-      if (wordMatch) {
-        parts[parts.length - 1] = prev.slice(0, prev.length - wordMatch[0].length);
-        const content = fnM[1];
-        const label = fnM[2];
-        parts.push(`[fn=${content}]${wordMatch[1]}${wordMatch[2]}[${label}][/fn]`);
-        continue;
-      }
-    }
-    parts.push(p);
-  }
+  const parts = text.split(re);
 
   return parts.map((p, i) => {
     const key = `${baseKey}-${i}`;
@@ -116,48 +94,23 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
         </span>
       );
     }
-    // Footnote: [fn=<encoded content>]word [N][/fn] → dotted underline on word
+    // Footnote: [fn=<encoded content>]<inner>[/fn] — render inner as a
+    // clickable superscript-style trigger in primary color with tooltip/popover.
     const fnM = /^\[fn=([^\]\n]*)\]([\s\S]*?)\[\/fn\]$/.exec(p);
     if (fnM) {
       let content = "";
       try { content = decodeURIComponent(fnM[1]); } catch { content = fnM[1]; }
       const inner = fnM[2];
-      // inner is "word [N]" — split out the label
-      const labelMatch = inner.match(/\[(\d+)\]$/);
-      if (labelMatch) {
-        const word = inner.slice(0, inner.length - labelMatch[0].length);
-        const label = labelMatch[1];
-        return (
-          <Popover key={key}>
-            <PopoverTrigger asChild>
-              <span
-                className="cursor-help"
-                title={content}
-                role="button"
-                tabIndex={0}
-              >
-                <span className="border-b border-dotted border-accent">{word}</span>
-                <sup className="text-[0.75em] mx-0.5 text-primary font-medium">{label}</sup>
-              </span>
-            </PopoverTrigger>
-            <PopoverContent side="top" align="center" className="max-w-xs text-sm leading-relaxed whitespace-pre-wrap" dir="auto">
-              {content || <span className="text-muted-foreground">—</span>}
-            </PopoverContent>
-          </Popover>
-        );
-      }
-      // Fallback: old format without merged word
-      const label = inner;
       return (
         <Popover key={key}>
           <PopoverTrigger asChild>
             <button
               type="button"
               title={content}
-              className="text-primary font-medium focus:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded"
-              aria-label={`پاورقی ${label}`}
+              className="text-primary font-medium focus:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded cursor-help"
+              aria-label="پاورقی"
             >
-              <sup className="text-[0.75em] mx-0.5">{label}</sup>
+              {renderInlineMarkdown(inner, `${key}-fn`)}
             </button>
           </PopoverTrigger>
           <PopoverContent side="top" align="center" className="max-w-xs text-sm leading-relaxed whitespace-pre-wrap" dir="auto">
@@ -166,6 +119,7 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
         </Popover>
       );
     }
+
 
     const supM = /^\[sup\]([\s\S]*?)\[\/sup\]$/.exec(p);
     if (supM) return <sup key={key}>{renderInlineMarkdown(supM[1], `${key}-sup`)}</sup>;
@@ -273,9 +227,16 @@ const renderWithHighlights = (
 
     // Prefer a highlight that explicitly targets this occurrence; otherwise
     // pick the first whose occurrence is null/undefined (any match).
+    // Strict match: if a highlight specifies an occurrence, only that Nth
+    // match wraps; truly legacy highlights (no block_index AND no occurrence)
+    // fall back to matching any occurrence.
     const match =
-      candidates.find((h) => h.occurrence === idx) ||
-      candidates.find((h) => h.occurrence === null || h.occurrence === undefined);
+      candidates.find((h) => h.occurrence != null && h.occurrence === idx) ||
+      candidates.find((h) =>
+        (h.occurrence === null || h.occurrence === undefined) &&
+        (h.block_index === null || h.block_index === undefined),
+      );
+
     if (!match) return <span key={i}>{cleanInlineRefs(p)}</span>;
 
     const color = match.color || "yellow";
