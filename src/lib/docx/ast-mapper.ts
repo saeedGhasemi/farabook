@@ -421,7 +421,7 @@ function parseParagraph(p: PNode, rels: Map<string, string>): ParaInfo {
       const rChildren = kidsOf(c, "w:r");
       const rPr = findFirst(rChildren, "w:rPr");
       const fmt = parseRunProps(rPr);
-      if (fmt.fontSizeHalfPt) {
+      textNodes.push(...runToTextNodes(c, styles));
         sumSize += fmt.fontSizeHalfPt;
         sizeCount++;
       }
