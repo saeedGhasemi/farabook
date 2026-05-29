@@ -306,6 +306,7 @@ export const ImageReviewPanel = ({
                         {!it.figureNumber && it.slot ? <span className="text-muted-foreground">#{it.slot}</span> : null}
                         {it.attention === "mismatch" && <span className="text-orange-700 dark:text-orange-400 text-[10px]">عدم تطابق شماره</span>}
                         {it.attention === "missing-caption" && <span className="text-amber-700 dark:text-amber-400 text-[10px]">بدون کپشن</span>}
+                        {it.attention === "needs-confirm" && <span className="text-sky-700 dark:text-sky-400 text-[10px]">نیاز به تأیید کپشن</span>}
                         {it.attention === "missing-image" && <span className="text-destructive text-[10px]">بدون فایل</span>}
                       </div>
                       <div className="text-[10px] text-muted-foreground line-clamp-1" title={it.caption || it.suggestedCaption?.text || ""}>
