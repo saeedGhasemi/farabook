@@ -880,7 +880,17 @@ const Reader = () => {
                     </div>
                   )}
 
-                  <div className="space-y-4 selectable selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text">
+                  <div
+                    ref={paginatedHostRef}
+                    className={`selectable selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text ${
+                      readingMode === "paginated"
+                        ? "reader-paginated space-y-4"
+                        : "space-y-4"
+                    }`}
+                    style={readingMode === "paginated"
+                      ? ({ columnWidth: "100%", ["--paginated-height" as any]: fullscreen ? "82vh" : "70vh" } as React.CSSProperties)
+                      : undefined}
+                  >
                     {blocks.map((block, i) => (
                       <BlockRenderer
                         key={i}
