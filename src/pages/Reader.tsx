@@ -445,15 +445,44 @@ const Reader = () => {
     return currentPage.content || "";
   }, [currentPage]);
 
+  // In paginated (liquid) mode, advance one column at a time and only flip
+  // to the next page when the user reaches the last column.
+  const scrollPaginated = (direction: 1 | -1): boolean => {
+    if (readingMode !== "paginated") return false;
+    const host = paginatedHostRef.current;
+    if (!host) return false;
+    const step = host.clientWidth;
+    if (step <= 0) return false;
+    const max = host.scrollWidth - host.clientWidth;
+    // RTL containers report scrollLeft as a negative number in modern browsers.
+    const cur = host.scrollLeft;
+    const absCur = Math.abs(cur);
+    if (direction === 1) {
+      if (absCur + step < max - 2) {
+        host.scrollBy({ left: bookDir === "rtl" ? -step : step, behavior: "smooth" });
+        return true;
+      }
+      return false;
+    } else {
+      if (absCur > 2) {
+        host.scrollBy({ left: bookDir === "rtl" ? step : -step, behavior: "smooth" });
+        return true;
+      }
+      return false;
+    }
+  };
+
   const goNext = () => {
     if (coverView === "front") { coverDismissedRef.current = true; setCoverView(null); setFlipDir(1); return; }
     if (coverView === "back") return;
+    if (scrollPaginated(1)) return;
     if (pageIdx < total - 1) { setFlipDir(1); setPageIdx(pageIdx + 1); }
     else { setFlipDir(1); setCoverView("back"); }
   };
   const goPrev = () => {
     if (coverView === "front") return;
     if (coverView === "back") { setCoverView(null); setFlipDir(-1); return; }
+    if (scrollPaginated(-1)) return;
     if (pageIdx > 0) { setFlipDir(-1); setPageIdx(pageIdx - 1); }
     else { setFlipDir(-1); setCoverView("front"); }
   };
