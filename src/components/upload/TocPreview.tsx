@@ -21,6 +21,12 @@ interface Props {
   customHeadings: CustomHeadingEntry[];
   onCustomHeadingsChange: (next: CustomHeadingEntry[]) => void;
   availableStyleNames: string[];
+  /** Style names/ids the user has chosen to exclude from the TOC. */
+  excludedStyles: string[];
+  onExcludedStylesChange: (next: string[]) => void;
+  /** Style hints auto-detected from the source TOC field (for the
+   *  "auto-detected" badge in the included-styles list). */
+  detectedFromTocField?: Array<{ name: string; level: number }>;
   /** Update the heading at AST index with new title/level. */
   onEditHeading?: (index: number, level: 1|2|3|4|5|6|7|8, title: string) => void;
   /** Remove the heading at AST index (demoted to paragraph or removed). */
