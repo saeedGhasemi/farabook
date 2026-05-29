@@ -381,16 +381,59 @@ export default function WordAddin() {
             </CardContent>
           </Card>
 
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={uploadToPublisher} disabled={busy || authLoading}>
-              <Upload className="me-2 h-4 w-4" />
-              آپلود به اکانت ناشر
-            </Button>
-            <Button variant="secondary" onClick={downloadCleaned} disabled={busy}>
-              <Download className="me-2 h-4 w-4" />
-              دانلود نسخه تمیز (.docx)
-            </Button>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">ارسال و خروجی</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Recipient info */}
+              <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <UserCircle2 className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-muted-foreground">آپلود به اکانت:</span>
+                  {user ? (
+                    <span className="font-semibold truncate">
+                      {profile?.display_name || profile?.username || user.email || user.id}
+                    </span>
+                  ) : (
+                    <span className="text-destructive">وارد نشده‌اید</span>
+                  )}
+                </div>
+                {user && (
+                  <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <ShieldCheck className="h-3.5 w-3.5 mt-0.5 text-emerald-600 shrink-0" />
+                    <span>
+                      این فایل فقط به همین کاربری که الان وارد شده ارسال می‌شود. اگر می‌خواهید
+                      به حساب دیگری برود، ابتدا با آن حساب وارد شوید.
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload progress */}
+              {uploadProgress !== null && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{uploadPhase}</span>
+                    <span className="tabular-nums font-medium">{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2" />
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button onClick={uploadToPublisher} disabled={busy || authLoading || !user}>
+                  <Upload className="me-2 h-4 w-4" />
+                  آپلود به اکانت ناشر
+                </Button>
+                <Button variant="secondary" onClick={downloadCleaned} disabled={busy}>
+                  <Download className="me-2 h-4 w-4" />
+                  دانلود نسخه تمیز (.docx)
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
         </>
       )}
     </div>
