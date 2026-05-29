@@ -63,7 +63,7 @@ const Upload = () => {
   const [stage, setStage] = useState<WizardStage>("drop");
   const [local, setLocal] = useState<LocalState | null>(null);
   const [meta, setMeta] = useState<BookMetadata>({ ...DEFAULT_METADATA });
-  const [customHeadingStyle, setCustomHeadingStyle] = useState("");
+  const [customHeadings, setCustomHeadings] = useState<Array<{ name: string; level: number }>>([]);
   const [printStartPage, setPrintStartPage] = useState<number | "">("");
   const [validation, setValidation] = useState<ValidationItem[]>([]);
   const [uploadPct, setUploadPct] = useState(0);
