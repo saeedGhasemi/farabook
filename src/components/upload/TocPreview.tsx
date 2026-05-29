@@ -91,6 +91,45 @@ export const TocPreview = ({
     onCustomHeadingsChange(next);
   };
 
+  const normalize = (s: string) => (s || "").trim().toLowerCase();
+  const excludedSet = useMemo(
+    () => new Set(excludedStyles.map(normalize)),
+    [excludedStyles],
+  );
+  const isExcluded = (name?: string | null) =>
+    !!name && excludedSet.has(normalize(name));
+  const toggleExcluded = (name: string) => {
+    const k = normalize(name);
+    if (!k) return;
+    const has = excludedStyles.some((s) => normalize(s) === k);
+    onExcludedStylesChange(
+      has ? excludedStyles.filter((s) => normalize(s) !== k) : [...excludedStyles, name.trim()],
+    );
+  };
+
+  // Union of: built-in heading styles seen in the file (Heading 1..8 present
+  // among AST headings), explicit custom-heading rules, TOC-field hints, and
+  // already-excluded names. We render this list with a checkbox per style so
+  // the user can include/exclude any of them — even auto-detected ones.
+  const includableStyles = useMemo(() => {
+    const map = new Map<string, { name: string; level?: number; source: "field" | "custom" | "ast" | "excluded" }>();
+    const put = (name: string, level: number | undefined, source: "field" | "custom" | "ast" | "excluded") => {
+      const k = normalize(name);
+      if (!k) return;
+      if (!map.has(k)) map.set(k, { name: name.trim(), level, source });
+    };
+    for (const h of detectedFromTocField ?? []) put(h.name, h.level, "field");
+    for (const c of customHeadings) if (c.name?.trim()) put(c.name, c.level, "custom");
+    // Headings present in the AST today (from buildTocLive output)
+    for (const n of flat) {
+      const nm = n.sourceStyleName || n.sourceStyleId || `Heading ${n.level}`;
+      put(nm, n.level, "ast");
+    }
+    for (const e of excludedStyles) put(e, undefined, "excluded");
+    return Array.from(map.values());
+  }, [detectedFromTocField, customHeadings, flat, excludedStyles]);
+
+
   return (
     <div className="space-y-3" dir="rtl">
       <div className="rounded-md border bg-secondary/30 p-3 space-y-2">
