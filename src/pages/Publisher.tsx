@@ -224,8 +224,12 @@ const Publisher = () => {
         animate={{ opacity: 1, y: 0 }}
         className="glass-strong rounded-2xl p-5 md:p-7 mb-6 md:mb-8 flex flex-col lg:flex-row lg:items-center gap-5"
       >
-        <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground shadow-glow shrink-0">
-          <Briefcase className="w-7 h-7" />
+        <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-glow shrink-0 overflow-hidden">
+          {storefront?.logo_url ? (
+            <img src={storefront.logo_url} alt={displayName} className="w-full h-full object-cover" />
+          ) : (
+            <Briefcase className="w-7 h-7" />
+          )}
         </div>
         <div className="flex-1">
           <p className="text-xs text-muted-foreground">
