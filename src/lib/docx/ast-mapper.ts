@@ -709,18 +709,33 @@ function ommlToLatex(node: PNode): string {
 /* Custom heading detection                                            */
 /* ------------------------------------------------------------------ */
 
-function inferHeadings(paras: ParaInfo[], styles: Map<string, StyleInfo>): {
+function inferHeadings(
+  paras: ParaInfo[],
+  styles: Map<string, StyleInfo>,
+  customHeadings?: Set<string>,
+): {
   promotedCount: number; levelDistribution: Record<number, number>;
 } {
-  // Match Word Navigation Panel: only explicit outline levels / built-in
-  // heading styles are considered headings. Do not promote bold/large text.
+  let promoted = 0;
+  const normalize = (s: string) => s.trim().toLowerCase();
+  const customSet = customHeadings
+    ? new Set(Array.from(customHeadings).map(normalize).filter(Boolean))
+    : null;
   for (const p of paras) {
     if (p.styleId) {
       const s = styles.get(p.styleId);
       if (s?.isHeading && s.headingLevel) {
-        p.outlineLevel = s.headingLevel - 1; // store as outline-level 0..
+        p.outlineLevel = s.headingLevel - 1;
       } else if (s?.outlineLevel !== undefined && p.outlineLevel === undefined) {
         p.outlineLevel = s.outlineLevel;
+      }
+      // Promote paragraphs whose Style id or name matches user-supplied custom heading.
+      if (customSet && p.outlineLevel === undefined) {
+        const ids = [normalize(p.styleId), normalize(s?.name ?? "")];
+        if (ids.some((x) => x && customSet.has(x))) {
+          p.outlineLevel = 0;
+          promoted += 1;
+        }
       }
     }
   }
@@ -731,7 +746,7 @@ function inferHeadings(paras: ParaInfo[], styles: Map<string, StyleInfo>): {
       dist[lv] = (dist[lv] ?? 0) + 1;
     }
   }
-  return { promotedCount: 0, levelDistribution: dist };
+  return { promotedCount: promoted, levelDistribution: dist };
 }
 
 /* ------------------------------------------------------------------ */
@@ -921,11 +936,19 @@ export interface MapResult {
     formulasDetected: number;
     footnotesDetected: number;
     cleanedMarker: boolean;
+    /** Unique paragraph styles seen in the document. Useful for the wizard
+     *  to suggest names when the user picks a custom heading style. */
+    paragraphStyles: Array<{ id: string; name?: string; count: number }>;
   };
 }
 
+export interface MapOptions {
+  /** Style ids OR names (case-insensitive) to promote to Heading 1. */
+  customHeadings?: Set<string>;
+}
 
-export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
+
+export function mapOoxmlToDoc(bundle: OoxmlBundle, opts: MapOptions = {}): MapResult {
   const stylesMap = parseStyles(bundle.styles);
   const rels = parseRels(bundle.rels);
   const numInfo = parseNumbering(bundle.numbering);
@@ -961,7 +984,16 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
   walkBody(kidsOf(body, "w:body"));
 
   // Heading detection (custom-style aware)
-  const headingDiag = inferHeadings(paras, stylesMap);
+  const headingDiag = inferHeadings(paras, stylesMap, opts.customHeadings);
+
+  // Collect unique paragraph styles for the wizard's style picker.
+  const styleCounts = new Map<string, number>();
+  for (const p of paras) {
+    if (p.styleId) styleCounts.set(p.styleId, (styleCounts.get(p.styleId) ?? 0) + 1);
+  }
+  const paragraphStyles = Array.from(styleCounts.entries())
+    .map(([id, count]) => ({ id, name: stylesMap.get(id)?.name, count }))
+    .sort((a, b) => b.count - a.count);
 
   // Second pass: build TiptapDoc
   const content: TiptapDoc["content"] = [];
@@ -1178,6 +1210,7 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
       formulasDetected,
       footnotesDetected: seenNote.size,
       cleanedMarker: bundle.hasCleanedMarker,
+      paragraphStyles,
     },
   };
 }
