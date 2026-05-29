@@ -1047,20 +1047,38 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
   };
 }
 
-function collectTableText(tbl: PNode): string[] {
-  const rows: string[] = [];
+/** Parse a <w:tbl> into a proper TableNode (headers + rows of plain text). */
+function parseTable(tbl: PNode): any | null {
+  const allRows: string[][] = [];
   for (const r of kidsOf(tbl, "w:tbl")) {
     if (tagOf(r) !== "w:tr") continue;
     const cells: string[] = [];
     for (const c of kidsOf(r, "w:tr")) {
       if (tagOf(c) !== "w:tc") continue;
-      let cellText = "";
+      const parts: string[] = [];
       for (const p of kidsOf(c, "w:tc")) {
-        if (tagOf(p) === "w:p") cellText += getText(kidsOf(p, "w:p")) + " ";
+        if (tagOf(p) === "w:p") {
+          const txt = getText(kidsOf(p, "w:p")).trim();
+          if (txt) parts.push(txt);
+        }
       }
-      cells.push(cellText.trim());
+      cells.push(parts.join(" "));
     }
-    rows.push(cells.join(" | "));
+    if (cells.length) allRows.push(cells);
   }
-  return rows;
+  if (!allRows.length) return null;
+  // Treat the first row as header (typical Word table convention).
+  const headers = allRows[0];
+  const rows = allRows.slice(1);
+  // Normalize column count: pad each row to the widest length.
+  const cols = Math.max(headers.length, ...rows.map((r) => r.length));
+  const pad = (row: string[]) => row.length === cols ? row : [...row, ...Array(cols - row.length).fill("")];
+  return {
+    type: "table",
+    attrs: {
+      headers: pad(headers),
+      rows: rows.map(pad),
+    },
+  };
 }
+
