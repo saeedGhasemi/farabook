@@ -448,9 +448,9 @@ function docToLegacyBlocks(doc: any, mediaUrls: Map<string, string>): any[] {
   const out: any[] = [];
   for (const n of doc.content ?? []) {
     if (n.type === "paragraph") {
-      out.push({ type: "paragraph", text: textOf(n), dir: n.attrs?.dir });
+      out.push({ type: "paragraph", inline: n.content ?? [], dir: n.attrs?.dir });
     } else if (n.type === "heading") {
-      out.push({ type: "heading", level: n.attrs?.level ?? 2, text: textOf(n), dir: n.attrs?.dir });
+      out.push({ type: "heading", level: n.attrs?.level ?? 2, inline: n.content ?? [], dir: n.attrs?.dir });
     } else if (n.type === "image") {
       const src: string = n.attrs?.src ?? "";
       const name = src.startsWith("media://") ? src.slice("media://".length) : src;
@@ -459,22 +459,25 @@ function docToLegacyBlocks(doc: any, mediaUrls: Map<string, string>): any[] {
   }
   return out;
 }
-function textOf(n: any): string {
-  return (n.content ?? []).map((t: any) => t.text ?? "").join("");
+
+function renderInline(nodes: any[]) {
+  return (nodes ?? []).map((n, i) => {
+    const text = n?.text ?? "";
+    let el: React.ReactNode = text;
+    const marks = (n?.marks ?? []) as Array<{ type: string; attrs?: any }>;
+    for (const m of marks) {
+      if (m.type === "superscript") el = <sup key={`sup-${i}`}>{el}</sup>;
+      else if (m.type === "subscript") el = <sub key={`sub-${i}`}>{el}</sub>;
+      else if (m.type === "bold") el = <strong key={`b-${i}`}>{el}</strong>;
+      else if (m.type === "italic") el = <em key={`i-${i}`}>{el}</em>;
+      else if (m.type === "underline") el = <u key={`u-${i}`}>{el}</u>;
+    }
+    return <span key={i}>{el}</span>;
+  });
 }
 
 function PreviewBlock({ b }: { b: any }) {
   const dir = b.dir ?? undefined;
   if (b.type === "heading") {
     const lv = b.level ?? 2;
-    const cls = lv === 1 ? "text-2xl font-bold" : lv === 2 ? "text-xl font-bold" : "text-lg font-semibold";
-    return <div className={cls} dir={dir}>{b.text}</div>;
-  }
-  if (b.type === "image") {
-    if (b.src && (b.src.startsWith("blob:") || b.src.startsWith("data:") || /^https?:/.test(b.src))) {
-      return <img src={b.src} alt={b.name ?? ""} className="max-w-full h-auto rounded border" />;
-    }
-    return <div className="text-xs text-muted-foreground">[تصویر: {b.name ?? b.src}]</div>;
-  }
-  return <p className="whitespace-pre-wrap" dir={dir}>{b.text}</p>;
-}
+    const cls = lv === 1 ? "text
