@@ -479,12 +479,25 @@ function renderInline(nodes: any[]) {
     const text = n?.text ?? "";
     let el: React.ReactNode = text;
     const marks = (n?.marks ?? []) as Array<{ type: string; attrs?: any }>;
+    const fn = marks.find((m) => m.type === "footnote");
     for (const m of marks) {
       if (m.type === "superscript") el = <sup key={`sup-${i}`}>{el}</sup>;
       else if (m.type === "subscript") el = <sub key={`sub-${i}`}>{el}</sub>;
       else if (m.type === "bold") el = <strong key={`b-${i}`}>{el}</strong>;
       else if (m.type === "italic") el = <em key={`i-${i}`}>{el}</em>;
       else if (m.type === "underline") el = <u key={`u-${i}`}>{el}</u>;
+    }
+    if (fn) {
+      const content = fn.attrs?.content ?? "";
+      el = (
+        <span
+          key={`fn-${i}`}
+          title={content}
+          className="text-accent cursor-help underline decoration-dotted underline-offset-2"
+        >
+          [{text}]
+        </span>
+      );
     }
     return <span key={i}>{el}</span>;
   });

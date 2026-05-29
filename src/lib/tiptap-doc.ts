@@ -26,6 +26,7 @@ export type Mark =
   | { type: "underline" }
   | { type: "superscript" }
   | { type: "subscript" }
+  | { type: "footnote"; attrs?: { content?: string } }
   | { type: "textStyle"; attrs?: { color?: string } }
   | { type: "link"; attrs?: { href?: string } };
 
@@ -425,18 +426,22 @@ const inlineToMarkdown = (nodes?: TextNode[]): string =>
     let t = n.text ?? "";
     let color: string | undefined;
     let href: string | undefined;
+    let footnoteContent: string | undefined;
     for (const m of n.marks ?? []) {
       if (m.type === "bold") t = `**${t}**`;
       else if (m.type === "italic") t = `*${t}*`;
       else if (m.type === "underline") t = `__${t}__`;
       else if (m.type === "superscript") t = `[sup]${t}[/sup]`;
       else if (m.type === "subscript") t = `[sub]${t}[/sub]`;
-      else if (m.type === "textStyle" && (m as any).attrs?.color) {
+      else if (m.type === "footnote") {
+        footnoteContent = (m as any).attrs?.content ?? "";
+      } else if (m.type === "textStyle" && (m as any).attrs?.color) {
         color = sanitizeCssValue((m as any).attrs.color as string);
       } else if (m.type === "link" && (m as any).attrs?.href) {
         href = (m as any).attrs.href as string;
       }
     }
+    if (footnoteContent !== undefined) t = `[fn=${encodeURIComponent(footnoteContent)}]${t}[/fn]`;
     if (href) t = `[${t}](${href})`;
     if (color) t = `[c=${color}]${t}[/c]`;
     return t;

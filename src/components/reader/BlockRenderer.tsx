@@ -79,7 +79,7 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
   // Order matters — math first (so $...$ doesn't collide with markdown),
   // then color spans, bold (**), italic (*), underline, links, urls.
   const re =
-    /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$\n]+?\$|\[c=[^\]\n]+\][\s\S]*?\[\/c\]|\[sup\][\s\S]*?\[\/sup\]|\[sub\][\s\S]*?\[\/sub\]|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
+    /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$\n]+?\$|\[c=[^\]\n]+\][\s\S]*?\[\/c\]|\[fn=[^\]\n]*\][\s\S]*?\[\/fn\]|\[sup\][\s\S]*?\[\/sup\]|\[sub\][\s\S]*?\[\/sub\]|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
   const parts = text.split(re);
   return parts.map((p, i) => {
     const key = `${baseKey}-${i}`;
@@ -91,6 +91,30 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
         <span key={key} style={{ color: safeInlineColor(colorM[1]) }}>
           {renderInlineMarkdown(colorM[2], `${key}-c`)}
         </span>
+      );
+    }
+    // Footnote: [fn=<encoded content>]N[/fn] → hover (desktop) / tap (mobile)
+    const fnM = /^\[fn=([^\]\n]*)\]([\s\S]*?)\[\/fn\]$/.exec(p);
+    if (fnM) {
+      let content = "";
+      try { content = decodeURIComponent(fnM[1]); } catch { content = fnM[1]; }
+      const label = fnM[2];
+      return (
+        <Popover key={key}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              title={content}
+              className="align-super text-[0.7em] mx-0.5 text-accent font-medium hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded"
+              aria-label={`پاورقی ${label}`}
+            >
+              [{label}]
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="center" className="max-w-xs text-sm leading-relaxed whitespace-pre-wrap" dir="auto">
+            {content || <span className="text-muted-foreground">—</span>}
+          </PopoverContent>
+        </Popover>
       );
     }
     const supM = /^\[sup\]([\s\S]*?)\[\/sup\]$/.exec(p);

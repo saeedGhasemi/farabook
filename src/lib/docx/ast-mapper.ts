@@ -383,7 +383,16 @@ function runToTextNodes(run: PNode, styles?: Map<string, StyleInfo>): TextNode[]
       const id = attrLoose(c, "w:id");
       if (id && !id.startsWith("-")) {
         flush();
-        out.push({ type: "text", text: id, marks: [{ type: "superscript" }] });
+        const kind = t === "w:footnoteReference" ? "footnote" : "endnote";
+        out.push({
+          type: "text",
+          text: id,
+          marks: [
+            { type: "superscript" },
+            // content resolved later in the main loop once notes maps are known
+            { type: "footnote", attrs: { kind, id } } as any,
+          ],
+        });
       }
     }
   }
@@ -923,9 +932,32 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
     content.push({ type: "image", attrs } as ImageNode);
   };
 
-  // Footnote refs collected in document order; rendered at end as appendix.
-  const noteOrder: Array<{ kind: "footnote" | "endnote"; id: string }> = [];
+  // Track unique footnote references for diagnostics. Note content is inlined
+  // into the reference mark so the UI can show it as a tooltip / popover.
   const seenNote = new Set<string>();
+
+  const noteTextOf = (kind: string, id: string): string | undefined => {
+    const note = kind === "footnote" ? footnotes.get(id) : endnotes.get(id);
+    if (!note?.length) return undefined;
+    return note.map((n) => n.text ?? "").join("").trim();
+  };
+
+  /** Walk text nodes; resolve any footnote mark's id/kind into its content. */
+  const resolveFootnoteMarks = (nodes: TextNode[] | undefined) => {
+    if (!nodes) return;
+    for (const n of nodes) {
+      const marks = (n as any).marks as any[] | undefined;
+      if (!marks) continue;
+      for (const m of marks) {
+        if (m?.type !== "footnote" || !m.attrs) continue;
+        const { kind, id, content } = m.attrs;
+        if (content !== undefined) continue;
+        const text = id && kind ? noteTextOf(kind, id) : undefined;
+        m.attrs = { content: text ?? "" };
+        if (id) seenNote.add(`${kind}:${id}`);
+      }
+    }
+  };
 
   for (const b of topBlocks) {
     if (b.kind === "table") {
@@ -937,16 +969,7 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
 
     if (info.hasMath) formulasDetected++;
 
-    if (info.noteRefs?.length) {
-      for (const ref of info.noteRefs) {
-        const key = `${ref.kind}:${ref.id}`;
-        if (seenNote.has(key)) continue;
-        const note = ref.kind === "footnote" ? footnotes.get(ref.id) : endnotes.get(ref.id);
-        if (!note?.length) continue;
-        seenNote.add(key);
-        noteOrder.push(ref);
-      }
-    }
+    resolveFootnoteMarks(info.textNodes);
 
     // Image-only paragraph → emit ImageNode(s)
     if (info.imageRels && info.imageRels.length && !info.text.trim()) {
@@ -1006,26 +1029,10 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
     } as ParagraphNode);
   }
 
-  // Footnotes as appendix at end of document (web-friendly pattern)
-  if (noteOrder.length) {
-    content.push({
-      type: "heading",
-      attrs: { level: 2, dir: "rtl", textAlign: null },
-      content: [{ type: "text", text: "پاورقی‌ها" }],
-    } as HeadingNode);
-    for (const ref of noteOrder) {
-      const note = ref.kind === "footnote" ? footnotes.get(ref.id) : endnotes.get(ref.id);
-      if (!note?.length) continue;
-      content.push({
-        type: "paragraph",
-        attrs: { dir: detectDir(note.map((n) => n.text).join(""), undefined), textAlign: null },
-        content: [
-          { type: "text", text: `${ref.id}. `, marks: [{ type: "bold" }] },
-          ...note,
-        ],
-      } as ParagraphNode);
-    }
-  }
+  // Footnotes are now rendered inline as tooltips/popovers at their reference
+  // location (see BlockRenderer / WordAddin preview). No appendix is emitted.
+
+
 
 
   const doc: TiptapDoc = { type: "doc", content };
