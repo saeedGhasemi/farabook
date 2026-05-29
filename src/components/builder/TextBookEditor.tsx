@@ -459,7 +459,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     } finally {
       setSaving(false);
     }
-  }, [isEdit, initial, user, pages, activeIdx, editor, title, author, typography, coverUrl, coverFocus, fa]);
+  }, [isEdit, initial, user, pages, activeIdx, editor, title, author, typography, coverUrl, coverFocus, backCoverUrl, backCoverFocus, coverSpreadUrl, coverCrop, fa]);
 
   const skipFirst = useRef(true);
   useEffect(() => {
@@ -468,7 +468,7 @@ export const TextBookEditor = ({ initial }: Props) => {
     if (!dirty) return;
     const t = window.setTimeout(() => { void persist(false); }, 3500);
     return () => window.clearTimeout(t);
-  }, [pages, title, author, typography, coverUrl, coverFocus, dirty, isEdit, persist]);
+  }, [pages, title, author, typography, coverUrl, coverFocus, backCoverUrl, backCoverFocus, coverSpreadUrl, coverCrop, dirty, isEdit, persist]);
 
   const addChapter = () => {
     setPages((ps) => [...ps, newEmptyPage(fa ? `فصل ${ps.length + 1}` : `Chapter ${ps.length + 1}`)]);
