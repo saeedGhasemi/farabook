@@ -1667,6 +1667,17 @@ export const TextBookEditor = ({ initial }: Props) => {
                   <Layers className="w-4 h-4 text-accent" /> {fa ? "اسکرولی‌تلینگ" : "Scrollytelling"}
                 </button>
                 <div className="h-px bg-border my-1" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const cur = window.prompt(fa ? "شماره صفحه چاپی" : "Print page number", "");
+                    if (cur == null) return;
+                    editor.chain().focus().insertContent({ type: "print_page", attrs: { number: cur.trim() } }).run();
+                  }}
+                  className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start"
+                >
+                  <BookMarked className="w-4 h-4 text-accent" /> {fa ? "نشانگر صفحه چاپی" : "Print page marker"}
+                </button>
                 <button type="button" onClick={splitChapterAtSelection} className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted text-start">
                   <SplitSquareVertical className="w-4 h-4 text-primary" /> {fa ? "فصل جدید از اینجا" : "New chapter here"}
                 </button>
