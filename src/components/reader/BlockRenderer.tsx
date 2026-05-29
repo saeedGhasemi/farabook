@@ -227,9 +227,16 @@ const renderWithHighlights = (
 
     // Prefer a highlight that explicitly targets this occurrence; otherwise
     // pick the first whose occurrence is null/undefined (any match).
+    // Strict match: if a highlight specifies an occurrence, only that Nth
+    // match wraps; truly legacy highlights (no block_index AND no occurrence)
+    // fall back to matching any occurrence.
     const match =
-      candidates.find((h) => h.occurrence === idx) ||
-      candidates.find((h) => h.occurrence === null || h.occurrence === undefined);
+      candidates.find((h) => h.occurrence != null && h.occurrence === idx) ||
+      candidates.find((h) =>
+        (h.occurrence === null || h.occurrence === undefined) &&
+        (h.block_index === null || h.block_index === undefined),
+      );
+
     if (!match) return <span key={i}>{cleanInlineRefs(p)}</span>;
 
     const color = match.color || "yellow";
