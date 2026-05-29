@@ -102,15 +102,51 @@ const Upload = () => {
     (async () => {
       setStage("processing");
       setUploadPhase("در حال دانلود فایل اصلی ذخیره‌شده…");
-      const path = `${user.id}/${reconvertBookId}/source.docx`;
-      const { data, error } = await supabase.storage.from("book-uploads").download(path);
-      if (error || !data) {
-        toast.error("فایل اصلی این کتاب برای تبدیل مجدد در دسترس نیست.");
+
+      // Candidate storage paths to try, in priority order:
+      //  1. word_imports.file_path  — legacy/normal Upload flow (e.g. `{uid}/book-{ts}.docx`)
+      //  2. `{uid}/{bookId}/source.docx` — newer wizard convention
+      //  3. same path but using the book's publisher_id instead of current user
+      //     (covers admins/editors re-converting on behalf of someone else)
+      const candidates: string[] = [];
+
+      const { data: imp } = await supabase
+        .from("word_imports")
+        .select("file_path,file_name")
+        .eq("book_id", reconvertBookId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (imp?.file_path) candidates.push(imp.file_path);
+
+      candidates.push(`${user.id}/${reconvertBookId}/source.docx`);
+
+      const { data: bookRow } = await supabase
+        .from("books")
+        .select("publisher_id")
+        .eq("id", reconvertBookId)
+        .maybeSingle();
+      if (bookRow?.publisher_id && bookRow.publisher_id !== user.id) {
+        candidates.push(`${bookRow.publisher_id}/${reconvertBookId}/source.docx`);
+      }
+
+      let blob: Blob | null = null;
+      let triedPaths: string[] = [];
+      for (const path of candidates) {
+        triedPaths.push(path);
+        const { data, error } = await supabase.storage.from("book-uploads").download(path);
+        if (!error && data) { blob = data; break; }
+      }
+
+      if (!blob) {
+        console.warn("[reconvert] source not found in any path", triedPaths);
+        toast.error("فایل اصلی این کتاب برای تبدیل مجدد در دسترس نیست. لطفاً دوباره از صفحهٔ آپلود بارگذاری کنید.");
         setStage("drop");
         return;
       }
-      const buf = await data.arrayBuffer();
-      const file = new File([buf], "source.docx", { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      const buf = await blob.arrayBuffer();
+      const fileName = imp?.file_name || "source.docx";
+      const file = new File([buf], fileName, { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
       await processFile(file, buf);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
