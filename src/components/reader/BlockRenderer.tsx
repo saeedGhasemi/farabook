@@ -79,9 +79,10 @@ const safeInlineColor = (value: string) => value.replace(/[;{}<>]/g, "").trim();
 const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
   text = normalizeImportedText(text);
   // Order matters — math first (so $...$ doesn't collide with markdown),
-  // then color spans, bold (**), italic (*), underline, links, urls.
+  // then color spans, footnotes, sup/sub, ***bold-italic*** (legacy),
+  // bold (**), underline (__), italic (_ new / * legacy), links, urls.
   const re =
-    /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$\n]+?\$|\[c=[^\]\n]+\][\s\S]*?\[\/c\]|\[fn=[^\]\n]*\][\s\S]*?\[\/fn\]|\[sup\][\s\S]*?\[\/sup\]|\[sub\][\s\S]*?\[\/sub\]|\*\*[\s\S]+?\*\*|__[\s\S]+?__|\*[^\n]+?\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
+    /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$\n]+?\$|\[c=[^\]\n]+\][\s\S]*?\[\/c\]|\[fn=[^\]\n]*\][\s\S]*?\[\/fn\]|\[sup\][\s\S]*?\[\/sup\]|\[sub\][\s\S]*?\[\/sub\]|\*\*\*[\s\S]+?\*\*\*|\*\*[\s\S]+?\*\*|__[\s\S]+?__|_[^\n_]+?_|\*[^\n*]+?\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
   const parts = text.split(re);
 
   return parts.map((p, i) => {
@@ -142,6 +143,12 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
       const tex = p.startsWith("$") ? p.slice(1, -1) : p.slice(2, -2);
       return <MathRender key={key} tex={tex.trim()} />;
     }
+    // Legacy bold+italic combo ***text***
+    if (p.startsWith("***") && p.endsWith("***") && p.length > 6) {
+      return (
+        <strong key={key}><em>{renderInlineMarkdown(p.slice(3, -3), `${key}-bi`)}</em></strong>
+      );
+    }
     // Bold (may contain nested italic/underline → recurse)
     if (p.startsWith("**") && p.endsWith("**") && p.length > 4) {
       return <strong key={key}>{renderInlineMarkdown(p.slice(2, -2), `${key}-b`)}</strong>;
@@ -150,7 +157,11 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
     if (p.startsWith("__") && p.endsWith("__") && p.length > 4) {
       return <u key={key}>{renderInlineMarkdown(p.slice(2, -2), `${key}-u`)}</u>;
     }
-    // Italic (single *) — recurse to allow nested marks
+    // Italic (single _ new format) — recurse to allow nested marks
+    if (p.startsWith("_") && p.endsWith("_") && p.length > 2 && !p.startsWith("__")) {
+      return <em key={key}>{renderInlineMarkdown(p.slice(1, -1), `${key}-i`)}</em>;
+    }
+    // Italic (single * legacy) — recurse to allow nested marks
     if (p.startsWith("*") && p.endsWith("*") && p.length > 2 && !p.startsWith("**")) {
       return <em key={key}>{renderInlineMarkdown(p.slice(1, -1), `${key}-i`)}</em>;
     }

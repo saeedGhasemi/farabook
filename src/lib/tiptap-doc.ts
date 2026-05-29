@@ -166,7 +166,9 @@ export const textToNodes = (text: string): TextNode[] => {
   text = normalizeImportedText(text);
   if (!text) return [];
   const out: TextNode[] = [];
-  const re = /(\[sup\][\s\S]*?\[\/sup\]|\[sub\][\s\S]*?\[\/sub\]|\[[^\]\n]+\]\([^\)\s]+\)|\*\*[\s\S]+?\*\*|__[\s\S]+?__|\*[^\n]+?\*)/g;
+  // Order matters: triple-star bold+italic, bold (**), underline (__),
+  // italic (_ new / * legacy), links, sup/sub.
+  const re = /(\[sup\][\s\S]*?\[\/sup\]|\[sub\][\s\S]*?\[\/sub\]|\[[^\]\n]+\]\([^\)\s]+\)|\*\*\*[\s\S]+?\*\*\*|\*\*[\s\S]+?\*\*|__[\s\S]+?__|_[^\n_]+?_|\*[^\n*]+?\*)/g;
   const parts = text.split(re);
   const pushWithExtraMark = (segment: string, extra: Mark) => {
     // Recurse into segment to parse any further nested marks, then add `extra`
@@ -175,6 +177,16 @@ export const textToNodes = (text: string): TextNode[] => {
     for (const node of inner) {
       const marks = node.marks ? [...node.marks] : [];
       if (!marks.some((m) => m.type === extra.type)) marks.push(extra);
+      out.push({ ...node, marks });
+    }
+  };
+  const pushWithExtraMarks = (segment: string, extras: Mark[]) => {
+    const inner = textToNodes(segment);
+    for (const node of inner) {
+      const marks = node.marks ? [...node.marks] : [];
+      for (const extra of extras) {
+        if (!marks.some((m) => m.type === extra.type)) marks.push(extra);
+      }
       out.push({ ...node, marks });
     }
   };
@@ -189,10 +201,14 @@ export const textToNodes = (text: string): TextNode[] => {
       out.push({ type: "text", text: subM[1], marks: [{ type: "subscript" }] });
     } else if (linkM) {
       out.push({ type: "text", text: linkM[1], marks: [{ type: "link", attrs: { href: linkM[2] } }] });
+    } else if (p.startsWith("***") && p.endsWith("***") && p.length > 6) {
+      pushWithExtraMarks(p.slice(3, -3), [{ type: "bold" }, { type: "italic" }]);
     } else if (p.startsWith("**") && p.endsWith("**") && p.length > 4) {
       pushWithExtraMark(p.slice(2, -2), { type: "bold" });
     } else if (p.startsWith("__") && p.endsWith("__") && p.length > 4) {
       pushWithExtraMark(p.slice(2, -2), { type: "underline" });
+    } else if (p.startsWith("_") && p.endsWith("_") && p.length > 2 && !p.startsWith("__")) {
+      pushWithExtraMark(p.slice(1, -1), { type: "italic" });
     } else if (p.startsWith("*") && p.endsWith("*") && p.length > 2 && !p.startsWith("**")) {
       pushWithExtraMark(p.slice(1, -1), { type: "italic" });
     } else {
@@ -450,7 +466,7 @@ const inlineToMarkdown = (nodes?: TextNode[]): string =>
     let footnoteContent: string | undefined;
     for (const m of n.marks ?? []) {
       if (m.type === "bold") t = `**${t}**`;
-      else if (m.type === "italic") t = `*${t}*`;
+      else if (m.type === "italic") t = `_${t}_`;
       else if (m.type === "underline") t = `__${t}__`;
       else if (m.type === "superscript") t = `[sup]${t}[/sup]`;
       else if (m.type === "subscript") t = `[sub]${t}[/sub]`;
