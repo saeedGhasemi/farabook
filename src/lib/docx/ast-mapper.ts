@@ -395,7 +395,7 @@ function parsePPr(pPr: PNode | null): {
       for (const rp of kidsOf(p, "w:rPr")) {
         if (tagOf(rp) === "w:lang") {
           out.lang = attr(rp, "w:val") ?? attr(rp, "w:bidi");
-        }
+function parseParagraph(p: PNode, rels: Map<string, string>, styles?: Map<string, StyleInfo>): ParaInfo {
       }
     }
   }
