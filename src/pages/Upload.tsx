@@ -405,6 +405,8 @@ const Upload = () => {
                 availableStyleNames={local.prep.diagnostics.paragraphStyles
                   .map((s) => s.name || s.id)
                   .filter(Boolean) as string[]}
+                onEditHeading={editHeading}
+                onDeleteHeading={deleteHeading}
               />
               {customHeadingStyle.trim() && (
                 <Button variant="secondary" size="sm" onClick={reanalyzeWithCustomHeading}>
@@ -412,6 +414,15 @@ const Upload = () => {
                   اعمال Style سفارشی و تحلیل مجدد
                 </Button>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">پیش‌نمایش وب کتاب</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <WebPreview doc={local.prep.doc} mediaUrls={mediaUrls} />
             </CardContent>
           </Card>
 
