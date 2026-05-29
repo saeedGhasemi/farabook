@@ -23,6 +23,8 @@ import { BookComments } from "@/components/BookComments";
 import { CopyProtection } from "@/components/reader/CopyProtection";
 import { ReadingLockOverlay } from "@/components/reader/ReadingLockOverlay";
 import { useReadingLock } from "@/hooks/useReadingLock";
+import { CoverPage } from "@/components/reader/CoverPage";
+import type { CoverCrop } from "@/components/reader/CoverImage";
 import {
   loadOfflineBook,
   listOfflineHighlights,
