@@ -456,10 +456,19 @@ const Upload = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">اطلاعات کتاب</CardTitle>
+              <CardTitle className="text-base">عنوان کتاب</CardTitle>
             </CardHeader>
-            <CardContent>
-              <BookMetadataForm value={meta} onChange={setMeta} fa={fa} />
+            <CardContent className="space-y-2">
+              <Label className="text-xs">عنوان<span className="text-destructive ms-1">*</span></Label>
+              <Input
+                value={meta.title}
+                onChange={(e) => setMeta({ ...meta, title: e.target.value })}
+                placeholder="عنوان کتاب"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                باقی مشخصات کتابشناختی (نویسندگان، شابک، ناشر، سال انتشار و …) را می‌توانید
+                هم‌زمان با شروع آپلود و در پسِ‌زمینه تکمیل کنید.
+              </p>
             </CardContent>
           </Card>
 
