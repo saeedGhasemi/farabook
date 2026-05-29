@@ -729,6 +729,8 @@ const Reader = () => {
   const rtlChars = (sampleText.match(/[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length;
   const ltrChars = (sampleText.match(/[A-Za-z]/g) || []).length;
   const bookDir: "rtl" | "ltr" = rtlChars >= ltrChars ? "rtl" : "ltr";
+  const Prev = bookDir === "rtl" ? ArrowRight : ArrowLeft;
+  const Next = bookDir === "rtl" ? ArrowLeft : ArrowRight;
   // Chapter & search drawers always slide from the RIGHT edge of the screen
   const allOverlaysOpen = chaptersOpen || searchOpen || settingsOpen || highlightsOpen || aiOpen || chatOpen;
   const goToPageNumber = () => {
