@@ -1,7 +1,7 @@
 // Local web-preview of the imported book — text, images (blob URLs),
 // math, footnotes, special inline marks — so the user can verify the
-// conversion before uploading. Limited to the first 50 print pages
-// (or 400 blocks when the doc has no print-page markers) to stay fast.
+// conversion before uploading. Limited to the first 60 print pages
+// (or 480 blocks when the doc has no print-page markers) to stay fast.
 
 import { useEffect, useMemo, useRef } from "react";
 import type { TiptapDoc } from "@/lib/tiptap-doc";
@@ -13,13 +13,13 @@ interface Props {
   doc: TiptapDoc;
   /** map: docx media storageName → blob: URL. */
   mediaUrls: Map<string, string>;
-  /** Hard cap on number of print pages to render (default 50). */
+  /** Hard cap on number of print pages to render (default 60). */
   maxPrintPages?: number;
   /** Fallback cap on blocks when no print-pages exist. */
   maxBlocksFallback?: number;
 }
 
-export const WebPreview = ({ doc, mediaUrls, maxPrintPages = 50, maxBlocksFallback = 400 }: Props) => {
+export const WebPreview = ({ doc, mediaUrls, maxPrintPages = 60, maxBlocksFallback = 480 }: Props) => {
   // Alias media:// urls → blob: urls so the renderer can show local images.
   const aliasedRef = useRef<string[]>([]);
   useEffect(() => {
@@ -57,7 +57,7 @@ export const WebPreview = ({ doc, mediaUrls, maxPrintPages = 50, maxBlocksFallba
       {truncated && (
         <div className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50/40 dark:bg-amber-950/20 border border-amber-300/40 rounded px-2 py-1.5 mb-2">
           برای جلوگیری از کندی، فقط بخشی از کتاب در پیش‌نمایش نشان داده شده است
-          (تا ۵۰ صفحهٔ چاپی یا ۴۰۰ بلوک نخست).
+          (تا ۶۰ صفحهٔ چاپی یا ۴۸۰ بلوک نخست).
         </div>
       )}
       <div className="rounded-md border bg-card max-h-[600px] overflow-auto p-4 prose prose-sm dark:prose-invert max-w-none">
