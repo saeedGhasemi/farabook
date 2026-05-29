@@ -63,7 +63,7 @@ const Upload = () => {
   const [stage, setStage] = useState<WizardStage>("drop");
   const [local, setLocal] = useState<LocalState | null>(null);
   const [meta, setMeta] = useState<BookMetadata>({ ...DEFAULT_METADATA });
-  const [customHeadingStyle, setCustomHeadingStyle] = useState("");
+  const [customHeadings, setCustomHeadings] = useState<Array<{ name: string; level: number }>>([]);
   const [printStartPage, setPrintStartPage] = useState<number | "">("");
   const [validation, setValidation] = useState<ValidationItem[]>([]);
   const [uploadPct, setUploadPct] = useState(0);
@@ -178,14 +178,14 @@ const Upload = () => {
   }, [reconvertBookId, user]);
 
   /* -------- core local processing -------- */
-  const processFile = async (file: File, buf?: ArrayBuffer, customHeadings?: Set<string>) => {
+  const processFile = async (file: File, buf?: ArrayBuffer, customHeadingMap?: Map<string, number>) => {
     setError(null);
     setStage("processing");
     setUploadPhase("در حال تحلیل ساختار فایل…");
     try {
       const buffer = buf ?? await file.arrayBuffer();
       const bundle = await readDocx(buffer);
-      const prep = mapOoxmlToDoc(bundle, customHeadings ? { customHeadings } : undefined);
+      const prep = mapOoxmlToDoc(bundle, customHeadingMap?.size ? { customHeadings: customHeadingMap } : undefined);
 
       setUploadPhase("در حال بهینه‌سازی تصاویر…");
       const images = await processImagesLocally(bundle.media);
@@ -215,13 +215,15 @@ const Upload = () => {
     }
   };
 
-  /* -------- re-run mapping when user picks a custom heading style -------- */
+  /* -------- re-run mapping when user picks custom heading styles -------- */
   const reanalyzeWithCustomHeading = async () => {
     if (!local) return;
-    const set = customHeadingStyle.trim()
-      ? new Set(customHeadingStyle.split(/[,،]/).map((s) => s.trim()).filter(Boolean))
-      : undefined;
-    await processFile(local.file, local.fileBuffer, set);
+    const map = new Map<string, number>();
+    for (const h of customHeadings) {
+      const name = h.name.trim();
+      if (name) map.set(name, Math.min(8, Math.max(1, Math.floor(h.level || 1))));
+    }
+    await processFile(local.file, local.fileBuffer, map);
   };
 
   /* -------- validation re-runs whenever inputs change -------- */
@@ -433,7 +435,7 @@ const Upload = () => {
     releaseBlobs();
     setLocal(null);
     setMeta({ ...DEFAULT_METADATA });
-    setCustomHeadingStyle("");
+    setCustomHeadings([]);
     setPrintStartPage("");
     setValidation([]);
     setStage("drop");
@@ -511,18 +513,18 @@ const Upload = () => {
             <CardContent className="space-y-3">
               <TocPreview
                 toc={toc}
-                customStyleName={customHeadingStyle}
-                onCustomStyleNameChange={setCustomHeadingStyle}
+                customHeadings={customHeadings}
+                onCustomHeadingsChange={setCustomHeadings}
                 availableStyleNames={local.prep.diagnostics.paragraphStyles
                   .map((s) => s.name || s.id)
                   .filter(Boolean) as string[]}
                 onEditHeading={editHeading}
                 onDeleteHeading={deleteHeading}
               />
-              {customHeadingStyle.trim() && (
+              {customHeadings.length > 0 && (
                 <Button variant="secondary" size="sm" onClick={reanalyzeWithCustomHeading}>
                   <RotateCcw className="h-3.5 w-3.5 me-1" />
-                  اعمال Style سفارشی و تحلیل مجدد
+                  اعمال Styleهای سفارشی و تحلیل مجدد
                 </Button>
               )}
             </CardContent>
@@ -584,7 +586,7 @@ const Upload = () => {
           <div className="flex flex-wrap gap-2 pt-2">
             <Button variant="outline" onClick={reset}>
               <ArrowLeft className="h-4 w-4 me-1" />
-              شروع دوباره
+              بازگشت به مرحلهٔ قبل
             </Button>
             <Button
               className="flex-1 sm:flex-initial"
