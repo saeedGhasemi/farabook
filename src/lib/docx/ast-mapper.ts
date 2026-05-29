@@ -784,7 +784,7 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
     for (const c of nodes ?? []) {
       const t = tagOf(c);
       if (t === "w:p") {
-        const info = parseParagraph(c, rels);
+        const info = parseParagraph(c, rels, stylesMap);
         paras.push(info);
         topBlocks.push({ kind: "para", info });
       } else if (t === "w:tbl") {
