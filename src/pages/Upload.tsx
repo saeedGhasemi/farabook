@@ -262,7 +262,7 @@ const Upload = () => {
 
   /* -------- validation re-runs whenever inputs change -------- */
   const toc = useMemo(
-    () => (local ? buildTocLive(local.prep.doc, customHeadings) : []),
+    () => (local ? buildTocLive(local.prep.doc, customHeadings, excludedStyles) : []),
     [local, customHeadings],
   );
 
