@@ -35,6 +35,8 @@ export interface OoxmlBundle {
   media: OoxmlMedia[];
   /** True if our cleaned-marker custom XML part is present. */
   hasCleanedMarker: boolean;
+  /** Raw XML text of word/document.xml (used to mine TOC field instructions). */
+  rawDocXml?: string;
 }
 
 const MIME_BY_EXT: Record<string, string> = {
