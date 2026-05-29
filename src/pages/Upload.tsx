@@ -513,18 +513,18 @@ const Upload = () => {
             <CardContent className="space-y-3">
               <TocPreview
                 toc={toc}
-                customStyleName={customHeadingStyle}
-                onCustomStyleNameChange={setCustomHeadingStyle}
+                customHeadings={customHeadings}
+                onCustomHeadingsChange={setCustomHeadings}
                 availableStyleNames={local.prep.diagnostics.paragraphStyles
                   .map((s) => s.name || s.id)
                   .filter(Boolean) as string[]}
                 onEditHeading={editHeading}
                 onDeleteHeading={deleteHeading}
               />
-              {customHeadingStyle.trim() && (
+              {customHeadings.length > 0 && (
                 <Button variant="secondary" size="sm" onClick={reanalyzeWithCustomHeading}>
                   <RotateCcw className="h-3.5 w-3.5 me-1" />
-                  اعمال Style سفارشی و تحلیل مجدد
+                  اعمال Styleهای سفارشی و تحلیل مجدد
                 </Button>
               )}
             </CardContent>
