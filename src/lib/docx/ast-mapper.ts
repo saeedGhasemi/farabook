@@ -127,6 +127,8 @@ interface StyleInfo {
   outlineLevel?: number;     // 0..8
   fontSizeHalfPt?: number;   // <w:sz w:val="..."/> in half-points
   bold?: boolean;
+  italic?: boolean;
+  vertAlign?: "superscript" | "subscript";
   isHeading?: boolean;       // explicit "Heading N"
   headingLevel?: 1 | 2 | 3;
 }
@@ -160,7 +162,15 @@ function parseStyles(stylesXml: any | null): Map<string, StyleInfo> {
             const v = Number(attr(rp, "w:val"));
             if (Number.isFinite(v)) info.fontSizeHalfPt = v;
           } else if (tt === "w:b") {
-            info.bold = attr(rp, "w:val") !== "0" && attr(rp, "w:val") !== "false";
+            const v = attr(rp, "w:val");
+            info.bold = v !== "0" && v !== "false";
+          } else if (tt === "w:i") {
+            const v = attr(rp, "w:val");
+            info.italic = v !== "0" && v !== "false";
+          } else if (tt === "w:vertAlign") {
+            const v = attr(rp, "w:val");
+            if (v === "superscript") info.vertAlign = "superscript";
+            else if (v === "subscript") info.vertAlign = "subscript";
           }
         }
       }
@@ -173,16 +183,24 @@ function parseStyles(stylesXml: any | null): Map<string, StyleInfo> {
       info.isHeading = true;
       info.headingLevel = lv;
     }
+    // Detect superscript/subscript character styles by name
+    const lname = (info.name ?? "").toLowerCase();
+    if (!info.vertAlign) {
+      if (/superscript|exposant|hoch|نمای|بالانویس/.test(lname)) info.vertAlign = "superscript";
+      else if (/subscript|indice|tief|پایین\s*نویس|زیرنویس/.test(lname)) info.vertAlign = "subscript";
+    }
     map.set(id, info);
   }
-  // Resolve basedOn outline/size inheritance one level deep
+  // Resolve basedOn inheritance one level deep
   for (const s of map.values()) {
-    if (s.basedOn && (s.outlineLevel === undefined || s.fontSizeHalfPt === undefined)) {
+    if (s.basedOn) {
       const p = map.get(s.basedOn);
       if (p) {
         if (s.outlineLevel === undefined) s.outlineLevel = p.outlineLevel;
         if (s.fontSizeHalfPt === undefined) s.fontSizeHalfPt = p.fontSizeHalfPt;
         if (s.bold === undefined) s.bold = p.bold;
+        if (s.italic === undefined) s.italic = p.italic;
+        if (s.vertAlign === undefined) s.vertAlign = p.vertAlign;
         if (!s.isHeading && p.isHeading) {
           s.isHeading = true;
           s.headingLevel = p.headingLevel;
@@ -192,6 +210,7 @@ function parseStyles(stylesXml: any | null): Map<string, StyleInfo> {
   }
   return map;
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Direction heuristic                                                 */
