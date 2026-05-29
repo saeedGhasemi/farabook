@@ -450,7 +450,7 @@ const inlineToMarkdown = (nodes?: TextNode[]): string =>
     let footnoteContent: string | undefined;
     for (const m of n.marks ?? []) {
       if (m.type === "bold") t = `**${t}**`;
-      else if (m.type === "italic") t = `*${t}*`;
+      else if (m.type === "italic") t = `_${t}_`;
       else if (m.type === "underline") t = `__${t}__`;
       else if (m.type === "superscript") t = `[sup]${t}[/sup]`;
       else if (m.type === "subscript") t = `[sub]${t}[/sub]`;
