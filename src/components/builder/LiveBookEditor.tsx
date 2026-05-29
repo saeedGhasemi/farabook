@@ -1926,13 +1926,14 @@ const HotspotEditor = ({
 /* ------------------------------------------------------------------ */
 
 const Inspector = ({
-  block, onUpdate, onReplace, onSplit, uploadFile, lang,
+  block, onUpdate, onReplace, onSplit, uploadFile, bookImages, lang,
 }: {
   block: BlockDraft;
   onUpdate: (patch: Partial<BlockDraft>) => void;
   onReplace: (next: BlockDraft) => void;
   onSplit?: () => void;
   uploadFile: (f: File, prefix?: string) => Promise<string | null>;
+  bookImages: { src: string; caption?: string }[];
   lang: "fa" | "en";
 }) => {
   const fa = lang === "fa";
