@@ -447,31 +447,43 @@ const Reader = () => {
   }, [currentPage]);
 
   // In paginated (liquid) mode, advance one column at a time and only flip
-  // to the next page when the user reaches the last column.
+  // to the next page when the user reaches the last column. Uses transform
+  // (not native scroll) so transitions stay smooth even with overflow:hidden.
   const scrollPaginated = (direction: 1 | -1): boolean => {
     if (readingMode !== "paginated") return false;
-    const host = paginatedHostRef.current;
-    if (!host) return false;
-    const step = host.clientWidth;
-    if (step <= 0) return false;
-    const max = host.scrollWidth - host.clientWidth;
-    // RTL containers report scrollLeft as a negative number in modern browsers.
-    const cur = host.scrollLeft;
-    const absCur = Math.abs(cur);
     if (direction === 1) {
-      if (absCur + step < max - 2) {
-        host.scrollBy({ left: bookDir === "rtl" ? -step : step, behavior: "smooth" });
-        return true;
-      }
-      return false;
-    } else {
-      if (absCur > 2) {
-        host.scrollBy({ left: bookDir === "rtl" ? step : -step, behavior: "smooth" });
-        return true;
-      }
+      if (colIdx < colCount - 1) { setColIdx((v) => v + 1); return true; }
       return false;
     }
+    if (colIdx > 0) { setColIdx((v) => v - 1); return true; }
+    return false;
   };
+
+  // Reset column index whenever we change page or leave paginated mode.
+  useEffect(() => { setColIdx(0); }, [pageIdx, readingMode]);
+
+  // Measure how many columns the current chapter laid out into.
+  useEffect(() => {
+    if (readingMode !== "paginated") { setColCount(1); return; }
+    const host = paginatedHostRef.current;
+    const track = paginatedTrackRef.current;
+    if (!host || !track) return;
+    const measure = () => {
+      const cw = host.clientWidth;
+      if (cw <= 0) return;
+      const gap = 40; // 2.5rem column-gap
+      const total = track.scrollWidth;
+      const n = Math.max(1, Math.round((total + gap) / (cw + gap)));
+      setColCount(n);
+      setColIdx((idx) => Math.min(idx, n - 1));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(host);
+    ro.observe(track);
+    const t = window.setTimeout(measure, 250);
+    return () => { ro.disconnect(); window.clearTimeout(t); };
+  }, [readingMode, pageIdx, fontSize, fullscreen, book]);
 
   const goNext = () => {
     if (coverView === "front") { coverDismissedRef.current = true; setCoverView(null); setFlipDir(1); return; }
@@ -930,24 +942,40 @@ const Reader = () => {
                     ref={paginatedHostRef}
                     className={`selectable selection:bg-[hsl(var(--hl-yellow)/0.6)] cursor-text ${
                       readingMode === "paginated"
-                        ? "reader-paginated space-y-4"
+                        ? "relative overflow-hidden"
                         : "space-y-4"
                     }`}
                     style={readingMode === "paginated"
-                      ? ({ columnWidth: "100%", ["--paginated-height" as any]: fullscreen ? "82vh" : "70vh" } as React.CSSProperties)
+                      ? ({ height: fullscreen ? "82vh" : "70vh" } as React.CSSProperties)
                       : undefined}
                   >
-                    {blocks.map((block, i) => (
-                      <BlockRenderer
-                        key={i}
-                        block={block}
-                        fontSize={fontSize}
-                        index={i}
-                        pageIndex={pageIdx}
-                        savedHighlights={pageHighlights.map((h) => ({ id: h.id, text: h.text, color: h.color || "yellow" }))}
-                        onHighlightClick={() => setHighlightsOpen(true)}
-                      />
-                    ))}
+                    <div
+                      ref={paginatedTrackRef}
+                      className={readingMode === "paginated" ? "reader-paginated" : ""}
+                      style={readingMode === "paginated"
+                        ? ({
+                            columnWidth: "100%",
+                            columnGap: "2.5rem",
+                            columnFill: "auto",
+                            height: "100%",
+                            transform: `translateX(calc(${(bookDir === "rtl" ? colIdx : -colIdx)} * (100% + 2.5rem)))`,
+                            transition: "transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)",
+                            willChange: "transform",
+                          } as React.CSSProperties)
+                        : undefined}
+                    >
+                      {blocks.map((block, i) => (
+                        <BlockRenderer
+                          key={i}
+                          block={block}
+                          fontSize={fontSize}
+                          index={i}
+                          pageIndex={pageIdx}
+                          savedHighlights={pageHighlights.map((h) => ({ id: h.id, text: h.text, color: h.color || "yellow" }))}
+                          onHighlightClick={() => setHighlightsOpen(true)}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               </motion.article>

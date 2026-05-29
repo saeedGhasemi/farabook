@@ -29,7 +29,8 @@ type Block =
       originalPath?: string;
       slot?: number;
     }
-  | { type: "table"; headers: string[]; rows: string[][]; caption?: string; tableNumber?: string };
+  | { type: "table"; headers: string[]; rows: string[][]; caption?: string; tableNumber?: string }
+  | { type: "print_page"; number: string };
 
 interface Page { title: string; blocks: Block[]; level?: number; }
 
@@ -369,9 +370,13 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
 
   // Chaptering must mirror Word Navigation Panel: explicit Heading styles only.
   const hasRenderedBreaks = false;
+  // Running Word page number. Incremented every time we hit an explicit
+  // <w:br type="page"/> or <w:lastRenderedPageBreak/>. Emitted as a
+  // `print_page` block so the reader can show "صفحه چاپی N".
+  let wordPageNum = 1;
 
   const pages: Page[] = [];
-  let cur: Page = { title: hasRenderedBreaks ? "صفحه 1" : "مقدمه", blocks: [] };
+  let cur: Page = { title: hasRenderedBreaks ? "صفحه 1" : "مقدمه", blocks: [{ type: "print_page", number: String(wordPageNum) }] };
   const pushPage = () => {
     if (cur.blocks.length) pages.push(cur);
   };
@@ -382,7 +387,7 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
   const ensureRoom = () => {
     if (cur.blocks.length < maxBlocksPerPage) return;
     pushPage();
-    cur = { title: `صفحه ${pages.length + 1}`, blocks: [] };
+    cur = { title: `صفحه ${pages.length + 1}`, blocks: [{ type: "print_page", number: String(wordPageNum) }] };
   };
 
   const tokenRe = /<w:p\b[\s\S]*?<\/w:p>|<w:tbl\b[\s\S]*?<\/w:tbl>/gi;
@@ -457,11 +462,18 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
           if (nt) cur.blocks.push({ type: "paragraph", text: `${n.id}. ${nt}` });
         }
       }
-      // Only honor a manual page break if the current page actually has
-      // content; otherwise we'd produce an empty "صفحه N" stub.
-      if (i < parts.length - 1 && cur.blocks.length > 0) {
-        pushPage();
-        cur = { title: `صفحه ${pages.length + 1}`, blocks: [] };
+      // A page break sits between this part and the next. We always emit a
+      // `print_page` marker (so the reader shows "صفحه چاپی N"). For manual
+      // page breaks we also still split into a new chapter, matching prior
+      // behavior — but only when the current page has content.
+      if (i < parts.length - 1) {
+        wordPageNum += 1;
+        if (cur.blocks.length > 0) {
+          pushPage();
+          cur = { title: `صفحه ${pages.length + 1}`, blocks: [{ type: "print_page", number: String(wordPageNum) }] };
+        } else {
+          cur.blocks.push({ type: "print_page", number: String(wordPageNum) });
+        }
       }
     }
   }
