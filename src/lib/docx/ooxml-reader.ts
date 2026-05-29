@@ -80,6 +80,8 @@ export async function readDocx(input: ArrayBuffer | Blob | File): Promise<OoxmlB
     return parser.parse(xml);
   };
 
+  const rawDocXml = (await zip.file("word/document.xml")?.async("text")) ?? undefined;
+
   const [doc, styles, numbering, footnotes, endnotes, coreProps, rels] = await Promise.all([
     readXml("word/document.xml"),
     readXml("word/styles.xml"),
