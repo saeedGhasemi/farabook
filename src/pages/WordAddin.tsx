@@ -480,4 +480,15 @@ function PreviewBlock({ b }: { b: any }) {
   const dir = b.dir ?? undefined;
   if (b.type === "heading") {
     const lv = b.level ?? 2;
-    const cls = lv === 1 ? "text
+    const cls = lv === 1 ? "text-2xl font-bold" : lv === 2 ? "text-xl font-bold" : "text-lg font-semibold";
+    return <div className={cls} dir={dir}>{renderInline(b.inline)}</div>;
+  }
+  if (b.type === "image") {
+    if (b.src && (b.src.startsWith("blob:") || b.src.startsWith("data:") || /^https?:/.test(b.src))) {
+      return <img src={b.src} alt={b.name ?? ""} className="max-w-full h-auto rounded border" />;
+    }
+    return <div className="text-xs text-muted-foreground">[تصویر: {b.name ?? b.src}]</div>;
+  }
+  return <p className="whitespace-pre-wrap" dir={dir}>{renderInline(b.inline)}</p>;
+}
+
