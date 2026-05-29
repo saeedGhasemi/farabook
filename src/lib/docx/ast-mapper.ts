@@ -148,7 +148,7 @@ interface StyleInfo {
   vertAlign?: "superscript" | "subscript";
   positionHalfPt?: number;
   isHeading?: boolean;       // explicit "Heading N"
-  headingLevel?: 1 | 2 | 3;
+  headingLevel?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   isTitle?: boolean;
   isSubtitle?: boolean;
 }
