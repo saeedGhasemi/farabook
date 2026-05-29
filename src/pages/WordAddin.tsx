@@ -484,7 +484,12 @@ function PreviewBlock({ b }: { b: any }) {
   const dir = b.dir ?? undefined;
   if (b.type === "heading") {
     const lv = b.level ?? 2;
-    const cls = lv === 1 ? "text-2xl font-bold" : lv === 2 ? "text-xl font-bold" : "text-lg font-semibold";
+    const cls =
+      lv === 1
+        ? "text-2xl font-bold text-blue-700"
+        : lv === 2
+          ? "text-xl font-bold text-blue-700"
+          : "text-lg font-semibold text-blue-700";
     return <div className={cls} dir={dir}>{renderInline(b.inline)}</div>;
   }
   if (b.type === "image") {
