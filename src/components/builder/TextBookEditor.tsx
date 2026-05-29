@@ -1836,6 +1836,29 @@ export const TextBookEditor = ({ initial }: Props) => {
               reviewed={reviewedImages}
               onToggleReviewed={toggleReviewedImage}
               onFinalizePlaceholder={finalizePlaceholder}
+              onConfirmImageCaption={(pi, bi, caption) => {
+                let updatedDoc: any = null;
+                setPages((ps) => {
+                  const next = [...ps];
+                  const page = next[pi];
+                  if (!page) return ps;
+                  const docContent = [...(page.doc?.content ?? [])];
+                  const node: any = docContent[bi];
+                  if (!node || node.type !== "image") return ps;
+                  const { captionPendingConfirm: _drop, ...rest } = node.attrs ?? {};
+                  docContent[bi] = { ...node, attrs: { ...rest, caption } };
+                  const newDoc = { ...page.doc, content: docContent };
+                  next[pi] = { ...page, doc: newDoc };
+                  if (pi === activeIdx) updatedDoc = newDoc;
+                  dirtyPagesRef.current.add(pi);
+                  return next;
+                });
+                if (updatedDoc && editor) {
+                  window.setTimeout(() => editor.commands.setContent(updatedDoc, { emitUpdate: false }), 0);
+                }
+                markStructureDirty();
+                toast.success(fa ? "کپشن تایید شد" : "Caption confirmed");
+              }}
               onAutoPlaceAll={() => {
                 // Empty placeholders (no pendingSrc) need the docx-image-fill
                 // pipeline; if any exist and we have an importId, open it.
