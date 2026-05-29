@@ -586,7 +586,7 @@ const Upload = () => {
           <div className="flex flex-wrap gap-2 pt-2">
             <Button variant="outline" onClick={reset}>
               <ArrowLeft className="h-4 w-4 me-1" />
-              شروع دوباره
+              بازگشت به مرحلهٔ قبل
             </Button>
             <Button
               className="flex-1 sm:flex-initial"
