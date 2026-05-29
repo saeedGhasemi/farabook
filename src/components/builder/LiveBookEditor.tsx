@@ -1114,6 +1114,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
                         : undefined
                     }
                     uploadFile={uploadToBucket}
+                    bookImages={bookImages}
                     lang={lang}
                   />
                 ) : (
