@@ -21,6 +21,8 @@ export type Contributor = {
   name: string;
   role: ContributorRole;
   user_id?: string | null;
+  /** Organizational affiliation (university, publisher, institute…). */
+  affiliation?: string | null;
 };
 
 export type ContributorRole =
@@ -168,6 +170,33 @@ export const BookMetadataForm = ({ value, onChange, fa = true, hideDescription, 
     const next = m.contributors.slice();
     [next[i], next[j]] = [next[j], next[i]];
     set({ contributors: next });
+  };
+
+  /** Bulk-paste: one author per line. Empty lines and duplicates are skipped. */
+  const [bulkText, setBulkText] = useState("");
+  const [bulkRole, setBulkRole] = useState<ContributorRole>("author");
+  const importBulk = () => {
+    const lines = bulkText
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!lines.length) return;
+    const existing = new Set(m.contributors.map((c) => `${c.role}::${c.name.trim()}`));
+    const seedEmpty = m.contributors.length === 1 && !m.contributors[0].name.trim();
+    const base = seedEmpty ? [] : m.contributors.slice();
+    for (const raw of lines) {
+      // Allow "Name | Affiliation" or "Name — Affiliation" / "Name - Affiliation" per line.
+      const parts = raw.split(/\s*(?:\||—|–|-{1,2})\s*/);
+      const name = parts[0]?.trim();
+      const affiliation = parts.slice(1).join(" - ").trim() || undefined;
+      if (!name) continue;
+      const key = `${bulkRole}::${name}`;
+      if (existing.has(key)) continue;
+      existing.add(key);
+      base.push({ name, role: bulkRole, affiliation });
+    }
+    set({ contributors: base.length ? base : [{ name: "", role: "author" }] });
+    setBulkText("");
   };
 
   const isbnOk = isValidIsbn(m.isbn ?? "");
