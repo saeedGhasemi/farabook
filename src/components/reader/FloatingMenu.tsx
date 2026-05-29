@@ -24,6 +24,7 @@ interface Props {
   onToggleDark: () => void;
   ambient: string;
   onAmbient: (a: string) => void;
+  userAmbient?: Array<{ id: string; label: string; url: string }>;
   readingMode: "scroll" | "paginated";
   onToggleReadingMode: () => void;
   fullscreen: boolean;
@@ -36,12 +37,13 @@ const ambientOpts = [
   { id: "forest", icon: Trees },
   { id: "cafe", icon: Coffee },
   { id: "night", icon: Stars },
+  { id: "ocean", icon: Waves },
 ];
 
 export const FloatingMenu = ({
   onAi, onSpeak, onStopSpeak, isSpeaking, onOpenSearch,
   onOpenSettings, onOpenChapters, onOpenHighlights, onOpenChat, highlightCount,
-  dark, onToggleDark, ambient, onAmbient,
+  dark, onToggleDark, ambient, onAmbient, userAmbient = [],
   readingMode, onToggleReadingMode, fullscreen, onToggleFullscreen,
 }: Props) => {
   const { t, lang } = useI18n();
