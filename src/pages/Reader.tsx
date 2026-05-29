@@ -307,6 +307,23 @@ const Reader = () => {
     if (p?.ambient && ambient === "off") setAmbient(p.ambient);
   }, [pageIdx, book]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Resolve the publisher's brand logo so the chapter menu can show it as
+  // a faint background watermark. The per-book `publisher_logo_url` always
+  // wins so authors can override the default.
+  useEffect(() => {
+    if (!book?.publisher_id) { setPublisherLogoUrl(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("publisher_profiles")
+        .select("logo_url")
+        .eq("user_id", book.publisher_id as string)
+        .maybeSingle();
+      if (!cancelled) setPublisherLogoUrl((data?.logo_url as string | undefined) ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [book?.publisher_id]);
+
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.pause();
