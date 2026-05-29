@@ -44,7 +44,9 @@ interface Item {
   slot?: number;
   pendingSrc?: string;
   suggestedCaption?: SuggestedCaption;
-  attention?: "missing-image" | "missing-caption" | "mismatch";
+  /** Caption was auto-extracted at import time and still needs confirmation. */
+  captionPendingConfirm?: boolean;
+  attention?: "missing-image" | "missing-caption" | "mismatch" | "needs-confirm";
 }
 
 interface Props {
@@ -60,6 +62,8 @@ interface Props {
     blockIndex: number,
     options: { caption: string; consumeCaptionOffset?: number },
   ) => void;
+  /** Confirm (and optionally edit) an auto-extracted caption on an image. */
+  onConfirmImageCaption?: (pageIndex: number, blockIndex: number, caption: string) => void;
 }
 
 type SortMode = "attention-first" | "ok-first" | "page-order";
