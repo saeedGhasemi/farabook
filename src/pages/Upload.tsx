@@ -307,18 +307,65 @@ const Upload = () => {
 
       setUploadPct(100);
       setUploadPhase("انجام شد");
+      setCreatedBookId(bookId);
       setStage("done");
 
       // Cleanup all in-memory data
       releaseBlobs();
-      toast.success(reconvertBookId ? "تبدیل مجدد انجام شد." : "کتاب با موفقیت ایجاد شد.");
-      setTimeout(() => nav(`/edit/${bookId}`), 600);
+      toast.success(reconvertBookId
+        ? "تبدیل مجدد انجام شد. می‌توانید اطلاعات کتابشناختی را تکمیل کنید."
+        : "کتاب ایجاد شد. اکنون اطلاعات کتابشناختی را تکمیل کنید.");
     } catch (e: any) {
       console.error("[upload-wizard] upload failed", e);
       setError(e?.message ?? String(e));
       toast.error(`آپلود ناموفق بود: ${e?.message ?? e}`);
       setStage("review");
     }
+  };
+
+  /* -------- save bibliographic metadata after upload -------- */
+  const saveMetadataAndContinue = async () => {
+    if (!createdBookId) return;
+    setSavingMeta(true);
+    try {
+      const normalized = normalizeMetadata(meta);
+      const firstAuthor = (normalized.contributors ?? [])
+        .find((c) => (c.role === "author" || c.role === "coauthor") && c.name?.trim());
+      const { error: upErr } = await supabase.from("books").update({
+        title: normalized.title || undefined,
+        subtitle: normalized.subtitle || null,
+        description: normalized.description || null,
+        author: firstAuthor?.name?.trim() || undefined,
+        publisher: normalized.publisher || null,
+        isbn: normalized.isbn || null,
+        edition: normalized.edition || null,
+        publication_year: normalized.publication_year ?? null,
+        page_count: normalized.page_count ?? null,
+        language: normalized.language || null,
+        original_title: normalized.original_title || null,
+        original_language: normalized.original_language || null,
+        categories: normalized.categories ?? [],
+        subjects: normalized.subjects ?? [],
+        series_name: normalized.series_name || null,
+        series_index: normalized.series_index ?? null,
+        book_type: normalized.book_type || null,
+        contributors: normalized.contributors as any,
+        metadata: normalized as any,
+      }).eq("id", createdBookId);
+      if (upErr) throw upErr;
+      toast.success("مشخصات کتاب ذخیره شد.");
+      nav(`/edit/${createdBookId}`);
+    } catch (e: any) {
+      console.error("[upload-wizard] save metadata failed", e);
+      toast.error(`ذخیرهٔ مشخصات ناموفق بود: ${e?.message ?? e}`);
+    } finally {
+      setSavingMeta(false);
+    }
+  };
+
+  const skipMetadata = () => {
+    if (!createdBookId) return;
+    nav(`/edit/${createdBookId}`);
   };
 
   const reset = () => {
