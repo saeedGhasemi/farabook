@@ -249,7 +249,7 @@ export const TextBookEditor = ({ initial }: Props) => {
       Placeholder.configure({
         placeholder: fa ? "اینجا بنویسید… با Enter پاراگراف بعدی." : "Write here… Enter for next paragraph.",
       }),
-      Callout, Quote, ImageBlock, ImagePlaceholderBlock, VideoBlock, GalleryBlock, ImportedTable, TimelineBlock, ScrollyBlock, PrintPageBreak,
+      Callout, Quote, ImageBlock, ImagePlaceholderBlock, VideoBlock, GalleryBlock, ImportedTable, TimelineBlock, ScrollyBlock, PrintPageBreak, Footnote,
     ],
     content: activePage?.doc ?? { type: "doc", content: [{ type: "paragraph" }] },
     editorProps: {
