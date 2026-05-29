@@ -414,7 +414,32 @@ const Reader = () => {
       a.src = "";
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ambient]);
+  }, [ambient, userAmbient]);
+
+  // Load the current user's personal ambient playlist from storage.
+  useEffect(() => {
+    if (!user?.id) { setUserAmbient([]); return; }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.storage
+        .from("user-ambient")
+        .list(user.id, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
+      if (error || cancelled || !data) return;
+      const items = data
+        .filter((f) => f.name && !f.name.endsWith("/"))
+        .map((f) => {
+          const path = `${user.id}/${f.name}`;
+          const { data: pub } = supabase.storage.from("user-ambient").getPublicUrl(path);
+          return {
+            id: `user:${path}`,
+            label: f.name.replace(/\.[^.]+$/, ""),
+            url: pub.publicUrl,
+          };
+        });
+      if (!cancelled) setUserAmbient(items);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   useEffect(() => () => { stopSpeakSmart(); }, []);
   useEffect(() => {
