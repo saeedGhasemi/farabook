@@ -277,7 +277,7 @@ function parseRunProps(rPr: PNode | null, styles?: Map<string, StyleInfo>): RunF
   // First, apply rStyle inheritance (so direct props can still override).
   for (const p of kidsOf(rPr, "w:rPr")) {
     if (tagOf(p) === "w:rStyle") {
-      const sid = attr(p, "w:val");
+      const sid = attrLoose(p, "w:val");
       const s = sid ? styles?.get(sid) : undefined;
       if (s) {
         if (s.bold && out.bold === undefined) out.bold = true;
@@ -292,30 +292,30 @@ function parseRunProps(rPr: PNode | null, styles?: Map<string, StyleInfo>): RunF
     const t = tagOf(p);
     if (!t) continue;
     if (t === "w:b") {
-      const v = attr(p, "w:val");
+      const v = attrLoose(p, "w:val");
       out.bold = v !== "0" && v !== "false";
     } else if (t === "w:i") {
-      const v = attr(p, "w:val");
+      const v = attrLoose(p, "w:val");
       out.italic = v !== "0" && v !== "false";
     } else if (t === "w:u") {
-      const v = attr(p, "w:val");
+      const v = attrLoose(p, "w:val");
       out.underline = !!v && v !== "none";
     } else if (t === "w:vertAlign") {
-      const v = attr(p, "w:val");
+      const v = attrLoose(p, "w:val");
       if (v === "superscript") out.vertAlign = "superscript";
       else if (v === "subscript") out.vertAlign = "subscript";
     } else if (t === "w:position") {
-      const v = Number(attr(p, "w:val"));
+      const v = Number(attrLoose(p, "w:val"));
       if (Number.isFinite(v)) {
         out.positionHalfPt = v;
         if (v > 0) out.vertAlign = "superscript";
         else if (v < 0) out.vertAlign = "subscript";
       }
     } else if (t === "w:color") {
-      const v = attr(p, "w:val");
+      const v = attrLoose(p, "w:val");
       if (v && v !== "auto") out.color = "#" + v;
     } else if (t === "w:sz") {
-      const v = Number(attr(p, "w:val"));
+      const v = Number(attrLoose(p, "w:val"));
       if (Number.isFinite(v)) out.fontSizeHalfPt = v;
     }
   }
