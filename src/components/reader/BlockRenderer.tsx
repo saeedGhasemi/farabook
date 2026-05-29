@@ -58,6 +58,7 @@ export type Block =
   | { type: "references"; items: { id?: string; text: string; url?: string }[] }
   | { type: "timeline"; title?: string; steps: TimelineStep[] }
   | { type: "scrollytelling"; title?: string; steps: ScrollyStep[] }
+  | { type: "print_page"; number: string | number }
   | { type: "list"; ordered?: boolean; items: string[]; itemAttrs?: Array<{ textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" }>; textAlign?: "left" | "center" | "right" | "justify"; dir?: "rtl" | "ltr" };
 
 interface SavedHL { id?: string; text: string; color: string; block_index?: number | null; occurrence?: number | null }
