@@ -268,25 +268,7 @@ function parseRunProps(rPr: PNode | null, styles?: Map<string, StyleInfo>): RunF
   return out;
 }
 
-      const v = attr(p, "w:val");
-      out.italic = v !== "0" && v !== "false";
-    } else if (t === "w:u") {
-      const v = attr(p, "w:val");
-      out.underline = !!v && v !== "none";
-    } else if (t === "w:vertAlign") {
-      const v = attr(p, "w:val");
-      if (v === "superscript") out.vertAlign = "superscript";
-      else if (v === "subscript") out.vertAlign = "subscript";
-    } else if (t === "w:color") {
-      const v = attr(p, "w:val");
-      if (v && v !== "auto") out.color = "#" + v;
-    } else if (t === "w:sz") {
-      const v = Number(attr(p, "w:val"));
-      if (Number.isFinite(v)) out.fontSizeHalfPt = v;
-    }
-  }
-  return out;
-}
+
 
 function marksFromFormat(f: RunFormat): Mark[] {
   const m: Mark[] = [];
