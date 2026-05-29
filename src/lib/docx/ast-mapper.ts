@@ -408,8 +408,8 @@ interface ParaInfo {
   dominantSizeHalfPt?: number;
   /** True if any run is bold. */
   anyBold?: boolean;
-  /** Image rels referenced by this paragraph (rId list). */
-  imageRels?: string[];
+  /** Image refs (rid + size in EMU) referenced by this paragraph. */
+  imageRels?: ImageRef[];
   /** True if this paragraph contains an OMML math element. */
   hasMath?: boolean;
   align?: "left" | "center" | "right" | "justify";
@@ -471,7 +471,7 @@ function parseParagraph(p: PNode, rels: Map<string, string>, styles?: Map<string
   let sumSize = 0;
   let sizeCount = 0;
   let anyBold = false;
-  const imageRels: string[] = [];
+  const imageRels: ImageRef[] = [];
   let hasMath = false;
   const noteRefs: Array<{ kind: "footnote" | "endnote"; id: string }> = [];
 
@@ -554,14 +554,41 @@ function collectNoteRefs(nodes: PNode[], out: Array<{ kind: "footnote" | "endnot
   }
 }
 
-function collectImageRels(nodes: PNode[], out: string[]) {
+interface ImageRef { rid: string; widthEmu?: number; heightEmu?: number }
+
+function collectImageRels(nodes: PNode[], out: ImageRef[]) {
   for (const n of nodes ?? []) {
     if (!n || typeof n !== "object") continue;
     const t = tagOf(n);
     if (!t) continue;
-    if (t === "a:blip") {
+    if (t === "w:drawing") {
+      // Walk inside the drawing: find wp:extent (cx/cy) and a:blip (r:embed)
+      let widthEmu: number | undefined;
+      let heightEmu: number | undefined;
+      const rids: string[] = [];
+      const findExtentAndBlip = (sub: PNode[]) => {
+        for (const m of sub ?? []) {
+          if (!m || typeof m !== "object") continue;
+          const tt = tagOf(m);
+          if (!tt) continue;
+          if (tt === "wp:extent") {
+            const cx = Number(attrLoose(m, "cx"));
+            const cy = Number(attrLoose(m, "cy"));
+            if (Number.isFinite(cx)) widthEmu = cx;
+            if (Number.isFinite(cy)) heightEmu = cy;
+          } else if (tt === "a:blip") {
+            const rid = attrLoose(m, "r:embed") ?? attrLoose(m, "r:link");
+            if (rid) rids.push(rid);
+          }
+          if (Array.isArray(m[tt])) findExtentAndBlip(m[tt]);
+        }
+      };
+      findExtentAndBlip(kidsOf(n, "w:drawing"));
+      for (const rid of rids) out.push({ rid, widthEmu, heightEmu });
+    } else if (t === "a:blip") {
+      // Fallback for v:imagedata or stray blips outside drawings
       const rid = attrLoose(n, "r:embed") ?? attrLoose(n, "r:link");
-      if (rid) out.push(rid);
+      if (rid && !out.some((r) => r.rid === rid)) out.push({ rid });
     } else if (Array.isArray(n[t])) {
       collectImageRels(n[t], out);
     }
