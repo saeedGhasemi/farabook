@@ -13,13 +13,13 @@ interface Props {
   doc: TiptapDoc;
   /** map: docx media storageName → blob: URL. */
   mediaUrls: Map<string, string>;
-  /** Hard cap on number of print pages to render (default 50). */
+  /** Hard cap on number of print pages to render (default 60). */
   maxPrintPages?: number;
   /** Fallback cap on blocks when no print-pages exist. */
   maxBlocksFallback?: number;
 }
 
-export const WebPreview = ({ doc, mediaUrls, maxPrintPages = 50, maxBlocksFallback = 400 }: Props) => {
+export const WebPreview = ({ doc, mediaUrls, maxPrintPages = 60, maxBlocksFallback = 480 }: Props) => {
   // Alias media:// urls → blob: urls so the renderer can show local images.
   const aliasedRef = useRef<string[]>([]);
   useEffect(() => {
