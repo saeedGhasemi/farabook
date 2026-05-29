@@ -44,7 +44,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import {
   Callout, Quote, ImageBlock, ImagePlaceholderBlock, VideoBlock, GalleryBlock, TimelineBlock, ScrollyBlock,
-  ImportedTable, PrintPageBreak, useImageUpload,
+  ImportedTable, PrintPageBreak, Footnote, useImageUpload,
 } from "./tiptap-nodes";
 import {
   dbPagesToTextPages, textPagesToDbPages, nodesToPlainText, type TextPage,
