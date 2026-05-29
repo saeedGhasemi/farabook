@@ -243,7 +243,7 @@ export const TextBookEditor = ({ initial }: Props) => {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
+        heading: { levels: [1, 2, 3, 4, 5, 6] },
         blockquote: false,
       }),
       Underline,
@@ -526,7 +526,7 @@ export const TextBookEditor = ({ initial }: Props) => {
   // Each page has an optional `level` (0 = top-level). Children are the
   // contiguous following pages with strictly greater level. Move/indent
   // operate on the page + its subtree.
-  const MAX_LEVEL = 5;
+  const MAX_LEVEL = 7;
   const getLevel = useCallback((p?: TextPage) => Math.max(0, Math.min(MAX_LEVEL, Math.floor(p?.level ?? 0))), []);
   // End index (exclusive) of the subtree rooted at `idx`.
   const subtreeEnd = useCallback((ps: TextPage[], idx: number) => {

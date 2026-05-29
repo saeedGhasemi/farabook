@@ -253,7 +253,11 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
   if (!b || typeof b !== "object" || !b.type) return [];
   switch (b.type) {
     case "heading":
-      return [{ type: "heading", attrs: { level: 2, ...legacyTextAttrs(b) }, content: textToNodes(String(b.text ?? "")) }];
+      {
+        const rawLv = Number(b?.level);
+        const lv = (Number.isFinite(rawLv) ? Math.min(6, Math.max(1, Math.floor(rawLv))) : 2) as 1|2|3|4|5|6;
+        return [{ type: "heading", attrs: { level: lv, ...legacyTextAttrs(b) }, content: textToNodes(String(b.text ?? "")) }];
+      }
     case "paragraph":
       return splitParas(String(b.text ?? "")).map(
         (t) => ({ type: "paragraph", attrs: legacyTextAttrs(b), content: textToNodes(t) }) as ParagraphNode,
@@ -365,7 +369,7 @@ export const legacyPageToTextPage = (p: any): TextPage => {
   const blocks: any[] = Array.isArray(p?.blocks) ? p.blocks : [];
   const rawLevel = Number((p as any)?.level);
   const level = Number.isFinite(rawLevel) && rawLevel > 0
-    ? Math.min(5, Math.max(0, Math.floor(rawLevel)))
+    ? Math.min(7, Math.max(0, Math.floor(rawLevel)))
     : 0;
   if (isTiptapPage(p)) {
     if (countLegacyTables(blocks) > countDocTables(p.doc)) {
@@ -401,7 +405,7 @@ export const textPagesToDbPages = (pages: TextPage[]): any[] =>
     title: p.title || "—",
     doc: p.doc,
     blocks: docToLegacyBlocks(p.doc),
-    level: Math.min(5, Math.max(0, Math.floor(p.level ?? 0))),
+    level: Math.min(7, Math.max(0, Math.floor(p.level ?? 0))),
   }));
 
 
@@ -494,7 +498,7 @@ export const docToLegacyBlocks = (doc: TiptapDoc): any[] => {
         break;
       }
       case "heading":
-        out.push({ type: "heading", text: inlineToMarkdown(n.content), ...textBlockAttrsToLegacy(n.attrs) });
+        out.push({ type: "heading", text: inlineToMarkdown(n.content), level: Number(n.attrs?.level ?? 2), ...textBlockAttrsToLegacy(n.attrs) });
         break;
       case "quote":
         out.push({ type: "quote", text: inlineToMarkdown(n.content), author: n.attrs?.author, ...textBlockAttrsToLegacy(n.attrs) });
