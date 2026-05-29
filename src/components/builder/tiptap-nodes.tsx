@@ -13,7 +13,15 @@ import {
   HelpCircle, Quote as QuoteIcon, Plus, X, Upload, Layers,
   BookMarked, Sparkles,
 } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, createContext, useContext } from "react";
+
+/* ------------------------------------------------------------------ */
+/* Book-images context — lets gallery/media nodes pick from images    */
+/* already present elsewhere in the book without re-uploading.        */
+/* ------------------------------------------------------------------ */
+export interface BookImageEntry { src: string; caption?: string }
+export const BookImagesContext = createContext<BookImageEntry[]>([]);
+export const useBookImages = () => useContext(BookImagesContext);
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
