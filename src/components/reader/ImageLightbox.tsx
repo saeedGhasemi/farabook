@@ -107,7 +107,7 @@ export const ImageLightbox = ({ src, alt, open, onClose }: Props) => {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center"
+      className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
