@@ -36,6 +36,29 @@ const PublisherSettings = () => {
   const [hasProfile, setHasProfile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const logoFileRef = useRef<HTMLInputElement | null>(null);
+  const bannerFileRef = useRef<HTMLInputElement | null>(null);
+
+  const handleAssetUpload = async (file: File, kind: "logo" | "banner") => {
+    if (!user) return;
+    const setBusy = kind === "logo" ? setUploadingLogo : setUploadingBanner;
+    setBusy(true);
+    try {
+      const url = await uploadOptimizedImage(user.id, file, `publisher-${kind}`, {
+        maxEdge: kind === "logo" ? 512 : 1600,
+        quality: 0.85,
+      });
+      if (!url) { toast.error("بارگذاری ناموفق بود"); return; }
+      setProfile((p: any) => ({ ...p, [kind === "logo" ? "logo_url" : "banner_url"]: url }));
+      toast.success("بارگذاری شد");
+    } catch (e: any) {
+      toast.error(e?.message || "بارگذاری ناموفق بود");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   // Editor management state
   const [books, setBooks] = useState<any[]>([]);
