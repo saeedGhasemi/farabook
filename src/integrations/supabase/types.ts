@@ -288,6 +288,7 @@ export type Database = {
           id: string
           isbn: string | null
           language: string | null
+          metadata: Json
           original_language: string | null
           original_title: string | null
           page_count: number | null
@@ -343,6 +344,7 @@ export type Database = {
           id?: string
           isbn?: string | null
           language?: string | null
+          metadata?: Json
           original_language?: string | null
           original_title?: string | null
           page_count?: number | null
@@ -398,6 +400,7 @@ export type Database = {
           id?: string
           isbn?: string | null
           language?: string | null
+          metadata?: Json
           original_language?: string | null
           original_title?: string | null
           page_count?: number | null
