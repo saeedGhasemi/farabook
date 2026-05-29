@@ -26,6 +26,7 @@ export type Mark =
   | { type: "underline" }
   | { type: "superscript" }
   | { type: "subscript" }
+  | { type: "footnote"; attrs?: { content?: string } }
   | { type: "textStyle"; attrs?: { color?: string } }
   | { type: "link"; attrs?: { href?: string } };
 
