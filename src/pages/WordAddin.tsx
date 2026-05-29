@@ -468,6 +468,8 @@ function docToLegacyBlocks(doc: any, mediaUrls: Map<string, string>): any[] {
       });
     } else if (n.type === "table") {
       out.push({ type: "table", headers: n.attrs?.headers ?? [], rows: n.attrs?.rows ?? [] });
+    } else if (n.type === "print_page") {
+      out.push({ type: "print_page", number: String(n.attrs?.number ?? "") });
     }
   }
   return out;
