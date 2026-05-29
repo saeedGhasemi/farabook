@@ -122,6 +122,33 @@ const Reader = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
 
+  // Reading mode (persisted): scroll = traditional, paginated = liquid pages.
+  const [readingMode, setReadingMode] = useState<"scroll" | "paginated">(() => {
+    if (typeof window === "undefined") return "scroll";
+    return (window.localStorage.getItem("farabook:reading-mode") as "scroll" | "paginated") || "scroll";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("farabook:reading-mode", readingMode); } catch { /* ignore */ }
+  }, [readingMode]);
+
+  // Fullscreen reading: hides top bar, progress and side chrome to focus on text.
+  const [fullscreen, setFullscreen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("farabook:reader-fullscreen") === "1";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("farabook:reader-fullscreen", fullscreen ? "1" : "0"); } catch { /* ignore */ }
+  }, [fullscreen]);
+
+  // Publisher logo (for chapter-menu watermark). Falls back to book.publisher_logo_url override.
+  const [publisherLogoUrl, setPublisherLogoUrl] = useState<string | null>(null);
+
+  // Paginated-mode state
+  const [colIdx, setColIdx] = useState(0);
+  const [colCount, setColCount] = useState(1);
+  const paginatedHostRef = useRef<HTMLDivElement | null>(null);
+  const paginatedTrackRef = useRef<HTMLDivElement | null>(null);
+
   const Prev = dir === "rtl" ? ArrowRight : ArrowLeft;
   const Next = dir === "rtl" ? ArrowLeft : ArrowRight;
 
