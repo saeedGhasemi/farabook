@@ -527,7 +527,7 @@ function collectImageRels(nodes: PNode[], out: string[]) {
     const t = tagOf(n);
     if (!t) continue;
     if (t === "a:blip") {
-      const rid = attr(n, "r:embed") ?? attr(n, "r:link");
+      const rid = attrLoose(n, "r:embed") ?? attrLoose(n, "r:link");
       if (rid) out.push(rid);
     } else if (Array.isArray(n[t])) {
       collectImageRels(n[t], out);
@@ -588,7 +588,7 @@ function ommlToLatex(node: PNode): string {
     if (chrAttr) {
       for (const cp of kidsOf(chrAttr, "m:naryPr")) {
         if (tagOf(cp) === "m:chr") {
-          const v = attr(cp, "m:val");
+          const v = attrLoose(cp, "m:val");
           if (v === "∫") op = "\\int";
           else if (v === "∏") op = "\\prod";
         }
@@ -696,8 +696,8 @@ function parseRels(relsXml: any | null): Map<string, string> {
   if (!root) return map;
   for (const r of kidsOf(root, "Relationships")) {
     if (tagOf(r) !== "Relationship") continue;
-    const id = attr(r, "Id");
-    const target = attr(r, "Target");
+    const id = attrLoose(r, "Id");
+    const target = attrLoose(r, "Target");
     if (id && target) map.set(id, target);
   }
   return map;
