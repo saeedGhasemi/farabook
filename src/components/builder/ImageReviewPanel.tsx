@@ -70,7 +70,7 @@ type SortMode = "attention-first" | "ok-first" | "page-order";
 
 export const ImageReviewPanel = ({
   pages, onClose, onJump, reviewed, onToggleReviewed,
-  onAutoPlaceAll, onAutoAlign, onFinalizePlaceholder,
+  onAutoPlaceAll, onAutoAlign, onFinalizePlaceholder, onConfirmImageCaption,
 }: Props) => {
   const [filter, setFilter] = useState<"all" | "attention">("attention");
   const [sortMode, setSortMode] = useState<SortMode>("attention-first");
