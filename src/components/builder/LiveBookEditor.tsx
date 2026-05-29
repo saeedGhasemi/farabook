@@ -2003,7 +2003,7 @@ const BookImagePicker = ({
         onClick={() => setOpen(true)}
       >
         <Images className="w-3.5 h-3.5" />
-        {fa ? `انتخاب از تصاویر کتاب (${available.length})` : `Pick from book images (${available.length})`}
+        {fa ? `انتخاب از تصاویر کتاب (${availableAll.length})` : `Pick from book images (${availableAll.length})`}
       </Button>
 
       {open && (
