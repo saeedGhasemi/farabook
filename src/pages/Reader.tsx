@@ -94,6 +94,49 @@ const pageToBlocks = (page?: Page): Block[] => {
   return page.blocks ?? (page.content ? [{ type: "paragraph", text: page.content }] : []);
 };
 
+/**
+ * Scroll to the first occurrence of `term` within `root` and wrap it in a
+ * temporary <mark class="search-flash"> so the user sees a blinking highlight.
+ * Cleans up after ~3s and tolerates Persian/Arabic digits via normalization.
+ */
+const flashHighlightTerm = (root: HTMLElement | null, term: string) => {
+  if (!root || !term) return;
+  const needle = normalizeDigits(term).toLowerCase();
+  if (!needle) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => {
+      const parent = (node as Text).parentElement;
+      if (!parent) return NodeFilter.FILTER_REJECT;
+      if (parent.closest("script,style,mark.search-flash")) return NodeFilter.FILTER_REJECT;
+      const hay = normalizeDigits(node.nodeValue || "").toLowerCase();
+      return hay.includes(needle) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    },
+  });
+  const node = walker.nextNode() as Text | null;
+  if (!node) return;
+  const haystack = normalizeDigits(node.nodeValue || "").toLowerCase();
+  const idx = haystack.indexOf(needle);
+  if (idx < 0) return;
+  const range = document.createRange();
+  range.setStart(node, idx);
+  range.setEnd(node, idx + needle.length);
+  const mark = document.createElement("mark");
+  mark.className = "search-flash";
+  try {
+    range.surroundContents(mark);
+  } catch {
+    return;
+  }
+  mark.scrollIntoView({ behavior: "smooth", block: "center" });
+  window.setTimeout(() => {
+    const parent = mark.parentNode;
+    if (!parent) return;
+    while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+    parent.removeChild(mark);
+    parent.normalize();
+  }, 3200);
+};
+
 const Reader = () => {
   const { id } = useParams();
   const nav = useNavigate();
@@ -846,11 +889,6 @@ const Reader = () => {
     // 2) Regular text / chapter / media hits.
     const textHits = book.pages.flatMap((page, pIndex) => {
       const pageBlocks = pageToBlocks(page);
-      const firstMedia = pageBlocks.map((candidate, candidateIndex) => {
-        const src = candidate.type === "image" ? candidate.src : candidate.type === "gallery" ? candidate.images[0] : candidate.type === "slideshow" ? candidate.images[0]?.src : undefined;
-        const caption = candidate.type === "image" ? candidate.caption : candidate.type === "gallery" ? candidate.caption : candidate.type === "slideshow" ? candidate.images[0]?.caption : undefined;
-        return src ? { src, caption, key: `book-block-${pIndex}-${candidateIndex}` } : null;
-      }).find(Boolean);
       return pageBlocks.flatMap((block, bIndex) => {
         const text = block.type === "paragraph" || block.type === "heading" || block.type === "highlight" || block.type === "callout"
           ? block.text
@@ -863,17 +901,22 @@ const Reader = () => {
           : block.type === "slideshow"
           ? block.images.map((img) => img.caption || "").join(" ")
           : "";
-        if (!`${page.title} ${text}`.toLowerCase().includes(term)) return [];
+        const titleMatch = (page.title || "").toLowerCase().includes(term);
+        const textMatch = text.toLowerCase().includes(term);
+        if (!titleMatch && !textMatch) return [];
+        const isMediaBlock = block.type === "image" || block.type === "gallery" || block.type === "slideshow";
         const mediaSrc = block.type === "image" ? block.src : block.type === "gallery" ? block.images[0] : block.type === "slideshow" ? block.images[0]?.src : undefined;
-        const blockMediaKey = mediaSrc ? `book-block-${pIndex}-${bIndex}` : undefined;
+        // Only set mediaKey for media blocks. Text hits should NOT jump to images —
+        // they must scroll to and flash-highlight the matched word in the body.
+        const blockMediaKey = isMediaBlock && mediaSrc ? `book-block-${pIndex}-${bIndex}` : undefined;
         return [{
           pageIndex: pIndex,
           blockIndex: bIndex,
           title: page.title || `${t("page")} ${pIndex + 1}`,
           excerpt: text || page.title,
-          mediaSrc: mediaSrc || firstMedia?.src,
+          mediaSrc: isMediaBlock ? mediaSrc : undefined,
           mediaCaption: block.type === "image" ? block.caption : block.type === "gallery" ? block.caption : block.type === "slideshow" ? block.images[0]?.caption : undefined,
-          mediaKey: blockMediaKey || firstMedia?.key,
+          mediaKey: blockMediaKey,
         }];
       });
     });
@@ -883,6 +926,7 @@ const Reader = () => {
   const openSearchResult = (result: SearchResult) => {
     goTo(result.pageIndex);
     setSearchOpen(false);
+    const term = searchTerm.trim();
     if (result.printPage) {
       window.setTimeout(() => {
         document.getElementById(`print-page-${result.printPage}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -894,6 +938,11 @@ const Reader = () => {
         document.getElementById(result.mediaKey || "")?.scrollIntoView({ behavior: "smooth", block: "center" });
         window.dispatchEvent(new CustomEvent("open-book-media", { detail: { key: result.mediaKey } }));
       }, 700);
+      return;
+    }
+    // Text hit: find the matched word in the rendered article and flash-highlight it.
+    if (term) {
+      window.setTimeout(() => flashHighlightTerm(articleRef.current, term), 600);
     }
   };
 
