@@ -11,9 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { resolveBookMedia } from "@/lib/book-media";
 import type { TextPage } from "@/lib/tiptap-doc";
-
-const FIG_RE = /^(شکل|تصویر|نگاره|figure|fig\.?)\s*[\d\u06F0-\u06F9۰-۹]+([.\-\u2013\u2014][\d\u06F0-\u06F9۰-۹]+)?/i;
-const FIG_NUM_RE = /(?:شکل|تصویر|نگاره|figure|fig\.?)\s*([\d\u06F0-\u06F9۰-۹]+(?:[.\-\u2013\u2014][\d\u06F0-\u06F9۰-۹]+)?)/i;
+import { FIG_RE, FIG_NUM_RE } from "@/lib/docx/figure-caption";
 
 const normalizeNum = (s: string) =>
   s
@@ -46,7 +44,9 @@ interface Item {
   slot?: number;
   pendingSrc?: string;
   suggestedCaption?: SuggestedCaption;
-  attention?: "missing-image" | "missing-caption" | "mismatch";
+  /** Caption was auto-extracted at import time and still needs confirmation. */
+  captionPendingConfirm?: boolean;
+  attention?: "missing-image" | "missing-caption" | "mismatch" | "needs-confirm";
 }
 
 interface Props {
@@ -62,13 +62,15 @@ interface Props {
     blockIndex: number,
     options: { caption: string; consumeCaptionOffset?: number },
   ) => void;
+  /** Confirm (and optionally edit) an auto-extracted caption on an image. */
+  onConfirmImageCaption?: (pageIndex: number, blockIndex: number, caption: string) => void;
 }
 
 type SortMode = "attention-first" | "ok-first" | "page-order";
 
 export const ImageReviewPanel = ({
   pages, onClose, onJump, reviewed, onToggleReviewed,
-  onAutoPlaceAll, onAutoAlign, onFinalizePlaceholder,
+  onAutoPlaceAll, onAutoAlign, onFinalizePlaceholder, onConfirmImageCaption,
 }: Props) => {
   const [filter, setFilter] = useState<"all" | "attention">("attention");
   const [sortMode, setSortMode] = useState<SortMode>("attention-first");
@@ -105,10 +107,13 @@ export const ImageReviewPanel = ({
           : undefined;
 
         let attention: Item["attention"] | undefined;
+        const captionPendingConfirm = !!(isImg && node.attrs?.captionPendingConfirm);
         if (isPh && !node.attrs?.pendingSrc) attention = "missing-image";
         else if (isImg && !node.attrs?.caption) {
           // image with no caption — flag for review unless adjacent FIG_RE matches
           if (!suggested) attention = "missing-caption";
+        } else if (captionPendingConfirm) {
+          attention = "needs-confirm";
         }
         if (figNum && suggested?.num && figNum !== suggested.num) attention = "mismatch";
 
@@ -123,6 +128,7 @@ export const ImageReviewPanel = ({
           figureNumber: node.attrs?.figureNumber,
           slot: node.attrs?.slot,
           suggestedCaption: suggested,
+          captionPendingConfirm,
           attention,
         });
       });
@@ -147,10 +153,10 @@ export const ImageReviewPanel = ({
     const ok = isAutoOk(it) || reviewed.has(it.key);
     const needs = !!it.attention || (it.type === "placeholder" && !!it.pendingSrc);
     if (sortMode === "attention-first") {
-      // missing-image (3) > mismatch (2) > missing-caption (1) > pending (1) > others (0) > ok (-1)
       if (it.attention === "missing-image") return 3;
       if (it.attention === "mismatch") return 2;
       if (it.attention === "missing-caption") return 1;
+      if (it.attention === "needs-confirm") return 1;
       if (needs) return 1;
       return ok ? -1 : 0;
     }
@@ -256,6 +262,7 @@ export const ImageReviewPanel = ({
               it.attention === "missing-image" ? "border-destructive/60 bg-destructive/5"
               : it.attention === "mismatch" ? "border-orange-500/60 bg-orange-500/10"
               : it.attention === "missing-caption" ? "border-amber-500/60 bg-amber-500/10"
+              : it.attention === "needs-confirm" ? "border-sky-500/60 bg-sky-500/10"
               : isReviewed ? "border-emerald-500/50 bg-emerald-500/5"
               : "border-border hover:border-primary/40";
 
@@ -299,6 +306,7 @@ export const ImageReviewPanel = ({
                         {!it.figureNumber && it.slot ? <span className="text-muted-foreground">#{it.slot}</span> : null}
                         {it.attention === "mismatch" && <span className="text-orange-700 dark:text-orange-400 text-[10px]">عدم تطابق شماره</span>}
                         {it.attention === "missing-caption" && <span className="text-amber-700 dark:text-amber-400 text-[10px]">بدون کپشن</span>}
+                        {it.attention === "needs-confirm" && <span className="text-sky-700 dark:text-sky-400 text-[10px]">نیاز به تأیید کپشن</span>}
                         {it.attention === "missing-image" && <span className="text-destructive text-[10px]">بدون فایل</span>}
                       </div>
                       <div className="text-[10px] text-muted-foreground line-clamp-1" title={it.caption || it.suggestedCaption?.text || ""}>
@@ -375,6 +383,31 @@ export const ImageReviewPanel = ({
                           }}
                         >
                           <Check className="w-3 h-3 me-1" /> تایید و درج
+                        </Button>
+                      </>
+                    )}
+                    {it.attention === "needs-confirm" && onConfirmImageCaption && (
+                      <>
+                        <Input
+                          value={captionValue}
+                          placeholder="کپشن…"
+                          className="h-7 text-[11px]"
+                          onChange={(e) => setCaptionDrafts((p) => ({ ...p, [it.key]: e.target.value }))}
+                        />
+                        <div className="text-[10px] text-muted-foreground leading-snug">
+                          <Sparkles className="w-2.5 h-2.5 inline me-0.5 text-primary" />
+                          این کپشن از روی متن زیر تصویر در فایل ورد استخراج شد. در صورت تأیید، نهایی می‌شود.
+                        </div>
+                        <Button
+                          size="sm"
+                          className="h-7 w-full text-[11px]"
+                          onClick={() => {
+                            onConfirmImageCaption(it.pageIndex, it.blockIndex, captionValue.trim());
+                            if (!isReviewed) onToggleReviewed(it.key);
+                            setExpanded(null);
+                          }}
+                        >
+                          <Check className="w-3 h-3 me-1" /> تایید کپشن
                         </Button>
                       </>
                     )}
