@@ -22,6 +22,8 @@ interface Props {
   /** Year & version shown at the bottom. */
   publicationYear?: number | null;
   bookVersion?: number | string | null;
+  /** Clicking the title returns the reader to the front cover. */
+  onTitleClick?: () => void;
 }
 
 export const ChapterSidebar = ({
