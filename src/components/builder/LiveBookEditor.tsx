@@ -2115,15 +2115,16 @@ const BookImagePicker = ({
 
 
 const Inspector = ({
-  block, onUpdate, onReplace, onSplit, uploadFile, bookImages, lang,
+  block, onUpdate, onReplace, onSplit, uploadFile, bookImages, lang, currentPageIdx,
 }: {
   block: BlockDraft;
   onUpdate: (patch: Partial<BlockDraft>) => void;
   onReplace: (next: BlockDraft) => void;
   onSplit?: () => void;
   uploadFile: (f: File, prefix?: string) => Promise<string | null>;
-  bookImages: { src: string; caption?: string }[];
+  bookImages: { src: string; caption?: string; pageIdx?: number }[];
   lang: "fa" | "en";
+  currentPageIdx?: number;
 }) => {
   const fa = lang === "fa";
   const [uploading, setUploading] = useState(false);
