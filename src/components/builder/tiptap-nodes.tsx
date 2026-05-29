@@ -768,6 +768,51 @@ export const ScrollyBlock = Node.create({
 });
 
 /* ------------------------------------------------------------------ */
+/* Print-page break — faint marker for original print pagination       */
+/* ------------------------------------------------------------------ */
+
+const PrintPageView = (props: NodeViewProps) => {
+  const num = String(props.node.attrs.number ?? "");
+  const updateNum = (val: string) => {
+    const clean = val.replace(/[^\dA-Za-z\u06F0-\u06F9۰-۹\-]/g, "").slice(0, 8);
+    props.updateAttributes({ number: clean });
+  };
+  return (
+    <NodeViewWrapper
+      className="my-3 flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity"
+      data-print-page-break={num}
+      contentEditable={false}
+    >
+      <span className="h-px flex-1 bg-border" />
+      <span className="text-[10px] text-muted-foreground shrink-0">صفحه چاپی</span>
+      <input
+        type="text"
+        value={num}
+        onChange={(e) => updateNum(e.target.value)}
+        placeholder="—"
+        className="w-16 h-6 text-[11px] font-mono tabular-nums text-center bg-background border border-border/60 rounded-sm focus:outline-none focus:border-primary"
+      />
+      <span className="h-px flex-1 bg-border" />
+    </NodeViewWrapper>
+  );
+};
+
+export const PrintPageBreak = Node.create({
+  name: "print_page",
+  group: "block",
+  atom: true,
+  selectable: true,
+  draggable: true,
+  addAttributes() { return { number: { default: "" } }; },
+  parseHTML() { return [{ tag: "div[data-print-page-break]" }]; },
+  renderHTML({ HTMLAttributes }) {
+    return ["div", mergeAttributes(HTMLAttributes, { "data-print-page-break": HTMLAttributes.number ?? "" })];
+  },
+  addNodeView() { return ReactNodeViewRenderer(PrintPageView); },
+});
+
+
+/* ------------------------------------------------------------------ */
 /* Image upload helper — used by the toolbar                          */
 /* ------------------------------------------------------------------ */
 

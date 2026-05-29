@@ -69,6 +69,7 @@ export interface VideoNode { type: "video"; attrs: { src: string; caption?: stri
 export interface TableNode { type: "table"; attrs: { headers: string[]; rows: string[][]; caption?: string; tableNumber?: string } }
 export interface TimelineNode { type: "timeline"; attrs: { title?: string; steps: TimelineStep[] } }
 export interface ScrollyNode { type: "scrollytelling"; attrs: { title?: string; steps: ScrollyStep[] } }
+export interface PrintPageNode { type: "print_page"; attrs: { number: string } }
 
 export type DocNode =
   | ParagraphNode
@@ -82,6 +83,7 @@ export type DocNode =
   | TableNode
   | TimelineNode
   | ScrollyNode
+  | PrintPageNode
   // Lists are passed through as-is from Tiptap (StarterKit) — we only
   // care about reading them back out for the legacy renderer below.
   | { type: "bulletList" | "orderedList"; content?: any[] }
@@ -337,6 +339,11 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
           steps: Array.isArray(b.steps) ? b.steps : [],
         },
       }];
+    case "print_page":
+      return [{
+        type: "print_page",
+        attrs: { number: String(b.number ?? "") },
+      }];
     case "list": {
       const ordered = b.ordered === true || b.style === "ordered";
       const items: string[] = Array.isArray(b.items) ? b.items.map((x: any) => String(x ?? "")) : [];
@@ -533,6 +540,9 @@ export const docToLegacyBlocks = (doc: TiptapDoc): any[] => {
         break;
       case "scrollytelling":
         out.push({ type: "scrollytelling", title: n.attrs.title, steps: n.attrs.steps });
+        break;
+      case "print_page":
+        out.push({ type: "print_page", number: String(n.attrs?.number ?? "") });
         break;
       case "bulletList":
       case "orderedList": {

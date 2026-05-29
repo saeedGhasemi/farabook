@@ -114,6 +114,7 @@ const Reader = () => {
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
   const [savePopover, setSavePopover] = useState<{ x: number; y: number; text: string } | null>(null);
   const [jumpValue, setJumpValue] = useState("1");
+  const [currentPrintPage, setCurrentPrintPage] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [timelineData, setTimelineData] = useState<{ title?: string; steps: Array<{ marker: string; title: string; description: string }> } | null>(null);
 
@@ -334,8 +335,36 @@ const Reader = () => {
 
   useEffect(() => {
     setJumpValue(String(pageIdx + 1));
+    setCurrentPrintPage(null);
     requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
   }, [pageIdx]);
+
+  // Track which print-page marker is closest to the top of the viewport.
+  useEffect(() => {
+    if (coverView) return;
+    const root = articleRef.current;
+    if (!root) return;
+    const markers = Array.from(root.querySelectorAll<HTMLElement>("[data-print-page]"));
+    if (!markers.length) return;
+    const update = () => {
+      let best: { num: string; top: number } | null = null;
+      for (const m of markers) {
+        const r = m.getBoundingClientRect();
+        if (r.top <= 120) {
+          if (!best || r.top > best.top) best = { num: m.dataset.printPage || "", top: r.top };
+        }
+      }
+      setCurrentPrintPage(best?.num ?? null);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [pageIdx, coverView, book]);
+
 
   const pageText = useMemo(() => {
     if (!currentPage) return "";
@@ -702,9 +731,16 @@ const Reader = () => {
             <span>{book.author}</span>
           </div>
           <div className="text-xs text-muted-foreground tabular-nums">
+            {currentPrintPage ? (
+              <span title={lang === "fa" ? "صفحه چاپی" : "Print page"}>
+                <span className="opacity-60">{lang === "fa" ? "ص." : "p."}</span> {currentPrintPage}
+                <span className="opacity-40 mx-1.5">·</span>
+              </span>
+            ) : null}
             {pageIdx + 1} / {total}
           </div>
         </div>
+
 
         {/* Progress */}
         <div className="h-1 bg-foreground/5 rounded-full overflow-hidden mb-8 max-w-5xl mx-auto">
@@ -832,7 +868,12 @@ const Reader = () => {
             {/* Word page number footer */}
             <div className="mt-10 flex items-center justify-center gap-3 text-[11px] text-muted-foreground tabular-nums select-none">
               <span className="h-px w-12 bg-border" />
-              <span>{lang === "fa" ? "صفحه" : "Page"} {pageIdx + 1} / {total}</span>
+              <span>
+                {lang === "fa" ? "صفحه" : "Page"} {pageIdx + 1} / {total}
+                {currentPrintPage ? (
+                  <span className="opacity-60 mx-2">· {lang === "fa" ? "چاپی" : "print"} {currentPrintPage}</span>
+                ) : null}
+              </span>
               <span className="h-px w-12 bg-border" />
             </div>
 
