@@ -369,9 +369,13 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
 
   // Chaptering must mirror Word Navigation Panel: explicit Heading styles only.
   const hasRenderedBreaks = false;
+  // Running Word page number. Incremented every time we hit an explicit
+  // <w:br type="page"/> or <w:lastRenderedPageBreak/>. Emitted as a
+  // `print_page` block so the reader can show "صفحه چاپی N".
+  let wordPageNum = 1;
 
   const pages: Page[] = [];
-  let cur: Page = { title: hasRenderedBreaks ? "صفحه 1" : "مقدمه", blocks: [] };
+  let cur: Page = { title: hasRenderedBreaks ? "صفحه 1" : "مقدمه", blocks: [{ type: "print_page", number: String(wordPageNum) }] };
   const pushPage = () => {
     if (cur.blocks.length) pages.push(cur);
   };
@@ -382,7 +386,7 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
   const ensureRoom = () => {
     if (cur.blocks.length < maxBlocksPerPage) return;
     pushPage();
-    cur = { title: `صفحه ${pages.length + 1}`, blocks: [] };
+    cur = { title: `صفحه ${pages.length + 1}`, blocks: [{ type: "print_page", number: String(wordPageNum) }] };
   };
 
   const tokenRe = /<w:p\b[\s\S]*?<\/w:p>|<w:tbl\b[\s\S]*?<\/w:tbl>/gi;
