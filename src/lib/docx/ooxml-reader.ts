@@ -131,7 +131,81 @@ export async function readDocx(input: ArrayBuffer | Blob | File): Promise<OoxmlB
     }
   }
 
-  return { doc, styles, numbering, footnotes, endnotes, coreProps, rels, media, hasCleanedMarker };
+  return { doc, styles, numbering, footnotes, endnotes, coreProps, rels, media, hasCleanedMarker, rawDocXml };
+}
+
+/**
+ * Extract style→level hints from any TOC field in the document.
+ *
+ * Looks for:
+ *   • `\o "1-3"` switch (built-in heading range) → emits {Heading N, N}.
+ *   • `\t "Style1,1,Style2,2"` switch (custom style map).
+ *
+ * Handles both `<w:fldSimple w:instr="...">` and complex fields built from
+ * a run of `<w:instrText>` fragments. Returns a de-duplicated list,
+ * preserving first-seen order.
+ */
+export function extractTocFieldStyles(
+  rawDocXml: string | undefined,
+): Array<{ name: string; level: number }> {
+  if (!rawDocXml) return [];
+  const out: Array<{ name: string; level: number }> = [];
+  const decode = (s: string) =>
+    s.replace(/&quot;/g, '"').replace(/&amp;/g, "&")
+     .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&apos;/g, "'");
+
+  const instructions: string[] = [];
+
+  // Simple fields: <w:fldSimple w:instr="TOC ...">
+  const reSimple = /<w:fldSimple\b[^>]*\bw:instr="([^"]+)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = reSimple.exec(rawDocXml))) instructions.push(decode(m[1]));
+
+  // Complex fields: concat ALL <w:instrText> contents. This may mash multiple
+  // field instructions together but our regexes below are anchored to TOC.
+  const reInstr = /<w:instrText\b[^>]*>([\s\S]*?)<\/w:instrText>/g;
+  let bulk = "";
+  while ((m = reInstr.exec(rawDocXml))) bulk += " " + decode(m[1]);
+  if (bulk.trim()) instructions.push(bulk);
+
+  for (const raw of instructions) {
+    // Isolate the TOC instruction (a single field). Stop at the next field
+    // keyword or end of string.
+    const idx = raw.search(/\bTOC\b/);
+    if (idx < 0) continue;
+    let segment = raw.slice(idx);
+    const stop = segment.search(/\b(?:PAGEREF|HYPERLINK|REF|SEQ|STYLEREF|XE|TOA)\b/);
+    if (stop > 0) segment = segment.slice(0, stop);
+
+    // \o "1-3"  (built-in heading levels)
+    const o = /\\o\s*"(\d+)\s*-\s*(\d+)"/.exec(segment);
+    if (o) {
+      const lo = Math.max(1, +o[1]);
+      const hi = Math.min(8, +o[2]);
+      for (let lv = lo; lv <= hi; lv++) out.push({ name: `Heading ${lv}`, level: lv });
+    }
+
+    // \t "Style1,1,Style2,2,..."
+    const t = /\\t\s*"([^"]+)"/.exec(segment);
+    if (t) {
+      const parts = t[1].split(",").map((s) => s.trim());
+      for (let i = 0; i + 1 < parts.length; i += 2) {
+        const name = parts[i];
+        const lv = parseInt(parts[i + 1], 10);
+        if (name && lv >= 1 && lv <= 8) out.push({ name, level: lv });
+      }
+    }
+  }
+
+  const seen = new Set<string>();
+  const dedup: Array<{ name: string; level: number }> = [];
+  for (const e of out) {
+    const k = e.name.trim().toLowerCase();
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    dedup.push({ name: e.name.trim(), level: e.level });
+  }
+  return dedup;
 }
 
 /* ------------------------------------------------------------------ */
