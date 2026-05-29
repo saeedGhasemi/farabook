@@ -814,6 +814,35 @@ function textForFirstTag(nodes: PNode[] | null | undefined, tag: string): string
   return undefined;
 }
 
+/** Recursively collect ALL `<w:t>` text payload inside a node. Used as a
+ *  last-resort fallback for footnote/endnote bodies when the full
+ *  paragraph parser doesn't yield any text nodes (e.g. unusual wrappers
+ *  like w:sdt, w:customXml, w:smartTag, hyperlinks, content controls). */
+function deepCollectText(node: PNode): string {
+  if (!node || typeof node !== "object") return "";
+  let s = "";
+  for (const key of Object.keys(node)) {
+    if (key === ":@") continue;
+    const v = (node as any)[key];
+    if (key === "w:t") {
+      const list = Array.isArray(v) ? v : [v];
+      for (const it of list) {
+        const inner = Array.isArray(it) ? it : it ? [it] : [];
+        for (const x of inner) {
+          if (typeof x?.["#text"] === "string") s += x["#text"];
+        }
+      }
+    } else if (key === "w:tab") {
+      s += " ";
+    } else if (key === "w:br") {
+      s += "\n";
+    } else if (Array.isArray(v)) {
+      for (const child of v) s += deepCollectText(child);
+    }
+  }
+  return s;
+}
+
 function parseNotes(
   notesXml: any | null,
   rootTag: "w:footnotes" | "w:endnotes",
@@ -835,6 +864,18 @@ function parseNotes(
       if (!p.textNodes.length) continue;
       if (nodes.length) nodes.push({ type: "text", text: "\n" });
       nodes.push(...p.textNodes);
+    }
+    // Fallback: if parseParagraph yielded nothing meaningful, deep-walk
+    // the note's raw PNode for any `<w:t>` text. Prevents the tooltip
+    // showing "متن پاورقی در فایل اصلی موجود نیست" when the body uses
+    // unusual wrappers (w:sdt, hyperlinks, content controls, …).
+    const joined = nodes.map((n) => (n as any).text ?? "").join("").trim();
+    if (!joined) {
+      const raw = deepCollectText(note).replace(/\s+/g, " ").trim();
+      if (raw) {
+        out.set(id, [{ type: "text", text: raw }]);
+        continue;
+      }
     }
     if (nodes.length) out.set(id, nodes);
   }
