@@ -134,14 +134,28 @@ const Reader = () => {
     try { window.localStorage.setItem("farabook:reading-mode", readingMode); } catch { /* ignore */ }
   }, [readingMode]);
 
-  // Fullscreen reading: hides top bar, progress and side chrome to focus on text.
-  const [fullscreen, setFullscreen] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("farabook:reader-fullscreen") === "1";
-  });
+  // Fullscreen reading: uses the browser Fullscreen API so the whole device
+  // is taken over (status bar, browser chrome, etc.). ESC exits as usual.
+  const [fullscreen, setFullscreen] = useState<boolean>(false);
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (e) {
+      // Some browsers (e.g. iOS Safari) don't support requestFullscreen —
+      // fall back to the CSS-only focus mode so the user still gets a clean view.
+      setFullscreen((v) => !v);
+      void e;
+    }
+  }, []);
   useEffect(() => {
-    try { window.localStorage.setItem("farabook:reader-fullscreen", fullscreen ? "1" : "0"); } catch { /* ignore */ }
-  }, [fullscreen]);
+    const onChange = () => setFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
 
   // Publisher logo (for chapter-menu watermark). Falls back to book.publisher_logo_url override.
   const [publisherLogoUrl, setPublisherLogoUrl] = useState<string | null>(null);
@@ -431,15 +445,44 @@ const Reader = () => {
     return currentPage.content || "";
   }, [currentPage]);
 
+  // In paginated (liquid) mode, advance one column at a time and only flip
+  // to the next page when the user reaches the last column.
+  const scrollPaginated = (direction: 1 | -1): boolean => {
+    if (readingMode !== "paginated") return false;
+    const host = paginatedHostRef.current;
+    if (!host) return false;
+    const step = host.clientWidth;
+    if (step <= 0) return false;
+    const max = host.scrollWidth - host.clientWidth;
+    // RTL containers report scrollLeft as a negative number in modern browsers.
+    const cur = host.scrollLeft;
+    const absCur = Math.abs(cur);
+    if (direction === 1) {
+      if (absCur + step < max - 2) {
+        host.scrollBy({ left: bookDir === "rtl" ? -step : step, behavior: "smooth" });
+        return true;
+      }
+      return false;
+    } else {
+      if (absCur > 2) {
+        host.scrollBy({ left: bookDir === "rtl" ? step : -step, behavior: "smooth" });
+        return true;
+      }
+      return false;
+    }
+  };
+
   const goNext = () => {
     if (coverView === "front") { coverDismissedRef.current = true; setCoverView(null); setFlipDir(1); return; }
     if (coverView === "back") return;
+    if (scrollPaginated(1)) return;
     if (pageIdx < total - 1) { setFlipDir(1); setPageIdx(pageIdx + 1); }
     else { setFlipDir(1); setCoverView("back"); }
   };
   const goPrev = () => {
     if (coverView === "front") return;
     if (coverView === "back") { setCoverView(null); setFlipDir(-1); return; }
+    if (scrollPaginated(-1)) return;
     if (pageIdx > 0) { setFlipDir(-1); setPageIdx(pageIdx - 1); }
     else { setFlipDir(-1); setCoverView("front"); }
   };
@@ -1021,7 +1064,7 @@ const Reader = () => {
         readingMode={readingMode}
         onToggleReadingMode={() => setReadingMode((m) => (m === "scroll" ? "paginated" : "scroll"))}
         fullscreen={fullscreen}
-        onToggleFullscreen={() => setFullscreen((v) => !v)}
+        onToggleFullscreen={toggleFullscreen}
       />
 
       {/* AI panel */}
@@ -1083,6 +1126,12 @@ const Reader = () => {
                 onSelect={(i) => { goTo(i); setChaptersOpen(false); }}
                 onClose={() => setChaptersOpen(false)}
                 bookTitle={book.title}
+                onTitleClick={() => {
+                  setPageIdx(0);
+                  setCoverView("front");
+                  coverDismissedRef.current = false;
+                  setChaptersOpen(false);
+                }}
                 logoUrl={book.publisher_logo_url || publisherLogoUrl}
                 publicationYear={book.publication_year ?? null}
                 bookVersion={book.content_version ?? null}
