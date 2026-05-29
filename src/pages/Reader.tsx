@@ -1126,6 +1126,12 @@ const Reader = () => {
                 onSelect={(i) => { goTo(i); setChaptersOpen(false); }}
                 onClose={() => setChaptersOpen(false)}
                 bookTitle={book.title}
+                onTitleClick={() => {
+                  setPageIdx(0);
+                  setCoverView("front");
+                  coverDismissedRef.current = false;
+                  setChaptersOpen(false);
+                }}
                 logoUrl={book.publisher_logo_url || publisherLogoUrl}
                 publicationYear={book.publication_year ?? null}
                 bookVersion={book.content_version ?? null}
