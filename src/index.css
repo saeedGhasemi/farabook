@@ -460,6 +460,22 @@
   }
   .ref-cite:hover { background: hsl(var(--accent) / 0.22); transform: translateY(-1px); }
 
+  /* Keep Word-imported superscript/subscript visible in add-in preview,
+     editor, and reader surfaces. */
+  .prose sup,
+  .prose sub,
+  .tiptap-surface sup,
+  .tiptap-surface sub {
+    position: relative;
+    font-size: 0.72em;
+    line-height: 0;
+    vertical-align: baseline;
+  }
+  .prose sup,
+  .tiptap-surface sup { top: -0.5em; }
+  .prose sub,
+  .tiptap-surface sub { bottom: -0.25em; }
+
   /* === Table block === */
   .book-table-wrap {
     margin: 1.5rem 0;

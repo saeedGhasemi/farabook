@@ -122,10 +122,16 @@ function processParagraph(pXml: string): ParaResult {
     const text = extractRunText(tok);
     if (!text) continue;
     plain += text;
-    // Look for <w:vertAlign w:val="superscript|subscript"/> inside this run's rPr
+    // Look for Word's two common vertical-offset encodings inside this run's rPr:
+    // <w:vertAlign val="superscript|subscript"/> and <w:position val="±N"/>.
     const va = /<w:vertAlign\b[^>]*(?:w:)?val=["'](superscript|subscript)["'][^>]*\/?\s*>/i.exec(tok);
-    if (va) {
-      const mark = va[1] === "superscript" ? "superscript" : "subscript";
+    const pos = /<w:position\b[^>]*(?:w:)?val=["'](-?\d+)["'][^>]*\/?\s*>/i.exec(tok);
+    const mark = va
+      ? (va[1] === "superscript" ? "superscript" : "subscript")
+      : pos
+        ? (Number(pos[1]) > 0 ? "superscript" : Number(pos[1]) < 0 ? "subscript" : undefined)
+        : undefined;
+    if (mark) {
       repaired += mark === "superscript" ? `[sup]${text}[/sup]` : `[sub]${text}[/sub]`;
       pushSegment(content, text, mark);
       hasChange = true;

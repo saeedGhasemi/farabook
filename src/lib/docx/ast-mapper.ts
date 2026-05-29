@@ -88,6 +88,15 @@ function getText(nodes: PNode[]): string {
   return normalizePersianHalfSpaces(out);
 }
 
+function attrLoose(node: PNode, name: string): string | undefined {
+  const exact = attr(node, name);
+  if (exact !== undefined) return exact;
+  const at = node?.[":@"];
+  if (!at) return undefined;
+  const local = name.includes(":") ? name.split(":").pop() : name;
+  return at[`@_${local}`] ?? at[`@_w:${local}`] ?? at[`@_m:${local}`];
+}
+
 const PERSIAN_ARABIC_CLASS = "\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF";
 
 function normalizePersianHalfSpaces(value: string): string {
@@ -148,18 +157,18 @@ function parseStyles(stylesXml: any | null): Map<string, StyleInfo> {
   if (!root) return map;
   for (const child of kidsOf(root, "w:styles")) {
     if (tagOf(child) !== "w:style") continue;
-    const id = attr(child, "w:styleId") ?? "";
+      const id = attrLoose(child, "w:styleId") ?? "";
     if (!id) continue;
     const info: StyleInfo = { id };
     for (const sc of kidsOf(child, "w:style")) {
       const t = tagOf(sc);
-      if (t === "w:name") info.name = attr(sc, "w:val");
-      else if (t === "w:basedOn") info.basedOn = attr(sc, "w:val");
+      if (t === "w:name") info.name = attrLoose(sc, "w:val");
+      else if (t === "w:basedOn") info.basedOn = attrLoose(sc, "w:val");
       else if (t === "w:pPr") {
         for (const pp of kidsOf(sc, "w:pPr")) {
           const tt = tagOf(pp);
           if (tt === "w:outlineLvl") {
-            const v = Number(attr(pp, "w:val"));
+            const v = Number(attrLoose(pp, "w:val"));
             if (Number.isFinite(v)) info.outlineLevel = v;
           }
         }
@@ -167,20 +176,20 @@ function parseStyles(stylesXml: any | null): Map<string, StyleInfo> {
         for (const rp of kidsOf(sc, "w:rPr")) {
           const tt = tagOf(rp);
           if (tt === "w:sz") {
-            const v = Number(attr(rp, "w:val"));
+            const v = Number(attrLoose(rp, "w:val"));
             if (Number.isFinite(v)) info.fontSizeHalfPt = v;
           } else if (tt === "w:b") {
-            const v = attr(rp, "w:val");
+            const v = attrLoose(rp, "w:val");
             info.bold = v !== "0" && v !== "false";
           } else if (tt === "w:i") {
-            const v = attr(rp, "w:val");
+            const v = attrLoose(rp, "w:val");
             info.italic = v !== "0" && v !== "false";
           } else if (tt === "w:vertAlign") {
-            const v = attr(rp, "w:val");
+            const v = attrLoose(rp, "w:val");
             if (v === "superscript") info.vertAlign = "superscript";
             else if (v === "subscript") info.vertAlign = "subscript";
           } else if (tt === "w:position") {
-            const v = Number(attr(rp, "w:val"));
+            const v = Number(attrLoose(rp, "w:val"));
             if (Number.isFinite(v)) {
               info.positionHalfPt = v;
               if (!info.vertAlign && v > 0) info.vertAlign = "superscript";
@@ -268,7 +277,7 @@ function parseRunProps(rPr: PNode | null, styles?: Map<string, StyleInfo>): RunF
   // First, apply rStyle inheritance (so direct props can still override).
   for (const p of kidsOf(rPr, "w:rPr")) {
     if (tagOf(p) === "w:rStyle") {
-      const sid = attr(p, "w:val");
+      const sid = attrLoose(p, "w:val");
       const s = sid ? styles?.get(sid) : undefined;
       if (s) {
         if (s.bold && out.bold === undefined) out.bold = true;
@@ -283,30 +292,30 @@ function parseRunProps(rPr: PNode | null, styles?: Map<string, StyleInfo>): RunF
     const t = tagOf(p);
     if (!t) continue;
     if (t === "w:b") {
-      const v = attr(p, "w:val");
+      const v = attrLoose(p, "w:val");
       out.bold = v !== "0" && v !== "false";
     } else if (t === "w:i") {
-      const v = attr(p, "w:val");
+      const v = attrLoose(p, "w:val");
       out.italic = v !== "0" && v !== "false";
     } else if (t === "w:u") {
-      const v = attr(p, "w:val");
+      const v = attrLoose(p, "w:val");
       out.underline = !!v && v !== "none";
     } else if (t === "w:vertAlign") {
-      const v = attr(p, "w:val");
+      const v = attrLoose(p, "w:val");
       if (v === "superscript") out.vertAlign = "superscript";
       else if (v === "subscript") out.vertAlign = "subscript";
     } else if (t === "w:position") {
-      const v = Number(attr(p, "w:val"));
+      const v = Number(attrLoose(p, "w:val"));
       if (Number.isFinite(v)) {
         out.positionHalfPt = v;
         if (v > 0) out.vertAlign = "superscript";
         else if (v < 0) out.vertAlign = "subscript";
       }
     } else if (t === "w:color") {
-      const v = attr(p, "w:val");
+      const v = attrLoose(p, "w:val");
       if (v && v !== "auto") out.color = "#" + v;
     } else if (t === "w:sz") {
-      const v = Number(attr(p, "w:val"));
+      const v = Number(attrLoose(p, "w:val"));
       if (Number.isFinite(v)) out.fontSizeHalfPt = v;
     }
   }
@@ -361,7 +370,7 @@ function runToTextNodes(run: PNode, styles?: Map<string, StyleInfo>): TextNode[]
       buf += "\u2011";
     } else if (t === "w:sym") {
       // symbol char — fallback to its char attr if present
-      const ch = attr(c, "w:char");
+      const ch = attrLoose(c, "w:char");
       if (ch) {
         const code = parseInt(ch, 16);
         if (Number.isFinite(code)) buf += String.fromCodePoint(code);
@@ -406,15 +415,15 @@ function parsePPr(pPr: PNode | null): {
   for (const p of kidsOf(pPr, "w:pPr")) {
     const t = tagOf(p);
     if (!t) continue;
-    if (t === "w:pStyle") out.styleId = attr(p, "w:val");
+    if (t === "w:pStyle") out.styleId = attrLoose(p, "w:val");
     else if (t === "w:outlineLvl") {
-      const v = Number(attr(p, "w:val"));
+      const v = Number(attrLoose(p, "w:val"));
       if (Number.isFinite(v)) out.outlineLevel = v;
     } else if (t === "w:bidi") {
-      const v = attr(p, "w:val");
+      const v = attrLoose(p, "w:val");
       out.bidi = v !== "0" && v !== "false";
     } else if (t === "w:jc") {
-      const v = attr(p, "w:val");
+      const v = attrLoose(p, "w:val");
       if (v === "left" || v === "right" || v === "center" || v === "both" || v === "justify") {
         out.align = v === "both" ? "justify" : v;
       }
@@ -422,17 +431,17 @@ function parsePPr(pPr: PNode | null): {
       for (const np of kidsOf(p, "w:numPr")) {
         const tt = tagOf(np);
         if (tt === "w:numId") {
-          const v = Number(attr(np, "w:val"));
+          const v = Number(attrLoose(np, "w:val"));
           if (Number.isFinite(v)) out.numId = v;
         } else if (tt === "w:ilvl") {
-          const v = Number(attr(np, "w:val"));
+          const v = Number(attrLoose(np, "w:val"));
           if (Number.isFinite(v)) out.ilvl = v;
         }
       }
     } else if (t === "w:rPr") {
       for (const rp of kidsOf(p, "w:rPr")) {
         if (tagOf(rp) === "w:lang") {
-          out.lang = attr(rp, "w:val") ?? attr(rp, "w:bidi");
+          out.lang = attrLoose(rp, "w:val") ?? attrLoose(rp, "w:bidi");
         }
       }
     }
@@ -472,7 +481,7 @@ function parseParagraph(p: PNode, rels: Map<string, string>, styles?: Map<string
     } else if (t === "w:hyperlink") {
       // unwrap hyperlink runs; record href
       const hChildren = kidsOf(c, "w:hyperlink");
-      const ridAttr = attr(c, "r:id");
+      const ridAttr = attrLoose(c, "r:id");
       const href = ridAttr ? rels.get(ridAttr) : undefined;
       for (const hc of hChildren) {
         if (tagOf(hc) === "w:r") {
@@ -518,7 +527,7 @@ function collectImageRels(nodes: PNode[], out: string[]) {
     const t = tagOf(n);
     if (!t) continue;
     if (t === "a:blip") {
-      const rid = attr(n, "r:embed") ?? attr(n, "r:link");
+      const rid = attrLoose(n, "r:embed") ?? attrLoose(n, "r:link");
       if (rid) out.push(rid);
     } else if (Array.isArray(n[t])) {
       collectImageRels(n[t], out);
@@ -579,7 +588,7 @@ function ommlToLatex(node: PNode): string {
     if (chrAttr) {
       for (const cp of kidsOf(chrAttr, "m:naryPr")) {
         if (tagOf(cp) === "m:chr") {
-          const v = attr(cp, "m:val");
+          const v = attrLoose(cp, "m:val");
           if (v === "∫") op = "\\int";
           else if (v === "∏") op = "\\prod";
         }
@@ -687,8 +696,8 @@ function parseRels(relsXml: any | null): Map<string, string> {
   if (!root) return map;
   for (const r of kidsOf(root, "Relationships")) {
     if (tagOf(r) !== "Relationship") continue;
-    const id = attr(r, "Id");
-    const target = attr(r, "Target");
+    const id = attrLoose(r, "Id");
+    const target = attrLoose(r, "Target");
     if (id && target) map.set(id, target);
   }
   return map;
@@ -714,25 +723,25 @@ function parseNumbering(xml: any | null): NumInfo {
   for (const c of kidsOf(root, "w:numbering")) {
     const t = tagOf(c);
     if (t === "w:num") {
-      const numId = Number(attr(c, "w:numId"));
+      const numId = Number(attrLoose(c, "w:numId"));
       for (const cc of kidsOf(c, "w:num")) {
         if (tagOf(cc) === "w:abstractNumId") {
-          const aid = Number(attr(cc, "w:val"));
+          const aid = Number(attrLoose(cc, "w:val"));
           if (Number.isFinite(numId) && Number.isFinite(aid)) info.numToAbstract.set(numId, aid);
         }
       }
     } else if (t === "w:abstractNum") {
-      const aid = Number(attr(c, "w:abstractNumId"));
+      const aid = Number(attrLoose(c, "w:abstractNumId"));
       if (!Number.isFinite(aid)) continue;
       const levels = new Map<number, NumLevelFmt>();
       for (const lvl of kidsOf(c, "w:abstractNum")) {
         if (tagOf(lvl) !== "w:lvl") continue;
-        const ilvl = Number(attr(lvl, "w:ilvl"));
+        const ilvl = Number(attrLoose(lvl, "w:ilvl"));
         const fmt: NumLevelFmt = {};
         for (const lp of kidsOf(lvl, "w:lvl")) {
           const lt = tagOf(lp);
-          if (lt === "w:numFmt") fmt.numFmt = attr(lp, "w:val");
-          else if (lt === "w:lvlText") fmt.lvlText = attr(lp, "w:val");
+          if (lt === "w:numFmt") fmt.numFmt = attrLoose(lp, "w:val");
+          else if (lt === "w:lvlText") fmt.lvlText = attrLoose(lp, "w:val");
         }
         if (Number.isFinite(ilvl)) levels.set(ilvl, fmt);
       }
