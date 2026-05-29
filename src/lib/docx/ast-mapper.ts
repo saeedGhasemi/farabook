@@ -232,6 +232,26 @@ function detectDir(text: string, bidi: boolean | undefined): "rtl" | "ltr" {
   let r = 0;
   let l = 0;
   for (const ch of text) {
+    if (RTL_RE.test(ch)) r++;
+    else if (LTR_RE.test(ch)) l++;
+  }
+  return r >= l ? "rtl" : "ltr";
+}
+
+/* ------------------------------------------------------------------ */
+/* Run → TextNode[]                                                    */
+/* ------------------------------------------------------------------ */
+
+interface RunFormat {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  vertAlign?: "superscript" | "subscript";
+  color?: string;
+  fontSizeHalfPt?: number;
+}
+
+
 function parseRunProps(rPr: PNode | null, styles?: Map<string, StyleInfo>): RunFormat {
   const out: RunFormat = {};
   if (!rPr) return out;
