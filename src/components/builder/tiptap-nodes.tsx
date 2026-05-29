@@ -512,19 +512,16 @@ const GalleryView = (props: NodeViewProps) => {
   const caption: string = props.node.attrs.caption || "";
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const bookImages = useBookImages();
 
   const addFiles = async (files: FileList) => {
     if (!user || !files.length) return;
     setBusy(true);
-    // Enqueue every file in parallel via the global upload manager —
-    // each one shows independent progress in the floating panel and
-    // the user can keep editing while uploads continue in background.
     const { uploadManager } = await import("@/lib/upload-manager");
     const promises = Array.from(files).map((f) =>
       uploadManager.enqueue({ userId: user.id, file: f, prefix: "edit", label: "گالری" }),
     );
-    // As each upload finishes, append its URL to the gallery so users
-    // see thumbnails arrive incrementally instead of in a single batch.
     let appended = images.slice();
     await Promise.all(
       promises.map(async (p) => {
@@ -542,6 +539,16 @@ const GalleryView = (props: NodeViewProps) => {
     const next = images.filter((_, idx) => idx !== i);
     props.updateAttributes({ images: next });
   };
+
+  const togglePick = (src: string) => {
+    if (images.includes(src)) {
+      props.updateAttributes({ images: images.filter((u) => u !== src) });
+    } else {
+      props.updateAttributes({ images: [...images, src] });
+    }
+  };
+
+  const available = bookImages.filter((b) => b.src && !images.includes(b.src));
 
   return (
     <BlockShell Icon={GalleryHorizontal} label="گالری تصاویر" onDelete={() => props.deleteNode()}>
@@ -568,6 +575,44 @@ const GalleryView = (props: NodeViewProps) => {
           {busy ? "..." : "افزودن"}
         </button>
       </div>
+      {bookImages.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setPickerOpen((v) => !v)}
+          className="mt-2 w-full text-xs px-2 py-1.5 rounded-md border bg-secondary/60 hover:bg-secondary transition flex items-center justify-center gap-2"
+        >
+          <ImageIcon className="w-3.5 h-3.5" />
+          {pickerOpen
+            ? `بستن`
+            : `انتخاب از تصاویر کتاب (${available.length})`}
+        </button>
+      )}
+      {pickerOpen && bookImages.length > 0 && (
+        <div className="mt-2 rounded-lg border bg-background/60 p-2 max-h-64 overflow-auto">
+          {available.length === 0 ? (
+            <div className="text-xs text-muted-foreground text-center py-4">
+              همهٔ تصاویر کتاب در این گالری موجودند.
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {available.map((b, i) => (
+                <button
+                  key={`${b.src}-${i}`}
+                  type="button"
+                  onClick={() => togglePick(b.src)}
+                  className="relative aspect-square rounded-md overflow-hidden border hover:ring-2 hover:ring-primary/60 transition group"
+                  title={b.caption || ""}
+                >
+                  <img src={resolveBookMedia(b.src)} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  <span className="absolute inset-x-0 bottom-0 bg-black/50 text-white text-[10px] py-0.5 opacity-0 group-hover:opacity-100">
+                    افزودن
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <Input
         defaultValue={caption}
         placeholder="کپشن گالری (اختیاری)"
