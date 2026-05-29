@@ -234,13 +234,67 @@ const PublisherSettings = () => {
                 />
               </div>
               <div className="grid md:grid-cols-2 gap-4">
+                {/* Logo */}
                 <div>
-                  <label className="text-sm">آدرس بنر</label>
-                  <Input value={profile.banner_url || ""} onChange={(e) => setProfile({ ...profile, banner_url: e.target.value })} />
+                  <label className="text-sm mb-1.5 block">لوگوی انتشارات</label>
+                  <div className="flex items-center gap-3">
+                    <div className="w-16 h-16 rounded-xl border bg-muted overflow-hidden flex items-center justify-center shrink-0">
+                      {profile.logo_url ? (
+                        <img src={profile.logo_url} alt="logo" className="w-full h-full object-cover" />
+                      ) : (
+                        <ImageIcon className="w-6 h-6 text-muted-foreground/60" />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <input
+                        ref={logoFileRef}
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleAssetUpload(f, "logo"); if (logoFileRef.current) logoFileRef.current.value = ""; }}
+                      />
+                      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => logoFileRef.current?.click()} disabled={uploadingLogo}>
+                        {uploadingLogo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                        {profile.logo_url ? "تغییر لوگو" : "بارگذاری لوگو"}
+                      </Button>
+                      {profile.logo_url && (
+                        <button type="button" className="text-xs text-destructive hover:underline self-start" onClick={() => setProfile({ ...profile, logo_url: "" })}>
+                          حذف
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
+                {/* Banner */}
                 <div>
-                  <label className="text-sm">آدرس لوگو</label>
-                  <Input value={profile.logo_url || ""} onChange={(e) => setProfile({ ...profile, logo_url: e.target.value })} />
+                  <label className="text-sm mb-1.5 block">بنر ویترین</label>
+                  <div className="flex items-center gap-3">
+                    <div className="w-24 h-16 rounded-xl border bg-muted overflow-hidden flex items-center justify-center shrink-0">
+                      {profile.banner_url ? (
+                        <img src={profile.banner_url} alt="banner" className="w-full h-full object-cover" />
+                      ) : (
+                        <ImageIcon className="w-6 h-6 text-muted-foreground/60" />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <input
+                        ref={bannerFileRef}
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleAssetUpload(f, "banner"); if (bannerFileRef.current) bannerFileRef.current.value = ""; }}
+                      />
+                      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => bannerFileRef.current?.click()} disabled={uploadingBanner}>
+                        {uploadingBanner ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                        {profile.banner_url ? "تغییر بنر" : "بارگذاری بنر"}
+                      </Button>
+                      {profile.banner_url && (
+                        <button type="button" className="text-xs text-destructive hover:underline self-start" onClick={() => setProfile({ ...profile, banner_url: "" })}>
+                          حذف
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="grid md:grid-cols-2 gap-4">
