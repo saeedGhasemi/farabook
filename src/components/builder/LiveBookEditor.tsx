@@ -2332,6 +2332,16 @@ const Inspector = ({
             )}
           </div>
 
+          <BookImagePicker
+            bookImages={bookImages}
+            excludeSrcs={new Set(block.images.map((i) => i.src))}
+            onPick={(chosen) => onUpdate({
+              images: [...block.images, ...chosen.map((c) => ({ src: c.src, caption: c.caption || "" }))],
+            } as any)}
+            lang={lang}
+          />
+
+
           <div className="flex items-center gap-2">
             <Input
               placeholder={fa ? "یا چسباندن لینک تصویر" : "Or paste image URL"}
