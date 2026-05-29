@@ -1770,9 +1770,15 @@ export const TextBookEditor = ({ initial }: Props) => {
         })()}
 
         {/* The actual editor */}
-        <div className={`rounded-2xl border bg-card/50 px-4 md:px-8 py-6 md:py-8 shadow-paper typo-${typography}`}>
+        <div className={`rounded-2xl border border-accent/15 px-4 md:px-10 py-6 md:py-10 shadow-paper typo-${typography} relative overflow-hidden`}
+             style={{
+               background: "linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--card)) 100%)",
+               backgroundImage: "radial-gradient(ellipse at top, hsl(var(--accent) / 0.05), transparent 60%), linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--card)) 100%)",
+             }}>
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
           <EditorContent editor={editor} />
         </div>
+
       </section>
 
       {/* ============ AI side panel ============ */}
