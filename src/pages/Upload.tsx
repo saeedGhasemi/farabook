@@ -215,13 +215,15 @@ const Upload = () => {
     }
   };
 
-  /* -------- re-run mapping when user picks a custom heading style -------- */
+  /* -------- re-run mapping when user picks custom heading styles -------- */
   const reanalyzeWithCustomHeading = async () => {
     if (!local) return;
-    const set = customHeadingStyle.trim()
-      ? new Set(customHeadingStyle.split(/[,،]/).map((s) => s.trim()).filter(Boolean))
-      : undefined;
-    await processFile(local.file, local.fileBuffer, set);
+    const map = new Map<string, number>();
+    for (const h of customHeadings) {
+      const name = h.name.trim();
+      if (name) map.set(name, Math.min(8, Math.max(1, Math.floor(h.level || 1))));
+    }
+    await processFile(local.file, local.fileBuffer, map);
   };
 
   /* -------- validation re-runs whenever inputs change -------- */
