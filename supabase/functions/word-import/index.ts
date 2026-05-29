@@ -29,7 +29,8 @@ type Block =
       originalPath?: string;
       slot?: number;
     }
-  | { type: "table"; headers: string[]; rows: string[][]; caption?: string; tableNumber?: string };
+  | { type: "table"; headers: string[]; rows: string[][]; caption?: string; tableNumber?: string }
+  | { type: "print_page"; number: string };
 
 interface Page { title: string; blocks: Block[]; level?: number; }
 
