@@ -2026,14 +2026,44 @@ const BookImagePicker = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
+            {currentPageIdx != null && availableAll.length > 0 && (
+              <div className="px-3 pt-2 flex items-center gap-1.5 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setScope("nearby")}
+                  className={`px-2 py-1 rounded-md border transition ${
+                    scope === "nearby"
+                      ? "bg-accent text-accent-foreground border-accent"
+                      : "bg-background hover:bg-foreground/5 border-border"
+                  }`}
+                >
+                  {fa ? `همین بخش (${samePageCount})` : `This section (${samePageCount})`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScope("all")}
+                  className={`px-2 py-1 rounded-md border transition ${
+                    scope === "all"
+                      ? "bg-accent text-accent-foreground border-accent"
+                      : "bg-background hover:bg-foreground/5 border-border"
+                  }`}
+                >
+                  {fa ? `همهٔ کتاب (${availableAll.length})` : `Whole book (${availableAll.length})`}
+                </button>
+                <span className="text-muted-foreground ms-auto">
+                  {fa ? "تصاویر همین بخش اول می‌آیند" : "Same-section images shown first"}
+                </span>
+              </div>
+            )}
             <ScrollArea className="flex-1">
               <div className="p-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                {available.length === 0 ? (
+                {visible.length === 0 ? (
                   <p className="col-span-full text-xs text-muted-foreground text-center py-8">
                     {fa ? "تصویر بدون تکراری برای افزودن وجود ندارد." : "No more unique book images to add."}
                   </p>
-                ) : available.map((img) => {
+                ) : visible.map((img) => {
                   const isOn = picked.has(img.src);
+                  const samePage = currentPageIdx != null && img.pageIdx === currentPageIdx;
                   return (
                     <button
                       key={img.src}
@@ -2044,6 +2074,11 @@ const BookImagePicker = ({
                       }`}
                     >
                       <img src={img.src} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      {samePage && (
+                        <div className="absolute top-1 start-1 px-1 rounded-sm bg-primary/85 text-primary-foreground text-[9px] font-medium">
+                          {fa ? "همین بخش" : "Here"}
+                        </div>
+                      )}
                       {isOn && (
                         <div className="absolute top-1 end-1 w-5 h-5 rounded-full bg-accent text-accent-foreground text-[10px] font-bold flex items-center justify-center">
                           ✓
