@@ -10,8 +10,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 import { Button } from "@/components/ui/button";
-import { Image as ImageIcon, Eye, Upload, Loader2, Check, X, Trash2 } from "lucide-react";
+import { Image as ImageIcon, Eye, Upload, Loader2, Check, X, Trash2, Crop as CropIcon, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { useI18n } from "@/lib/i18n";
 import { useImageUpload } from "./tiptap-nodes";
@@ -73,20 +74,45 @@ export function CoverEditor({ value, onChange }: Props) {
     setCropSide(side);
   };
 
+  const recrop = (side: "front" | "back") => {
+    const url = side === "front" ? value.coverUrl : value.backCoverUrl;
+    if (!url) return;
+    setPickedSrc(url);
+    setCropSide(side);
+  };
+
   const Thumb = ({ side }: { side: "front" | "back" }) => {
     const hasImage =
       side === "front"
         ? Boolean(value.coverUrl || (value.spreadUrl && value.crop?.mode === "half"))
         : Boolean(value.backCoverUrl || (value.spreadUrl && value.crop?.mode === "half"));
-    return (
-      <div className="relative shrink-0 group">
+
+    if (!hasImage) {
+      return (
         <button
           type="button"
           onClick={() => openPicker(side)}
-          className="relative w-14 h-20 rounded-md overflow-hidden border bg-muted hover:ring-2 hover:ring-accent/40 transition"
-          title={hasImage ? (fa ? "تغییر تصویر" : "Replace image") : (fa ? "بارگذاری تصویر" : "Upload image")}
+          className="relative w-14 h-20 rounded-md overflow-hidden border bg-muted hover:ring-2 hover:ring-accent/40 transition shrink-0"
+          title={fa ? "بارگذاری تصویر" : "Upload image"}
         >
-          {hasImage ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-muted-foreground/70">
+            <Upload className="w-4 h-4" />
+          </div>
+          <span className="absolute bottom-0 inset-x-0 text-[9px] py-0.5 text-center bg-background/80 backdrop-blur-sm border-t">
+            {side === "front" ? (fa ? "جلو" : "Front") : (fa ? "پشت" : "Back")}
+          </span>
+        </button>
+      );
+    }
+
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="relative w-14 h-20 rounded-md overflow-hidden border bg-muted hover:ring-2 hover:ring-accent/40 transition shrink-0"
+            title={fa ? "گزینه‌های تصویر" : "Image options"}
+          >
             <CoverImage
               side={side}
               coverUrl={value.coverUrl}
@@ -98,26 +124,45 @@ export function CoverEditor({ value, onChange }: Props) {
               title={side === "front" ? "Front" : "Back"}
               width={200}
             />
-          ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-muted-foreground/70">
-              <Upload className="w-4 h-4" />
-            </div>
-          )}
-          <span className="absolute bottom-0 inset-x-0 text-[9px] py-0.5 text-center bg-background/80 backdrop-blur-sm border-t">
-            {side === "front" ? (fa ? "جلو" : "Front") : (fa ? "پشت" : "Back")}
-          </span>
-        </button>
-        {hasImage && (
+            <span className="absolute bottom-0 inset-x-0 text-[9px] py-0.5 text-center bg-background/80 backdrop-blur-sm border-t">
+              {side === "front" ? (fa ? "جلو" : "Front") : (fa ? "پشت" : "Back")}
+            </span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-44 p-1">
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); setPreviewSide(side); }}
-            className="absolute -top-1.5 -end-1.5 w-5 h-5 rounded-full bg-background border shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
-            title={fa ? "نمایش بزرگ" : "Preview"}
+            onClick={() => setPreviewSide(side)}
+            className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted text-start"
           >
-            <Eye className="w-3 h-3" />
+            <Eye className="w-3.5 h-3.5" /> {fa ? "نمایش بزرگ" : "Preview"}
           </button>
-        )}
-      </div>
+          <button
+            type="button"
+            onClick={() => recrop(side)}
+            className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted text-start"
+          >
+            <CropIcon className="w-3.5 h-3.5" /> {fa ? "ویرایش برش" : "Edit crop"}
+          </button>
+          <button
+            type="button"
+            onClick={() => openPicker(side)}
+            className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted text-start"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> {fa ? "آپلود تصویر جدید" : "Upload new image"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (side === "front") onChange({ coverUrl: null });
+              else onChange({ backCoverUrl: null });
+            }}
+            className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-destructive/10 text-destructive text-start"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> {fa ? "حذف" : "Remove"}
+          </button>
+        </PopoverContent>
+      </Popover>
     );
   };
 
@@ -131,7 +176,7 @@ export function CoverEditor({ value, onChange }: Props) {
       <Thumb side="back" />
       <div className="flex-1" />
       <span className="text-[10px] text-muted-foreground hidden sm:inline">
-        {fa ? "برای بارگذاری/تغییر روی هر تصویر کلیک کنید" : "Click a tile to upload or replace"}
+        {fa ? "روی تصویر کلیک کنید: پیش‌نمایش، برش، جایگزینی" : "Click a tile for preview, crop, or replace"}
       </span>
 
       <input
