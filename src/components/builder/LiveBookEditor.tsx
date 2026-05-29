@@ -158,19 +158,19 @@ const BLOCK_PALETTE: { kind: BlockDraft["kind"]; icon: any }[] = [
  * reuse them in galleries/slideshows without re-uploading. Deduplicated by
  * src, in document order.
  */
-const collectBookImages = (pages: PageDraft[]): { src: string; caption?: string }[] => {
+const collectBookImages = (pages: PageDraft[]): { src: string; caption?: string; pageIdx: number }[] => {
   const seen = new Set<string>();
-  const out: { src: string; caption?: string }[] = [];
-  const push = (src?: string, caption?: string) => {
+  const out: { src: string; caption?: string; pageIdx: number }[] = [];
+  const push = (pageIdx: number, src?: string, caption?: string) => {
     if (!src || seen.has(src)) return;
     seen.add(src);
-    out.push({ src, caption });
+    out.push({ src, caption, pageIdx });
   };
-  pages.forEach((p) => {
+  pages.forEach((p, pi) => {
     p.blocks.forEach((b: any) => {
-      if (b.kind === "image") push(b.src, b.caption);
-      else if (b.kind === "gallery") (b.images || []).forEach((s: string) => push(s, b.caption));
-      else if (b.kind === "slideshow") (b.images || []).forEach((it: any) => push(it?.src, it?.caption));
+      if (b.kind === "image") push(pi, b.src, b.caption);
+      else if (b.kind === "gallery") (b.images || []).forEach((s: string) => push(pi, s, b.caption));
+      else if (b.kind === "slideshow") (b.images || []).forEach((it: any) => push(pi, it?.src, it?.caption));
     });
   });
   return out;
