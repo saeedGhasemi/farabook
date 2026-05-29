@@ -1029,26 +1029,10 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
     } as ParagraphNode);
   }
 
-  // Footnotes as appendix at end of document (web-friendly pattern)
-  if (noteOrder.length) {
-    content.push({
-      type: "heading",
-      attrs: { level: 2, dir: "rtl", textAlign: null },
-      content: [{ type: "text", text: "پاورقی‌ها" }],
-    } as HeadingNode);
-    for (const ref of noteOrder) {
-      const note = ref.kind === "footnote" ? footnotes.get(ref.id) : endnotes.get(ref.id);
-      if (!note?.length) continue;
-      content.push({
-        type: "paragraph",
-        attrs: { dir: detectDir(note.map((n) => n.text).join(""), undefined), textAlign: null },
-        content: [
-          { type: "text", text: `${ref.id}. `, marks: [{ type: "bold" }] },
-          ...note,
-        ],
-      } as ParagraphNode);
-    }
-  }
+  // Footnotes are now rendered inline as tooltips/popovers at their reference
+  // location (see BlockRenderer / WordAddin preview). No appendix is emitted.
+
+
 
 
   const doc: TiptapDoc = { type: "doc", content };
