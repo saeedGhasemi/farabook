@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Loader2, Pencil, Eye, Rocket } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Pencil, Eye, Rocket, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/lib/i18n";
