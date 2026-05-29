@@ -79,9 +79,10 @@ const safeInlineColor = (value: string) => value.replace(/[;{}<>]/g, "").trim();
 const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
   text = normalizeImportedText(text);
   // Order matters — math first (so $...$ doesn't collide with markdown),
-  // then color spans, bold (**), italic (*), underline, links, urls.
+  // then color spans, footnotes, sup/sub, ***bold-italic*** (legacy),
+  // bold (**), underline (__), italic (_ new / * legacy), links, urls.
   const re =
-    /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$\n]+?\$|\[c=[^\]\n]+\][\s\S]*?\[\/c\]|\[fn=[^\]\n]*\][\s\S]*?\[\/fn\]|\[sup\][\s\S]*?\[\/sup\]|\[sub\][\s\S]*?\[\/sub\]|\*\*[\s\S]+?\*\*|__[\s\S]+?__|\*[^\n]+?\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
+    /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$[^$\n]+?\$|\[c=[^\]\n]+\][\s\S]*?\[\/c\]|\[fn=[^\]\n]*\][\s\S]*?\[\/fn\]|\[sup\][\s\S]*?\[\/sup\]|\[sub\][\s\S]*?\[\/sub\]|\*\*\*[\s\S]+?\*\*\*|\*\*[\s\S]+?\*\*|__[\s\S]+?__|_[^\n_]+?_|\*[^\n*]+?\*|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s)]+)/g;
   const parts = text.split(re);
 
   return parts.map((p, i) => {
