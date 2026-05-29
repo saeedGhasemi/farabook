@@ -712,15 +712,29 @@ function ommlToLatex(node: PNode): string {
 function inferHeadings(
   paras: ParaInfo[],
   styles: Map<string, StyleInfo>,
-  customHeadings?: Set<string>,
+  customHeadings?: Map<string, number> | Set<string>,
 ): {
   promotedCount: number; levelDistribution: Record<number, number>;
 } {
   let promoted = 0;
   const normalize = (s: string) => s.trim().toLowerCase();
-  const customSet = customHeadings
-    ? new Set(Array.from(customHeadings).map(normalize).filter(Boolean))
-    : null;
+  // Normalize input → Map<lowerName, level 1..8>. Set entries default to level 1.
+  const customMap = new Map<string, number>();
+  if (customHeadings) {
+    if (customHeadings instanceof Map) {
+      for (const [k, v] of customHeadings) {
+        const key = normalize(k);
+        if (!key) continue;
+        const lv = Math.min(8, Math.max(1, Math.floor(v || 1)));
+        customMap.set(key, lv);
+      }
+    } else {
+      for (const k of customHeadings) {
+        const key = normalize(k);
+        if (key) customMap.set(key, 1);
+      }
+    }
+  }
   for (const p of paras) {
     if (p.styleId) {
       const s = styles.get(p.styleId);
@@ -729,12 +743,15 @@ function inferHeadings(
       } else if (s?.outlineLevel !== undefined && p.outlineLevel === undefined) {
         p.outlineLevel = s.outlineLevel;
       }
-      // Promote paragraphs whose Style id or name matches user-supplied custom heading.
-      if (customSet && p.outlineLevel === undefined) {
+      // Promote paragraphs whose Style id or name matches user-supplied custom headings.
+      if (customMap.size && p.outlineLevel === undefined) {
         const ids = [normalize(p.styleId), normalize(s?.name ?? "")];
-        if (ids.some((x) => x && customSet.has(x))) {
-          p.outlineLevel = 0;
-          promoted += 1;
+        for (const id of ids) {
+          if (id && customMap.has(id)) {
+            p.outlineLevel = (customMap.get(id) as number) - 1;
+            promoted += 1;
+            break;
+          }
         }
       }
     }
