@@ -413,7 +413,7 @@ function parseParagraph(p: PNode, rels: Map<string, string>): ParaInfo {
   const imageRels: string[] = [];
   let hasMath = false;
 
-  for (const c of children) {
+      const fmt = parseRunProps(rPr, styles);
     const t = tagOf(c);
     if (!t || t === "w:pPr") continue;
     if (t === "w:r") {
