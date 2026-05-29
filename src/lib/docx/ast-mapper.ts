@@ -408,8 +408,8 @@ interface ParaInfo {
   dominantSizeHalfPt?: number;
   /** True if any run is bold. */
   anyBold?: boolean;
-  /** Image rels referenced by this paragraph (rId list). */
-  imageRels?: string[];
+  /** Image refs (rid + size in EMU) referenced by this paragraph. */
+  imageRels?: ImageRef[];
   /** True if this paragraph contains an OMML math element. */
   hasMath?: boolean;
   align?: "left" | "center" | "right" | "justify";
@@ -471,7 +471,7 @@ function parseParagraph(p: PNode, rels: Map<string, string>, styles?: Map<string
   let sumSize = 0;
   let sizeCount = 0;
   let anyBold = false;
-  const imageRels: string[] = [];
+  const imageRels: ImageRef[] = [];
   let hasMath = false;
   const noteRefs: Array<{ kind: "footnote" | "endnote"; id: string }> = [];
 
@@ -554,14 +554,41 @@ function collectNoteRefs(nodes: PNode[], out: Array<{ kind: "footnote" | "endnot
   }
 }
 
-function collectImageRels(nodes: PNode[], out: string[]) {
+interface ImageRef { rid: string; widthEmu?: number; heightEmu?: number }
+
+function collectImageRels(nodes: PNode[], out: ImageRef[]) {
   for (const n of nodes ?? []) {
     if (!n || typeof n !== "object") continue;
     const t = tagOf(n);
     if (!t) continue;
-    if (t === "a:blip") {
+    if (t === "w:drawing") {
+      // Walk inside the drawing: find wp:extent (cx/cy) and a:blip (r:embed)
+      let widthEmu: number | undefined;
+      let heightEmu: number | undefined;
+      const rids: string[] = [];
+      const findExtentAndBlip = (sub: PNode[]) => {
+        for (const m of sub ?? []) {
+          if (!m || typeof m !== "object") continue;
+          const tt = tagOf(m);
+          if (!tt) continue;
+          if (tt === "wp:extent") {
+            const cx = Number(attrLoose(m, "cx"));
+            const cy = Number(attrLoose(m, "cy"));
+            if (Number.isFinite(cx)) widthEmu = cx;
+            if (Number.isFinite(cy)) heightEmu = cy;
+          } else if (tt === "a:blip") {
+            const rid = attrLoose(m, "r:embed") ?? attrLoose(m, "r:link");
+            if (rid) rids.push(rid);
+          }
+          if (Array.isArray(m[tt])) findExtentAndBlip(m[tt]);
+        }
+      };
+      findExtentAndBlip(kidsOf(n, "w:drawing"));
+      for (const rid of rids) out.push({ rid, widthEmu, heightEmu });
+    } else if (t === "a:blip") {
+      // Fallback for v:imagedata or stray blips outside drawings
       const rid = attrLoose(n, "r:embed") ?? attrLoose(n, "r:link");
-      if (rid) out.push(rid);
+      if (rid && !out.some((r) => r.rid === rid)) out.push({ rid });
     } else if (Array.isArray(n[t])) {
       collectImageRels(n[t], out);
     }
@@ -861,7 +888,7 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
     title: textForFirstTag(bundle.coreProps, "dc:title") || paras.find((p) => p.isTitle)?.text,
     subtitle: paras.find((p) => p.isSubtitle)?.text,
   };
-  const emittedNotes = new Set<string>();
+  
   const usedMediaNames = new Set<string>();
   let formulasDetected = 0;
   let imagesEmbedded = 0;
@@ -875,39 +902,61 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
     if (m) mediaByRid.set(rid, m);
   }
 
+  // EMU → px (Word DOCX: 914400 EMU/inch; 96dpi → 9525 EMU/px).
+  const emuToPx = (emu?: number): number | undefined =>
+    emu && emu > 0 ? Math.max(16, Math.round(emu / 9525)) : undefined;
+
+  const pushImage = (ref: ImageRef) => {
+    const m = mediaByRid.get(ref.rid);
+    if (!m) return;
+    usedMediaNames.add(m.name);
+    imagesEmbedded++;
+    const w = emuToPx(ref.widthEmu);
+    const h = emuToPx(ref.heightEmu);
+    const attrs: any = { src: `media://${m.name}` };
+    // Only carry the width when the image was small in Word (icon-sized).
+    // Larger images keep responsive full-container rendering.
+    if (w && w < 480) {
+      attrs.width = w;
+      if (h) attrs.height = h;
+    }
+    content.push({ type: "image", attrs } as ImageNode);
+  };
+
+  // Footnote refs collected in document order; rendered at end as appendix.
+  const noteOrder: Array<{ kind: "footnote" | "endnote"; id: string }> = [];
+  const seenNote = new Set<string>();
+
   for (const b of topBlocks) {
     if (b.kind === "table") {
-      const rows = collectTableText(b.node);
-      for (const row of rows) {
-        content.push({
-          type: "paragraph",
-          attrs: { dir: detectDir(row, undefined) },
-          content: row ? [{ type: "text", text: row }] : [],
-        } as ParagraphNode);
-      }
+      const tbl = parseTable(b.node);
+      if (tbl) content.push(tbl);
       continue;
     }
     const info = b.info;
 
     if (info.hasMath) formulasDetected++;
 
+    if (info.noteRefs?.length) {
+      for (const ref of info.noteRefs) {
+        const key = `${ref.kind}:${ref.id}`;
+        if (seenNote.has(key)) continue;
+        const note = ref.kind === "footnote" ? footnotes.get(ref.id) : endnotes.get(ref.id);
+        if (!note?.length) continue;
+        seenNote.add(key);
+        noteOrder.push(ref);
+      }
+    }
+
     // Image-only paragraph → emit ImageNode(s)
     if (info.imageRels && info.imageRels.length && !info.text.trim()) {
-      for (const rid of info.imageRels) {
-        const m = mediaByRid.get(rid);
-        if (!m) continue;
-        usedMediaNames.add(m.name);
-        imagesEmbedded++;
-        content.push({
-          type: "image",
-          attrs: { src: `media://${m.name}` },
-        } as ImageNode);
-      }
+      for (const ref of info.imageRels) pushImage(ref);
       continue;
     }
 
-    // List item → prefix with proper marker (numbered or bullet)
+    // List item
     if (info.numId !== undefined) {
+      if (!info.text.trim() && !(info.imageRels?.length)) continue;
       const ilvl = info.ilvl ?? 0;
       const fmt = numFmtFor(numInfo, info.numId, ilvl);
       const isNumbered = !!fmt && fmt.numFmt && fmt.numFmt !== "bullet" && fmt.numFmt !== "none";
@@ -924,70 +973,60 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
       nodes.unshift({ type: "text", text: prefix });
       content.push({
         type: "paragraph",
-        attrs: {
-          dir: detectDir(info.text, info.bidi),
-          textAlign: info.align ?? null,
-        },
+        attrs: { dir: detectDir(info.text, info.bidi), textAlign: info.align ?? null },
         content: nodes,
       } as ParagraphNode);
       continue;
     }
 
-
-    // Heading?
+    // Heading — skip empty ones (matches Word Navigation pane behaviour:
+    // explicit-heading styles applied to blank lines should not appear in TOC).
     if (info.outlineLevel !== undefined) {
+      if (!info.text.trim()) continue;
       const level = Math.min(3, Math.max(1, (info.outlineLevel ?? 0) + 1)) as 1 | 2 | 3;
       content.push({
         type: "heading",
-        attrs: {
-          level,
-          dir: detectDir(info.text, info.bidi),
-          textAlign: info.align ?? null,
-        },
+        attrs: { level, dir: detectDir(info.text, info.bidi), textAlign: info.align ?? null },
         content: info.textNodes,
       } as HeadingNode);
       continue;
     }
 
-    // Normal paragraph
+    // Inline images embedded with text → emit images first, then paragraph
+    if (info.imageRels && info.imageRels.length) {
+      for (const ref of info.imageRels) pushImage(ref);
+    }
+
+    // Normal paragraph — skip totally empty ones
+    if (!info.text.trim()) continue;
     content.push({
       type: "paragraph",
-      attrs: {
-        dir: detectDir(info.text, info.bidi),
-        textAlign: info.align ?? null,
-      },
+      attrs: { dir: detectDir(info.text, info.bidi), textAlign: info.align ?? null },
       content: info.textNodes,
     } as ParagraphNode);
+  }
 
-    if (info.noteRefs?.length) {
-      for (const ref of info.noteRefs) {
-        const key = `${ref.kind}:${ref.id}`;
-        if (emittedNotes.has(key)) continue;
-        const note = ref.kind === "footnote" ? footnotes.get(ref.id) : endnotes.get(ref.id);
-        if (!note?.length) continue;
-        emittedNotes.add(key);
-        content.push({
-          type: "paragraph",
-          attrs: { dir: detectDir(note.map((n) => n.text).join(""), info.bidi) },
-          content: [{ type: "text", text: `${ref.id}. ` }, ...note],
-        } as ParagraphNode);
-      }
-    }
-
-    // Inline images embedded WITH text: emit after paragraph
-    if (info.imageRels && info.imageRels.length) {
-      for (const rid of info.imageRels) {
-        const m = mediaByRid.get(rid);
-        if (!m) continue;
-        usedMediaNames.add(m.name);
-        imagesEmbedded++;
-        content.push({
-          type: "image",
-          attrs: { src: `media://${m.name}` },
-        } as ImageNode);
-      }
+  // Footnotes as appendix at end of document (web-friendly pattern)
+  if (noteOrder.length) {
+    content.push({
+      type: "heading",
+      attrs: { level: 2, dir: "rtl", textAlign: null },
+      content: [{ type: "text", text: "پاورقی‌ها" }],
+    } as HeadingNode);
+    for (const ref of noteOrder) {
+      const note = ref.kind === "footnote" ? footnotes.get(ref.id) : endnotes.get(ref.id);
+      if (!note?.length) continue;
+      content.push({
+        type: "paragraph",
+        attrs: { dir: detectDir(note.map((n) => n.text).join(""), undefined), textAlign: null },
+        content: [
+          { type: "text", text: `${ref.id}. `, marks: [{ type: "bold" }] },
+          ...note,
+        ],
+      } as ParagraphNode);
     }
   }
+
 
   const doc: TiptapDoc = { type: "doc", content };
   const media = bundle.media.filter((m) => usedMediaNames.has(m.name));
@@ -1002,26 +1041,44 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
       paragraphsTotal: paras.length,
       imagesEmbedded,
       formulasDetected,
-      footnotesDetected: emittedNotes.size,
+      footnotesDetected: seenNote.size,
       cleanedMarker: bundle.hasCleanedMarker,
     },
   };
 }
 
-function collectTableText(tbl: PNode): string[] {
-  const rows: string[] = [];
+/** Parse a <w:tbl> into a proper TableNode (headers + rows of plain text). */
+function parseTable(tbl: PNode): any | null {
+  const allRows: string[][] = [];
   for (const r of kidsOf(tbl, "w:tbl")) {
     if (tagOf(r) !== "w:tr") continue;
     const cells: string[] = [];
     for (const c of kidsOf(r, "w:tr")) {
       if (tagOf(c) !== "w:tc") continue;
-      let cellText = "";
+      const parts: string[] = [];
       for (const p of kidsOf(c, "w:tc")) {
-        if (tagOf(p) === "w:p") cellText += getText(kidsOf(p, "w:p")) + " ";
+        if (tagOf(p) === "w:p") {
+          const txt = getText(kidsOf(p, "w:p")).trim();
+          if (txt) parts.push(txt);
+        }
       }
-      cells.push(cellText.trim());
+      cells.push(parts.join(" "));
     }
-    rows.push(cells.join(" | "));
+    if (cells.length) allRows.push(cells);
   }
-  return rows;
+  if (!allRows.length) return null;
+  // Treat the first row as header (typical Word table convention).
+  const headers = allRows[0];
+  const rows = allRows.slice(1);
+  // Normalize column count: pad each row to the widest length.
+  const cols = Math.max(headers.length, ...rows.map((r) => r.length));
+  const pad = (row: string[]) => row.length === cols ? row : [...row, ...Array(cols - row.length).fill("")];
+  return {
+    type: "table",
+    attrs: {
+      headers: pad(headers),
+      rows: rows.map(pad),
+    },
+  };
 }
+

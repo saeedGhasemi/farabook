@@ -46,7 +46,7 @@ export interface CalloutNode {
 }
 export interface ImageNode {
   type: "image";
-  attrs: { src: string; caption?: string; hideCaption?: boolean };
+  attrs: { src: string; caption?: string; hideCaption?: boolean; width?: number; height?: number };
 }
 export interface ImagePlaceholderNode {
   type: "image_placeholder";
@@ -491,7 +491,7 @@ export const docToLegacyBlocks = (doc: TiptapDoc): any[] => {
         out.push({ type: "callout", icon: calloutIconFromVariant(n.attrs.variant), text: inlineToMarkdown(n.content), ...textBlockAttrsToLegacy(n.attrs) });
         break;
       case "image":
-        out.push({ type: "image", src: n.attrs.src, caption: n.attrs.caption, hideCaption: n.attrs.hideCaption });
+        out.push({ type: "image", src: n.attrs.src, caption: n.attrs.caption, hideCaption: n.attrs.hideCaption, width: n.attrs.width, height: n.attrs.height });
         break;
       case "image_placeholder":
         out.push({
