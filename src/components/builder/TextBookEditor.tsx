@@ -27,6 +27,7 @@ import {
   ChevronsDownUp, ChevronsUpDown,
 } from "lucide-react";
 import { ChapterTocDialog } from "./ChapterTocDialog";
+import { CoverEditor } from "./CoverEditor";
 import { isAutoPageTitle } from "@/lib/page-title";
 
 import { supabase } from "@/integrations/supabase/client";
