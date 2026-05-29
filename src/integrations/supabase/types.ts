@@ -268,6 +268,8 @@ export type Database = {
           audience: string | null
           author: string
           author_user_id: string | null
+          back_cover_focus: Json | null
+          back_cover_url: string | null
           book_type: string | null
           categories: string[] | null
           category: string | null
@@ -275,7 +277,9 @@ export type Database = {
           content_updated_at: string
           content_version: number
           contributors: Json
+          cover_crop: Json | null
           cover_focus: Json | null
+          cover_spread_url: string | null
           cover_url: string | null
           created_at: string
           description: string | null
@@ -318,6 +322,8 @@ export type Database = {
           audience?: string | null
           author: string
           author_user_id?: string | null
+          back_cover_focus?: Json | null
+          back_cover_url?: string | null
           book_type?: string | null
           categories?: string[] | null
           category?: string | null
@@ -325,7 +331,9 @@ export type Database = {
           content_updated_at?: string
           content_version?: number
           contributors?: Json
+          cover_crop?: Json | null
           cover_focus?: Json | null
+          cover_spread_url?: string | null
           cover_url?: string | null
           created_at?: string
           description?: string | null
@@ -368,6 +376,8 @@ export type Database = {
           audience?: string | null
           author?: string
           author_user_id?: string | null
+          back_cover_focus?: Json | null
+          back_cover_url?: string | null
           book_type?: string | null
           categories?: string[] | null
           category?: string | null
@@ -375,7 +385,9 @@ export type Database = {
           content_updated_at?: string
           content_version?: number
           contributors?: Json
+          cover_crop?: Json | null
           cover_focus?: Json | null
+          cover_spread_url?: string | null
           cover_url?: string | null
           created_at?: string
           description?: string | null
