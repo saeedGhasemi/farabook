@@ -1192,6 +1192,7 @@ const Reader = () => {
         onToggleDark={() => setDark(!dark)}
         ambient={ambient}
         onAmbient={setAmbient}
+        userAmbient={userAmbient}
         readingMode={readingMode}
         onToggleReadingMode={() => setReadingMode((m) => (m === "scroll" ? "paginated" : "scroll"))}
         fullscreen={fullscreen}
