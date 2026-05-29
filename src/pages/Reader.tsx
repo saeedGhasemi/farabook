@@ -991,7 +991,7 @@ const Reader = () => {
 
             {/* Bottom navigation — hidden in fullscreen mode */}
             {!fullscreen && (
-              <div className="mt-4 flex items-stretch justify-between gap-3 pb-32">
+              <div dir={bookDir} className="mt-4 flex items-stretch justify-between gap-3 pb-32">
                 <div className="flex flex-col items-start gap-1 min-w-0">
                   <Button variant="outline" onClick={goPrev} disabled={pageIdx === 0} className="gap-2 glass-strong">
                     <Prev className="w-4 h-4" /> {t("prev")}
