@@ -537,6 +537,18 @@ export const TextBookEditor = ({ initial }: Props) => {
     [pages, subtreeEnd],
   );
 
+  const collapseAllChapters = useCallback(() => {
+    const next = new Set<number>();
+    for (let i = 0; i < pages.length; i += 1) {
+      if (subtreeEnd(pages, i) > i + 1) next.add(i);
+    }
+    setCollapsedSet(next);
+  }, [pages, subtreeEnd]);
+
+  const expandAllChapters = useCallback(() => {
+    setCollapsedSet(new Set());
+  }, []);
+
   const indentChapter = (idx: number) => {
     if (idx === 0) {
       toast.info(fa ? "اولین فصل را نمی‌توان زیرفصل کرد" : "Can't indent the first chapter");
