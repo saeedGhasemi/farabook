@@ -107,10 +107,13 @@ export const ImageReviewPanel = ({
           : undefined;
 
         let attention: Item["attention"] | undefined;
+        const captionPendingConfirm = !!(isImg && node.attrs?.captionPendingConfirm);
         if (isPh && !node.attrs?.pendingSrc) attention = "missing-image";
         else if (isImg && !node.attrs?.caption) {
           // image with no caption — flag for review unless adjacent FIG_RE matches
           if (!suggested) attention = "missing-caption";
+        } else if (captionPendingConfirm) {
+          attention = "needs-confirm";
         }
         if (figNum && suggested?.num && figNum !== suggested.num) attention = "mismatch";
 
@@ -125,6 +128,7 @@ export const ImageReviewPanel = ({
           figureNumber: node.attrs?.figureNumber,
           slot: node.attrs?.slot,
           suggestedCaption: suggested,
+          captionPendingConfirm,
           attention,
         });
       });
