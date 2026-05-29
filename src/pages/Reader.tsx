@@ -839,7 +839,7 @@ const Reader = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.22, ease: "easeOut" }}
-                className={`paper-card rounded-3xl p-6 md:p-12 min-h-[60vh] book-shadow relative overflow-hidden no-native-callout typo-${book.typography_preset || "editorial"}`}
+                className={`paper-card rounded-3xl ${fullscreen ? "p-4 md:p-10" : "p-6 md:p-12"} ${readingMode === "scroll" ? "min-h-[60vh]" : ""} book-shadow relative overflow-hidden no-native-callout typo-${book.typography_preset || "editorial"}`}
               >
                 <div className="absolute top-0 inset-x-0 h-1 bg-gradient-gold opacity-50" />
                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
