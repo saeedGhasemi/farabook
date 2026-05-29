@@ -105,6 +105,10 @@ interface Initial {
   description: string | null;
   cover_url: string | null;
   cover_focus?: { x?: number; y?: number } | null;
+  back_cover_url?: string | null;
+  back_cover_focus?: { x?: number; y?: number } | null;
+  cover_spread_url?: string | null;
+  cover_crop?: { mode: "half"; front_side: "left" | "right" } | null;
   pages: any[];
   typography_preset?: string | null;
   author_user_id?: string | null;
