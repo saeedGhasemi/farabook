@@ -31,7 +31,7 @@ import { readDocx } from "@/lib/docx/ooxml-reader";
 import { mapOoxmlToDoc, type MapResult } from "@/lib/docx/ast-mapper";
 import { extractPrintStartPage, shiftPrintPages } from "@/lib/docx/print-pages";
 import { processImagesLocally, rewriteMediaPlaceholders, type PipelineResult } from "@/lib/docx/image-pipeline";
-import { buildToc } from "@/lib/docx/toc-builder";
+import { buildTocLive } from "@/lib/docx/toc-builder";
 import { validateUpload, hasBlockingErrors, type ValidationItem } from "@/lib/docx/validator";
 import { TocPreview } from "@/components/upload/TocPreview";
 import { ValidationReport } from "@/components/upload/ValidationReport";
