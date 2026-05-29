@@ -395,14 +395,14 @@ function parsePPr(pPr: PNode | null): {
       for (const rp of kidsOf(p, "w:rPr")) {
         if (tagOf(rp) === "w:lang") {
           out.lang = attr(rp, "w:val") ?? attr(rp, "w:bidi");
-function parseParagraph(p: PNode, rels: Map<string, string>, styles?: Map<string, StyleInfo>): ParaInfo {
+        }
       }
     }
   }
   return out;
 }
 
-function parseParagraph(p: PNode, rels: Map<string, string>): ParaInfo {
+function parseParagraph(p: PNode, rels: Map<string, string>, styles?: Map<string, StyleInfo>): ParaInfo {
   const children = kidsOf(p, "w:p");
   const pPr = findFirst(children, "w:pPr");
   const meta = parsePPr(pPr);
@@ -413,10 +413,12 @@ function parseParagraph(p: PNode, rels: Map<string, string>): ParaInfo {
   const imageRels: string[] = [];
   let hasMath = false;
 
-      const fmt = parseRunProps(rPr, styles);
+  for (const c of children) {
     const t = tagOf(c);
     if (!t || t === "w:pPr") continue;
     if (t === "w:r") {
+      // Inspect run properties for size / bold stats and image
+
       // Inspect run properties for size / bold stats and image
       const rChildren = kidsOf(c, "w:r");
       const rPr = findFirst(rChildren, "w:rPr");
