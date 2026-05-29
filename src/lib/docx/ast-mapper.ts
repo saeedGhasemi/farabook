@@ -564,6 +564,7 @@ function parseParagraph(p: PNode, rels: Map<string, string>, styles?: Map<string
 
   const normalizedTextNodes = normalizeTextNodes(textNodes);
   const text = normalizedTextNodes.map((n) => n.text).join("");
+  const pageBreaks = countPageBreaks(p);
   return {
     text,
     textNodes: normalizedTextNodes,
@@ -575,6 +576,7 @@ function parseParagraph(p: PNode, rels: Map<string, string>, styles?: Map<string
     imageRels: imageRels.length ? imageRels : undefined,
     hasMath: hasMath || undefined,
     noteRefs: noteRefs.length ? noteRefs : undefined,
+    pageBreaks: pageBreaks || undefined,
   };
 }
 
