@@ -111,6 +111,8 @@ const Reader = () => {
   const [voiceSpeed, setVoiceSpeed] = useState(1);
   const [dark, setDark] = useState(false);
   const [ambient, setAmbient] = useState<string>("off");
+  /** User-uploaded ambient tracks: { id: storage-path, label: display-name, url }. */
+  const [userAmbient, setUserAmbient] = useState<Array<{ id: string; label: string; url: string }>>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [aiOpen, setAiOpen] = useState(false);
