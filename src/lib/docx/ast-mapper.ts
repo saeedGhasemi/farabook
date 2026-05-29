@@ -3,7 +3,7 @@
 //   • ZWNJ preserved; Word/legacy half-space variants are converted to ZWNJ
 //   • Custom heading detection (font-size / bold clustering → H1/H2/H3)
 //   • Standard Heading 1/2/3 from styles.xml respected
-//   • <w:vertAlign> → superscript / subscript marks (not unicode)
+//   • <w:vertAlign> / <w:position> → superscript / subscript marks (not unicode)
 //   • bold / italic / underline marks
 //   • Paragraph dir (rtl/ltr) from <w:bidi> + Unicode script heuristic
 //   • Lang via <w:lang> (kept in attrs.lang)
@@ -136,6 +136,7 @@ interface StyleInfo {
   bold?: boolean;
   italic?: boolean;
   vertAlign?: "superscript" | "subscript";
+  positionHalfPt?: number;
   isHeading?: boolean;       // explicit "Heading N"
   headingLevel?: 1 | 2 | 3;
 }
@@ -178,6 +179,13 @@ function parseStyles(stylesXml: any | null): Map<string, StyleInfo> {
             const v = attr(rp, "w:val");
             if (v === "superscript") info.vertAlign = "superscript";
             else if (v === "subscript") info.vertAlign = "subscript";
+          } else if (tt === "w:position") {
+            const v = Number(attr(rp, "w:val"));
+            if (Number.isFinite(v)) {
+              info.positionHalfPt = v;
+              if (!info.vertAlign && v > 0) info.vertAlign = "superscript";
+              else if (!info.vertAlign && v < 0) info.vertAlign = "subscript";
+            }
           }
         }
       }
@@ -208,6 +216,7 @@ function parseStyles(stylesXml: any | null): Map<string, StyleInfo> {
         if (s.bold === undefined) s.bold = p.bold;
         if (s.italic === undefined) s.italic = p.italic;
         if (s.vertAlign === undefined) s.vertAlign = p.vertAlign;
+        if (s.positionHalfPt === undefined) s.positionHalfPt = p.positionHalfPt;
         if (!s.isHeading && p.isHeading) {
           s.isHeading = true;
           s.headingLevel = p.headingLevel;
