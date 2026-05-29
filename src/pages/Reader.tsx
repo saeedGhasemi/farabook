@@ -76,7 +76,14 @@ interface SearchResult {
   mediaSrc?: string;
   mediaKey?: string;
   mediaCaption?: string;
+  /** Set when this card represents a print-page marker hit. */
+  printPage?: string;
 }
+
+/** Convert Latin/Persian/Arabic-Indic digits to plain ASCII for matching. */
+const normalizeDigits = (s: string): string =>
+  s.replace(/[\u06F0-\u06F9]/g, (c) => String(c.charCodeAt(0) - 0x06F0))
+    .replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660));
 
 const pageToBlocks = (page?: Page): Block[] => {
   if (!page) return [];
