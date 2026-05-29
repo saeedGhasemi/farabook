@@ -1971,6 +1971,7 @@ export const TextBookEditor = ({ initial }: Props) => {
         }}
       />
     </div>
+    </BookImagesContext.Provider>
   );
 };
 
