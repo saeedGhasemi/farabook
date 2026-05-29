@@ -166,8 +166,9 @@ const Reader = () => {
   const paginatedHostRef = useRef<HTMLDivElement | null>(null);
   const paginatedTrackRef = useRef<HTMLDivElement | null>(null);
 
-  const Prev = dir === "rtl" ? ArrowRight : ArrowLeft;
-  const Next = dir === "rtl" ? ArrowLeft : ArrowRight;
+  // Prev/Next icons follow the *book's* reading direction (assigned after
+  // bookDir is computed below). An LTR book always pages left→right even
+  // when the UI is in Persian, and vice-versa.
 
   // Load book — offline-first when a local encrypted copy exists, so the
   // reader opens instantly even with flaky/no internet. Then we refresh from
