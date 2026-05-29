@@ -22,7 +22,7 @@ import {
   Palette, Type as TypeIcon, SplitSquareVertical, Film, GalleryHorizontal,
   ListOrdered, Layers, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Undo2, Redo2, X, ArrowLeftRight, ChevronsLeft, ChevronsRight, Scissors,
-  Eraser, Info, Combine, ListTree, FunctionSquare,
+  Eraser, Info, Combine, ListTree, FunctionSquare, BookMarked,
   ChevronRight, ChevronDown, ArrowUp, ArrowDown, IndentIncrease, IndentDecrease,
   ChevronsDownUp, ChevronsUpDown,
 } from "lucide-react";
