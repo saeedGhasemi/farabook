@@ -11,9 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { resolveBookMedia } from "@/lib/book-media";
 import type { TextPage } from "@/lib/tiptap-doc";
-
-const FIG_RE = /^(شکل|تصویر|نگاره|figure|fig\.?)\s*[\d\u06F0-\u06F9۰-۹]+([.\-\u2013\u2014][\d\u06F0-\u06F9۰-۹]+)?/i;
-const FIG_NUM_RE = /(?:شکل|تصویر|نگاره|figure|fig\.?)\s*([\d\u06F0-\u06F9۰-۹]+(?:[.\-\u2013\u2014][\d\u06F0-\u06F9۰-۹]+)?)/i;
+import { FIG_RE, FIG_NUM_RE } from "@/lib/docx/figure-caption";
 
 const normalizeNum = (s: string) =>
   s
