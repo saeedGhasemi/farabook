@@ -103,7 +103,8 @@ function replaceMediaUrls(
   return { imagesReplaced: replaced, imagesMissing: missing };
 }
 
-/** Splits the doc into pages, breaking before each H1/H2 heading. */
+/** Splits the doc into pages, breaking before every heading (H1..H8) so
+ *  the full chapter tree is visible in the editor sidebar, not just H1/H2. */
 function splitIntoPages(ast: { content: any[] }): Array<{ title: string; doc: any; level?: number }> {
   const pages: Array<{ title: string; doc: any; level?: number }> = [];
   let current: { title: string; doc: { type: "doc"; content: any[] }; level?: number } = {
@@ -112,13 +113,14 @@ function splitIntoPages(ast: { content: any[] }): Array<{ title: string; doc: an
     level: 0,
   };
   for (const node of ast.content ?? []) {
-    if (node?.type === "heading" && (node.attrs?.level === 1 || node.attrs?.level === 2)) {
+    const lv = node?.type === "heading" ? Number(node.attrs?.level) : 0;
+    if (lv >= 1 && lv <= 8) {
       const title = (node.content ?? []).map((t: any) => t.text ?? "").join("").trim() || "بدون عنوان";
       if (current.doc.content.length > 0) pages.push(current);
       current = {
         title,
         doc: { type: "doc", content: [node] },
-        level: (node.attrs.level ?? 1) - 1,
+        level: Math.min(7, Math.max(0, lv - 1)),
       };
     } else {
       current.doc.content.push(node);

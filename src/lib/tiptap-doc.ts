@@ -369,7 +369,7 @@ export const legacyPageToTextPage = (p: any): TextPage => {
   const blocks: any[] = Array.isArray(p?.blocks) ? p.blocks : [];
   const rawLevel = Number((p as any)?.level);
   const level = Number.isFinite(rawLevel) && rawLevel > 0
-    ? Math.min(5, Math.max(0, Math.floor(rawLevel)))
+    ? Math.min(7, Math.max(0, Math.floor(rawLevel)))
     : 0;
   if (isTiptapPage(p)) {
     if (countLegacyTables(blocks) > countDocTables(p.doc)) {
@@ -405,7 +405,7 @@ export const textPagesToDbPages = (pages: TextPage[]): any[] =>
     title: p.title || "—",
     doc: p.doc,
     blocks: docToLegacyBlocks(p.doc),
-    level: Math.min(5, Math.max(0, Math.floor(p.level ?? 0))),
+    level: Math.min(7, Math.max(0, Math.floor(p.level ?? 0))),
   }));
 
 
