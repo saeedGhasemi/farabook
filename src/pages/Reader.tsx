@@ -114,6 +114,8 @@ const Reader = () => {
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
   const [savePopover, setSavePopover] = useState<{ x: number; y: number; text: string } | null>(null);
   const [jumpValue, setJumpValue] = useState("1");
+  const [currentPrintPage, setCurrentPrintPage] = useState<string | null>(null);
+  const articleRef = useRef<HTMLElement | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [timelineData, setTimelineData] = useState<{ title?: string; steps: Array<{ marker: string; title: string; description: string }> } | null>(null);
 
