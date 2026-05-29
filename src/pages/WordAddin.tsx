@@ -458,11 +458,21 @@ function docToLegacyBlocks(doc: any, mediaUrls: Map<string, string>): any[] {
     } else if (n.type === "image") {
       const src: string = n.attrs?.src ?? "";
       const name = src.startsWith("media://") ? src.slice("media://".length) : src;
-      out.push({ type: "image", src: mediaUrls.get(name) ?? src, name, caption: n.attrs?.caption });
+      out.push({
+        type: "image",
+        src: mediaUrls.get(name) ?? src,
+        name,
+        caption: n.attrs?.caption,
+        width: n.attrs?.width,
+        height: n.attrs?.height,
+      });
+    } else if (n.type === "table") {
+      out.push({ type: "table", headers: n.attrs?.headers ?? [], rows: n.attrs?.rows ?? [] });
     }
   }
   return out;
 }
+
 
 function renderInline(nodes: any[]) {
   return (nodes ?? []).map((n, i) => {
@@ -493,11 +503,33 @@ function PreviewBlock({ b }: { b: any }) {
     return <div className={cls} dir={dir}>{renderInline(b.inline)}</div>;
   }
   if (b.type === "image") {
+    const style = b.width ? { maxWidth: `${b.width}px` } : undefined;
     if (b.src && (b.src.startsWith("blob:") || b.src.startsWith("data:") || /^https?:/.test(b.src))) {
-      return <img src={b.src} alt={b.name ?? ""} className="max-w-full h-auto rounded border" />;
+      return <img src={b.src} alt={b.name ?? ""} className="h-auto rounded border" style={style} />;
     }
     return <div className="text-xs text-muted-foreground">[تصویر: {b.name ?? b.src}]</div>;
   }
+  if (b.type === "table") {
+    const headers: string[] = b.headers ?? [];
+    const rows: string[][] = b.rows ?? [];
+    return (
+      <div className="overflow-x-auto">
+        <table className="min-w-full border-collapse text-sm" dir="rtl">
+          {headers.length > 0 && (
+            <thead>
+              <tr>{headers.map((h, i) => <th key={i} className="border bg-muted px-2 py-1 text-right font-semibold">{h}</th>)}</tr>
+            </thead>
+          )}
+          <tbody>
+            {rows.map((row, ri) => (
+              <tr key={ri}>{row.map((c, ci) => <td key={ci} className="border px-2 py-1 align-top">{c}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
   return <p className="whitespace-pre-wrap" dir={dir}>{renderInline(b.inline)}</p>;
 }
+
 
