@@ -868,7 +868,12 @@ const Reader = () => {
             {/* Word page number footer */}
             <div className="mt-10 flex items-center justify-center gap-3 text-[11px] text-muted-foreground tabular-nums select-none">
               <span className="h-px w-12 bg-border" />
-              <span>{lang === "fa" ? "صفحه" : "Page"} {pageIdx + 1} / {total}</span>
+              <span>
+                {lang === "fa" ? "صفحه" : "Page"} {pageIdx + 1} / {total}
+                {currentPrintPage ? (
+                  <span className="opacity-60 mx-2">· {lang === "fa" ? "چاپی" : "print"} {currentPrintPage}</span>
+                ) : null}
+              </span>
               <span className="h-px w-12 bg-border" />
             </div>
 
