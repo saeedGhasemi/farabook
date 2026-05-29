@@ -228,6 +228,14 @@ export const TextBookEditor = ({ initial }: Props) => {
   const [metaSaving, setMetaSaving] = useState(false);
   // Force re-render of toolbar on selection change to reflect active states
   const [, forceTick] = useState(0);
+  // Floating scroll-to-top button visibility
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 480);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const { upload } = useImageUpload();
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -1446,7 +1454,7 @@ export const TextBookEditor = ({ initial }: Props) => {
 
         {/* ============ STICKY TOOLBAR ============ */}
         <div className="sticky top-16 z-30 -mx-3 md:mx-0 px-3 md:px-0 mb-3">
-          <div className="rounded-xl border bg-popover/95 backdrop-blur shadow-sm p-1.5 flex items-center gap-0.5 overflow-x-auto scrollbar-thin">
+          <div className="rounded-2xl border border-border/60 bg-card/85 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl shadow-[0_8px_24px_-12px_hsl(var(--foreground)/0.18)] p-1.5 flex items-center gap-0.5 overflow-x-auto scrollbar-thin">
             {/* Undo / Redo */}
             <TbBtn title={fa ? "بازگردانی" : "Undo"} onClick={() => editor.chain().focus().undo().run()}>
               <Undo2 className="w-4 h-4" />
@@ -1769,15 +1777,32 @@ export const TextBookEditor = ({ initial }: Props) => {
           );
         })()}
 
-        {/* The actual editor */}
-        <div className={`rounded-2xl border border-accent/15 px-4 md:px-10 py-6 md:py-10 shadow-paper typo-${typography} relative overflow-hidden`}
-             style={{
-               background: "linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--card)) 100%)",
-               backgroundImage: "radial-gradient(ellipse at top, hsl(var(--accent) / 0.05), transparent 60%), linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--card)) 100%)",
-             }}>
-          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
+        {/* The actual editor — paper-card surface matching the chapter list */}
+        <div className={`paper-card rounded-2xl px-4 md:px-12 py-8 md:py-12 typo-${typography} relative overflow-hidden`}>
+          <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-transparent via-accent/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-y-0 start-0 w-[3px] bg-gradient-to-b from-accent/30 via-accent/10 to-transparent pointer-events-none" />
           <EditorContent editor={editor} />
         </div>
+
+        {/* Floating scroll-to-top button */}
+        <AnimatePresence>
+          {showScrollTop && (
+            <motion.button
+              key="scroll-top"
+              type="button"
+              initial={{ opacity: 0, y: 16, scale: 0.85 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.85 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              title={fa ? "بازگشت به بالا" : "Scroll to top"}
+              aria-label={fa ? "بازگشت به بالا" : "Scroll to top"}
+              className="fixed bottom-6 end-6 z-40 h-11 w-11 rounded-full bg-gradient-warm text-primary-foreground shadow-glow flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+            >
+              <ArrowUp className="w-5 h-5" />
+            </motion.button>
+          )}
+        </AnimatePresence>
 
       </section>
 
