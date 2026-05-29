@@ -386,6 +386,31 @@ export const ImageReviewPanel = ({
                         </Button>
                       </>
                     )}
+                    {it.attention === "needs-confirm" && onConfirmImageCaption && (
+                      <>
+                        <Input
+                          value={captionValue}
+                          placeholder="کپشن…"
+                          className="h-7 text-[11px]"
+                          onChange={(e) => setCaptionDrafts((p) => ({ ...p, [it.key]: e.target.value }))}
+                        />
+                        <div className="text-[10px] text-muted-foreground leading-snug">
+                          <Sparkles className="w-2.5 h-2.5 inline me-0.5 text-primary" />
+                          این کپشن از روی متن زیر تصویر در فایل ورد استخراج شد. در صورت تأیید، نهایی می‌شود.
+                        </div>
+                        <Button
+                          size="sm"
+                          className="h-7 w-full text-[11px]"
+                          onClick={() => {
+                            onConfirmImageCaption(it.pageIndex, it.blockIndex, captionValue.trim());
+                            if (!isReviewed) onToggleReviewed(it.key);
+                            setExpanded(null);
+                          }}
+                        >
+                          <Check className="w-3 h-3 me-1" /> تایید کپشن
+                        </Button>
+                      </>
+                    )}
                     {it.attention === "mismatch" && (
                       <div className="text-[10px] text-orange-700 dark:text-orange-400">
                         شماره تصویر «{it.figureNumber}» با شماره کپشن مجاور ({it.suggestedCaption?.num}) جور نیست. از «هم‌ترازی شکل‌ها» استفاده کنید.
