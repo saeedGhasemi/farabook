@@ -46,6 +46,7 @@ const LEVEL_BG: Record<number, string> = {
 
 export const TocPreview = ({
   toc, customHeadings, onCustomHeadingsChange, availableStyleNames,
+  excludedStyles, onExcludedStylesChange, detectedFromTocField,
   onEditHeading, onDeleteHeading,
 }: Props) => {
   const flat = useMemo(() => flattenToc(toc), [toc]);
