@@ -1,12 +1,16 @@
 // word-addin-ingest
 //
-// Receives the cleaned AST + media from the Word taskpane,
-// uploads images to the book-media bucket, replaces media://NAME
-// placeholders with public URLs, creates a new books row owned by
-// the authenticated publisher, and returns its id.
+// Receives the cleaned AST from the wizard. Two modes:
+//   1) Create new book (default).
+//   2) Replace existing book content (when body.replaceBookId is set).
 //
-// The frontend then redirects to /edit/:bookId — same surface as the
-// existing word-import flow, just one shot.
+// Media: prefer `mediaUrlMap` (Record<storageName, publicUrl>) — the wizard
+// already uploaded optimized images to the book-media bucket. We also still
+// accept legacy `media` (base64) for backward compatibility with old clients.
+//
+// Metadata: full BookMetadata shape (title/subtitle/author/contributors/
+// publisher/isbn/etc.) is persisted to the books row and user_books is
+// populated for the owner.
 
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 
@@ -16,20 +20,41 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-interface Media {
-  name: string;
-  contentType: string;
-  base64: string;
+interface LegacyMedia { name: string; contentType: string; base64: string }
+
+interface MetaPayload {
+  sourceFileName?: string;
+  diagnostics?: Record<string, unknown>;
+  printStartPage?: number;
+  metadata?: {
+    title?: string;
+    subtitle?: string;
+    description?: string | null;
+    book_type?: string;
+    contributors?: Array<{ name: string; role: string; user_id?: string | null }>;
+    publisher?: string | null;
+    publication_year?: number | null;
+    edition?: string | null;
+    isbn?: string | null;
+    page_count?: number | null;
+    language?: string | null;
+    original_title?: string | null;
+    original_language?: string | null;
+    categories?: string[];
+    subjects?: string[];
+    series_name?: string | null;
+    series_index?: number | null;
+  };
 }
 
 interface Body {
   ast: { type: "doc"; content: any[] };
-  media?: Media[];
-  meta?: {
-    sourceFileName?: string;
-    diagnostics?: Record<string, unknown>;
-    metadata?: { title?: string; subtitle?: string };
-  };
+  /** Preferred: storageName → public URL. */
+  mediaUrlMap?: Record<string, string>;
+  /** Legacy fallback: inline base64 media. */
+  media?: LegacyMedia[];
+  replaceBookId?: string | null;
+  meta?: MetaPayload;
 }
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -54,7 +79,7 @@ function extOf(name: string, ct: string): string {
   return "bin";
 }
 
-/** Walks AST and replaces media://NAME image srcs with the uploaded URL map. */
+/** Walks AST and replaces media://NAME image srcs using the URL map. */
 function replaceMediaUrls(
   ast: { content: any[] },
   urls: Map<string, string>,
@@ -68,12 +93,7 @@ function replaceMediaUrls(
         const m = n.attrs.src.match(/^media:\/\/(.+)$/);
         if (m) {
           const url = urls.get(m[1]);
-          if (url) {
-            n.attrs.src = url;
-            replaced++;
-          } else {
-            missing++;
-          }
+          if (url) { n.attrs.src = url; replaced++; } else { missing++; }
         }
       }
       if (Array.isArray(n?.content)) visit(n.content);
@@ -83,7 +103,7 @@ function replaceMediaUrls(
   return { imagesReplaced: replaced, imagesMissing: missing };
 }
 
-/** Splits the doc into pages, breaking before each top-level heading. */
+/** Splits the doc into pages, breaking before each H1/H2 heading. */
 function splitIntoPages(ast: { content: any[] }): Array<{ title: string; doc: any; level?: number }> {
   const pages: Array<{ title: string; doc: any; level?: number }> = [];
   let current: { title: string; doc: { type: "doc"; content: any[] }; level?: number } = {
@@ -118,8 +138,7 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
   const userClient = createClient(SUPABASE_URL, ANON_KEY, {
@@ -128,97 +147,132 @@ Deno.serve(async (req) => {
   const { data: userRes, error: userErr } = await userClient.auth.getUser();
   if (userErr || !userRes?.user) {
     return new Response(JSON.stringify({ error: "invalid_jwt" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
   const user = userRes.user;
 
   let body: Body;
-  try {
-    body = await req.json();
-  } catch {
+  try { body = await req.json(); }
+  catch {
     return new Response(JSON.stringify({ error: "invalid_json" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
   if (!body?.ast || body.ast.type !== "doc" || !Array.isArray(body.ast.content)) {
     return new Response(JSON.stringify({ error: "invalid_ast" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
   const sourceName = body.meta?.sourceFileName ?? "Word document";
-  const wordTitle = body.meta?.metadata?.title?.trim();
-  const wordSubtitle = body.meta?.metadata?.subtitle?.trim();
+  const metaIn = body.meta?.metadata ?? {};
+  const wordTitle = metaIn.title?.trim();
   const baseTitle = wordTitle || sourceName.replace(/\.docx$/i, "").trim() || "کتاب جدید";
 
-  const { data: inserted, error: insertErr } = await admin
-    .from("books")
-    .insert({
-      title: baseTitle,
-      subtitle: wordSubtitle || null,
-      author: "نامشخص",
-      publisher_id: user.id,
-      status: "draft",
-      pages: [],
-    })
-    .select("id")
-    .single();
+  // Author display (legacy `author` column on books) from contributors
+  const firstAuthor = (metaIn.contributors ?? []).find(
+    (c) => (c.role === "author" || c.role === "coauthor") && c.name?.trim(),
+  );
+  const authorDisplay = firstAuthor?.name?.trim() || "نامشخص";
 
-  if (insertErr || !inserted) {
-    return new Response(
-      JSON.stringify({ error: "create_book_failed", detail: insertErr?.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  // Verify replaceBookId ownership when present
+  let bookId: string;
+  if (body.replaceBookId) {
+    const { data: existing, error: chkErr } = await admin
+      .from("books")
+      .select("id, publisher_id")
+      .eq("id", body.replaceBookId)
+      .maybeSingle();
+    if (chkErr || !existing) {
+      return new Response(JSON.stringify({ error: "book_not_found" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (existing.publisher_id && existing.publisher_id !== user.id) {
+      return new Response(JSON.stringify({ error: "forbidden" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    bookId = body.replaceBookId;
+  } else {
+    const { data: inserted, error: insertErr } = await admin
+      .from("books")
+      .insert({
+        title: baseTitle,
+        subtitle: metaIn.subtitle?.trim() || null,
+        author: authorDisplay,
+        publisher_id: user.id,
+        status: "draft",
+        description: metaIn.description ?? null,
+        metadata: metaIn as any,
+        pages: [],
+      })
+      .select("id")
+      .single();
+    if (insertErr || !inserted) {
+      return new Response(
+        JSON.stringify({ error: "create_book_failed", detail: insertErr?.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    bookId = inserted.id;
+
+    // Add to owner's library (idempotent)
+    await admin.from("user_books").upsert(
+      { user_id: user.id, book_id: bookId, acquired_via: "publisher" },
+      { onConflict: "user_id,book_id" },
     );
   }
 
-  const bookId: string = inserted.id;
-  const folder = `${user.id}/${bookId}/word-addin`;
-
+  // Build url map: prefer mediaUrlMap; for legacy media[], upload then map.
   const urlMap = new Map<string, string>();
   let uploaded = 0;
   let uploadFailed = 0;
-  for (const m of body.media ?? []) {
-    try {
-      const ext = extOf(m.name, m.contentType);
-      const key = `${folder}/${m.name.replace(/[^A-Za-z0-9._-]/g, "_")}`;
-      const bytes = b64ToBytes(m.base64);
-      const up = await admin.storage.from("book-media").upload(key, bytes, {
-        contentType: m.contentType,
-        upsert: true,
-      });
-      if (up.error) {
-        uploadFailed++;
-        console.warn("upload failed for", m.name, up.error);
-        continue;
-      }
-      const pub = admin.storage.from("book-media").getPublicUrl(key);
-      urlMap.set(m.name, pub.data.publicUrl);
-      uploaded++;
-      void ext;
-    } catch (e) {
-      uploadFailed++;
-      console.warn("upload threw for", m.name, e);
+  if (body.mediaUrlMap) {
+    for (const [k, v] of Object.entries(body.mediaUrlMap)) {
+      if (typeof v === "string") urlMap.set(k, v);
+    }
+  }
+  if (body.media?.length) {
+    const folder = `${user.id}/${bookId}/word-addin`;
+    for (const m of body.media) {
+      try {
+        const ext = extOf(m.name, m.contentType);
+        const key = `${folder}/${m.name.replace(/[^A-Za-z0-9._-]/g, "_")}`;
+        const bytes = b64ToBytes(m.base64);
+        const up = await admin.storage.from("book-media").upload(key, bytes, {
+          contentType: m.contentType, upsert: true,
+        });
+        if (up.error) { uploadFailed++; continue; }
+        const pub = admin.storage.from("book-media").getPublicUrl(key);
+        urlMap.set(m.name, pub.data.publicUrl);
+        uploaded++;
+        void ext;
+      } catch { uploadFailed++; }
     }
   }
 
   const { imagesReplaced, imagesMissing } = replaceMediaUrls(body.ast, urlMap);
   const pages = splitIntoPages(body.ast);
 
-  const { error: updateErr } = await admin
-    .from("books")
-    .update({
-      pages,
-      content_version: 1,
-      content_updated_at: new Date().toISOString(),
-    })
-    .eq("id", bookId);
+  const updatePayload: Record<string, unknown> = {
+    pages,
+    content_version: 1,
+    content_updated_at: new Date().toISOString(),
+  };
+  if (body.replaceBookId) {
+    // On re-convert, also refresh title/subtitle/metadata if user changed them
+    updatePayload.title = baseTitle;
+    updatePayload.subtitle = metaIn.subtitle?.trim() || null;
+    updatePayload.author = authorDisplay;
+    updatePayload.description = metaIn.description ?? null;
+    updatePayload.metadata = metaIn as any;
+  }
 
+  const { error: updateErr } = await admin.from("books").update(updatePayload).eq("id", bookId);
   if (updateErr) {
     return new Response(
       JSON.stringify({ error: "save_pages_failed", detail: updateErr.message, bookId }),
@@ -234,6 +288,8 @@ Deno.serve(async (req) => {
       mediaFailed: uploadFailed,
       imagesReplaced,
       imagesMissing,
+      printStartPage: body.meta?.printStartPage ?? 1,
+      mode: body.replaceBookId ? "replace" : "create",
     }),
     { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
   );
