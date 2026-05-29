@@ -227,7 +227,11 @@ const Upload = () => {
   };
 
   /* -------- validation re-runs whenever inputs change -------- */
-  const toc = useMemo(() => local ? buildToc(local.prep.doc) : [], [local]);
+  const toc = useMemo(
+    () => (local ? buildTocLive(local.prep.doc, customHeadings) : []),
+    [local, customHeadings],
+  );
+
   useEffect(() => {
     if (!local) return;
     const effectiveStart = typeof printStartPage === "number" ? printStartPage : 1;
