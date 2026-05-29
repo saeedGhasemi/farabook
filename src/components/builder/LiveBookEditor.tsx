@@ -2264,6 +2264,12 @@ const Inspector = ({
             }}
             className="text-xs h-9"
           />
+          <BookImagePicker
+            bookImages={bookImages}
+            excludeSrcs={new Set(block.images)}
+            onPick={(chosen) => onUpdate({ images: [...block.images, ...chosen.map((c) => c.src)] } as any)}
+            lang={lang}
+          />
           {block.images.length > 0 && (
             <div className="grid grid-cols-3 gap-1.5">
               {block.images.map((src, idx) => (
