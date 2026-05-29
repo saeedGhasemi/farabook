@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, Check, X, ChevronRight, ChevronDown } from "lucide-react";
+import { BookOpen, Check, X, ChevronRight, ChevronDown, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
 interface ChapterItem {
@@ -62,6 +62,15 @@ export const ChapterSidebar = ({ chapters, current, onSelect, onClose, variant =
 
   const hasChildren = (i: number) => subtreeEnd(i) > i + 1;
 
+  const collapseAll = () => {
+    const next = new Set<number>();
+    for (let i = 0; i < chapters.length; i += 1) {
+      if (subtreeEnd(i) > i + 1) next.add(i);
+    }
+    setCollapsed(next);
+  };
+  const expandAll = () => setCollapsed(new Set());
+
   return (
     <aside
       className={
@@ -70,24 +79,42 @@ export const ChapterSidebar = ({ chapters, current, onSelect, onClose, variant =
           : "h-full w-full p-4 flex flex-col bg-transparent"
       }
     >
-      <header className="flex items-center justify-between px-2 py-2 mb-2">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-warm flex items-center justify-center text-primary-foreground">
+      <header className="flex items-center justify-between px-2 py-2 mb-2 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-gradient-warm flex items-center justify-center text-primary-foreground shrink-0">
             <BookOpen className="w-4 h-4" />
           </div>
-          <h3 className="font-display font-bold text-sm">
+          <h3 className="font-display font-bold text-sm truncate">
             {lang === "fa" ? "فهرست فصل‌ها" : "Chapters"}
           </h3>
         </div>
-        {onClose && (
+        <div className="flex items-center gap-1 shrink-0">
           <button
-            onClick={onClose}
-            className="md:hidden w-8 h-8 rounded-full hover:bg-foreground/10 flex items-center justify-center"
-            aria-label="close"
+            onClick={collapseAll}
+            className="w-8 h-8 rounded-full hover:bg-foreground/10 flex items-center justify-center text-muted-foreground hover:text-foreground"
+            aria-label={lang === "fa" ? "بستن همه" : "Collapse all"}
+            title={lang === "fa" ? "بستن همه" : "Collapse all"}
           >
-            <X className="w-4 h-4" />
+            <ChevronsDownUp className="w-4 h-4" />
           </button>
-        )}
+          <button
+            onClick={expandAll}
+            className="w-8 h-8 rounded-full hover:bg-foreground/10 flex items-center justify-center text-muted-foreground hover:text-foreground"
+            aria-label={lang === "fa" ? "باز کردن همه" : "Expand all"}
+            title={lang === "fa" ? "باز کردن همه" : "Expand all"}
+          >
+            <ChevronsUpDown className="w-4 h-4" />
+          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="md:hidden w-8 h-8 rounded-full hover:bg-foreground/10 flex items-center justify-center"
+              aria-label="close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin pe-1">

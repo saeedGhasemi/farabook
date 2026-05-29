@@ -24,6 +24,7 @@ import {
   Undo2, Redo2, X, ArrowLeftRight, ChevronsLeft, ChevronsRight, Scissors,
   Eraser, Info, Combine, ListTree, FunctionSquare,
   ChevronRight, ChevronDown, ArrowUp, ArrowDown, IndentIncrease, IndentDecrease,
+  ChevronsDownUp, ChevronsUpDown,
 } from "lucide-react";
 import { ChapterTocDialog } from "./ChapterTocDialog";
 import { isAutoPageTitle } from "@/lib/page-title";
@@ -535,6 +536,18 @@ export const TextBookEditor = ({ initial }: Props) => {
     (idx: number) => subtreeEnd(pages, idx) > idx + 1,
     [pages, subtreeEnd],
   );
+
+  const collapseAllChapters = useCallback(() => {
+    const next = new Set<number>();
+    for (let i = 0; i < pages.length; i += 1) {
+      if (subtreeEnd(pages, i) > i + 1) next.add(i);
+    }
+    setCollapsedSet(next);
+  }, [pages, subtreeEnd]);
+
+  const expandAllChapters = useCallback(() => {
+    setCollapsedSet(new Set());
+  }, []);
 
   const indentChapter = (idx: number) => {
     if (idx === 0) {
@@ -1177,6 +1190,24 @@ export const TextBookEditor = ({ initial }: Props) => {
                 </Button>
                 <Button size="sm" variant="ghost" className="h-7 px-2" onClick={addChapter} title={fa ? "افزودن فصل" : "Add chapter"}>
                   <Plus className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={collapseAllChapters}
+                  title={fa ? "بستن همه" : "Collapse all"}
+                >
+                  <ChevronsDownUp className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={expandAllChapters}
+                  title={fa ? "باز کردن همه" : "Expand all"}
+                >
+                  <ChevronsUpDown className="w-3.5 h-3.5" />
                 </Button>
                 <Button
                   size="icon"
