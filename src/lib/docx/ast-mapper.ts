@@ -208,7 +208,7 @@ function parseStyles(stylesXml: any | null): Map<string, StyleInfo> {
     info.isTitle = /^(title|book\s*title|عنوان|عنوان\s*کتاب)$/i.test((info.name ?? id).trim());
     info.isSubtitle = /^(subtitle|sub\s*title|زیر\s*عنوان|زیرعنوان)$/i.test((info.name ?? id).trim());
     if (m) {
-      const lv = Math.min(3, Math.max(1, Number(m[1]))) as 1 | 2 | 3;
+      const lv = Math.min(8, Math.max(1, Number(m[1]))) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
       info.isHeading = true;
       info.headingLevel = lv;
     }
