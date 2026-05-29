@@ -525,12 +525,10 @@ const Upload = () => {
                 onEditHeading={editHeading}
                 onDeleteHeading={deleteHeading}
               />
-              {customHeadings.length > 0 && (
-                <Button variant="secondary" size="sm" onClick={reanalyzeWithCustomHeading}>
-                  <RotateCcw className="h-3.5 w-3.5 me-1" />
-                  اعمال Styleهای سفارشی و تحلیل مجدد
-                </Button>
-              )}
+              <p className="text-[11px] text-muted-foreground">
+                فهرست بالا با تغییر Styleهای سفارشی به‌صورت زنده به‌روزرسانی می‌شود؛ نیازی به تبدیل دوباره نیست.
+              </p>
+
             </CardContent>
           </Card>
 
