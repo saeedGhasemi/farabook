@@ -51,6 +51,7 @@ function bufToBase64(buf: ArrayBuffer | Uint8Array): string {
 
 export default function WordAddin() {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [office, setOffice] = useState<{ ready: boolean; host?: string }>({ ready: false });
   const [busy, setBusy] = useState(false);
   const [prep, setPrep] = useState<PreparedDoc | null>(null);
@@ -72,7 +73,6 @@ export default function WordAddin() {
     return () => { alive = false; };
   }, [user]);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* -------- Office.js bootstrap (lazy, no-op when standalone) -------- */
   useEffect(() => {
