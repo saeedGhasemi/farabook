@@ -355,9 +355,20 @@ const Reader = () => {
     return currentPage.content || "";
   }, [currentPage]);
 
-  const goNext = () => { if (pageIdx < total - 1) { setFlipDir(1); setPageIdx(pageIdx + 1); } };
-  const goPrev = () => { if (pageIdx > 0) { setFlipDir(-1); setPageIdx(pageIdx - 1); } };
+  const goNext = () => {
+    if (coverView === "front") { coverDismissedRef.current = true; setCoverView(null); setFlipDir(1); return; }
+    if (coverView === "back") return;
+    if (pageIdx < total - 1) { setFlipDir(1); setPageIdx(pageIdx + 1); }
+    else { setFlipDir(1); setCoverView("back"); }
+  };
+  const goPrev = () => {
+    if (coverView === "front") return;
+    if (coverView === "back") { setCoverView(null); setFlipDir(-1); return; }
+    if (pageIdx > 0) { setFlipDir(-1); setPageIdx(pageIdx - 1); }
+    else { setFlipDir(-1); setCoverView("front"); }
+  };
   const goTo = (i: number) => {
+    if (coverView !== null) setCoverView(null);
     if (i === pageIdx) return;
     setFlipDir(i > pageIdx ? 1 : -1);
     setPageIdx(i);
