@@ -88,6 +88,15 @@ function getText(nodes: PNode[]): string {
   return normalizePersianHalfSpaces(out);
 }
 
+function attrLoose(node: PNode, name: string): string | undefined {
+  const exact = attr(node, name);
+  if (exact !== undefined) return exact;
+  const at = node?.[":@"];
+  if (!at) return undefined;
+  const local = name.includes(":") ? name.split(":").pop() : name;
+  return at[`@_${local}`] ?? at[`@_w:${local}`] ?? at[`@_m:${local}`];
+}
+
 const PERSIAN_ARABIC_CLASS = "\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF\\uFB50-\\uFDFF\\uFE70-\\uFEFF";
 
 function normalizePersianHalfSpaces(value: string): string {
@@ -148,18 +157,18 @@ function parseStyles(stylesXml: any | null): Map<string, StyleInfo> {
   if (!root) return map;
   for (const child of kidsOf(root, "w:styles")) {
     if (tagOf(child) !== "w:style") continue;
-    const id = attr(child, "w:styleId") ?? "";
+      const id = attrLoose(child, "w:styleId") ?? "";
     if (!id) continue;
     const info: StyleInfo = { id };
     for (const sc of kidsOf(child, "w:style")) {
       const t = tagOf(sc);
-      if (t === "w:name") info.name = attr(sc, "w:val");
-      else if (t === "w:basedOn") info.basedOn = attr(sc, "w:val");
+      if (t === "w:name") info.name = attrLoose(sc, "w:val");
+      else if (t === "w:basedOn") info.basedOn = attrLoose(sc, "w:val");
       else if (t === "w:pPr") {
         for (const pp of kidsOf(sc, "w:pPr")) {
           const tt = tagOf(pp);
           if (tt === "w:outlineLvl") {
-            const v = Number(attr(pp, "w:val"));
+            const v = Number(attrLoose(pp, "w:val"));
             if (Number.isFinite(v)) info.outlineLevel = v;
           }
         }
@@ -167,20 +176,20 @@ function parseStyles(stylesXml: any | null): Map<string, StyleInfo> {
         for (const rp of kidsOf(sc, "w:rPr")) {
           const tt = tagOf(rp);
           if (tt === "w:sz") {
-            const v = Number(attr(rp, "w:val"));
+            const v = Number(attrLoose(rp, "w:val"));
             if (Number.isFinite(v)) info.fontSizeHalfPt = v;
           } else if (tt === "w:b") {
-            const v = attr(rp, "w:val");
+            const v = attrLoose(rp, "w:val");
             info.bold = v !== "0" && v !== "false";
           } else if (tt === "w:i") {
-            const v = attr(rp, "w:val");
+            const v = attrLoose(rp, "w:val");
             info.italic = v !== "0" && v !== "false";
           } else if (tt === "w:vertAlign") {
-            const v = attr(rp, "w:val");
+            const v = attrLoose(rp, "w:val");
             if (v === "superscript") info.vertAlign = "superscript";
             else if (v === "subscript") info.vertAlign = "subscript";
           } else if (tt === "w:position") {
-            const v = Number(attr(rp, "w:val"));
+            const v = Number(attrLoose(rp, "w:val"));
             if (Number.isFinite(v)) {
               info.positionHalfPt = v;
               if (!info.vertAlign && v > 0) info.vertAlign = "superscript";
