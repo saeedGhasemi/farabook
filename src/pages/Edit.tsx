@@ -144,6 +144,16 @@ const Edit = () => {
           <span className="hidden sm:inline">{lang === "fa" ? "پیش‌نمایش فروشگاه" : "Store preview"}</span>
         </Button>
         <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5"
+          onClick={() => id && nav(`/upload?reconvert=${id}`)}
+          title={lang === "fa" ? "تبدیل مجدد از فایل ورد" : "Re-convert from Word"}
+        >
+          <RefreshCw className="w-4 h-4" />
+          <span className="hidden md:inline">{lang === "fa" ? "تبدیل مجدد" : "Re-convert"}</span>
+        </Button>
+        <Button
           size="sm"
           className="h-8 gap-1.5 bg-stage-pricing text-stage-pricing-foreground hover:bg-stage-pricing/90"
           onClick={() => id && nav(`/publish/${id}`)}
