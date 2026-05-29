@@ -103,6 +103,32 @@ function replaceMediaUrls(
   return { imagesReplaced: replaced, imagesMissing: missing };
 }
 
+/** Shift every existing `print_page` node by the offset that aligns the first
+ *  marker with `startPage`. If no markers exist but startPage > 0, insert a
+ *  single marker at the very beginning so the reader at least shows the
+ *  starting page label. */
+function applyPrintStartPage(ast: { content: any[] }, startPage: number): void {
+  if (!startPage || startPage < 1) return;
+  const markers: any[] = [];
+  for (const n of ast.content ?? []) {
+    if (n?.type === "print_page") markers.push(n);
+  }
+  if (markers.length === 0) {
+    ast.content.unshift({ type: "print_page", attrs: { number: String(startPage) } });
+    return;
+  }
+  const firstNum = Number(markers[0]?.attrs?.number);
+  const base = Number.isFinite(firstNum) ? firstNum : 1;
+  const offset = startPage - base;
+  if (offset === 0) return;
+  for (const n of markers) {
+    const cur = Number(n.attrs?.number);
+    if (Number.isFinite(cur)) {
+      n.attrs = { ...(n.attrs ?? {}), number: String(cur + offset) };
+    }
+  }
+}
+
 /** Splits the doc into pages, breaking before every heading (H1..H8) so
  *  the full chapter tree is visible in the editor sidebar, not just H1/H2. */
 function splitIntoPages(ast: { content: any[] }): Array<{ title: string; doc: any; level?: number }> {
