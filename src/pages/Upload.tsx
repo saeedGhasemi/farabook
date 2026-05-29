@@ -557,6 +557,9 @@ const Upload = () => {
                 availableStyleNames={local.prep.diagnostics.paragraphStyles
                   .map((s) => s.name || s.id)
                   .filter(Boolean) as string[]}
+                excludedStyles={excludedStyles}
+                onExcludedStylesChange={setExcludedStyles}
+                detectedFromTocField={local.prep.diagnostics.tocFieldStyles}
                 onEditHeading={editHeading}
                 onDeleteHeading={deleteHeading}
               />
