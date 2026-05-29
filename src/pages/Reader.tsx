@@ -1251,9 +1251,21 @@ const Reader = () => {
                 <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-gradient-warm flex items-center justify-center text-primary-foreground shadow-glow"><Search className="w-5 h-5" /></div><h3 className="font-display font-bold">{lang === "fa" ? "جستجوی قوی" : "Power search"}</h3></div>
                 <button onClick={() => setSearchOpen(false)} className="w-9 h-9 rounded-full hover:bg-foreground/10 flex items-center justify-center" aria-label="close"><X className="w-4 h-4" /></button>
               </header>
-              <div className="p-4 border-b border-border/30"><Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={lang === "fa" ? "جستجو در متن، فصل و مدیا..." : "Search text, chapters, media..."} className="glass h-11" /></div>
+              <div className="p-4 border-b border-border/30"><Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={lang === "fa" ? "جستجو در متن، فصل، مدیا یا شمارهٔ صفحهٔ چاپی…" : "Search text, chapters, media, or print page #…"} className="glass h-11" /></div>
               <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-3">
-                {searchResults.map((result) => (
+                {searchResults.map((result) => result.printPage ? (
+                  <button key={`pp-${result.pageIndex}-${result.blockIndex}`} onClick={() => openSearchResult(result)} className="w-full text-start p-3 rounded-2xl border border-accent/40 bg-gradient-to-br from-accent/10 to-transparent hover:border-accent hover:shadow-glow transition-all flex gap-3 items-center">
+                    <div className="w-16 h-16 rounded-xl bg-gradient-warm flex flex-col items-center justify-center text-primary-foreground shrink-0 shadow-glow">
+                      <span className="text-[9px] font-medium leading-none opacity-90">{lang === "fa" ? "چاپی" : "Print"}</span>
+                      <span className="text-xl font-bold tabular-nums leading-tight mt-0.5">{result.printPage}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-accent mb-1">{lang === "fa" ? "صفحهٔ کتاب" : "Book page"} {result.pageIndex + 1}</p>
+                      <h4 className="font-semibold text-sm line-clamp-1">{result.title}</h4>
+                      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mt-1">{result.excerpt}</p>
+                    </div>
+                  </button>
+                ) : (
                   <button key={`${result.pageIndex}-${result.blockIndex}`} onClick={() => openSearchResult(result)} className="w-full text-start p-3 rounded-2xl glass border border-glass-border hover:border-accent/50 hover:shadow-paper transition-all flex gap-3">
                     <div className="w-20 h-20 rounded-xl overflow-hidden bg-foreground/5 shrink-0 flex items-center justify-center">
                       {result.mediaSrc ? <img src={resolveBookMedia(result.mediaSrc)} alt={result.mediaCaption || result.title} className="w-full h-full object-cover" /> : <ImageIcon className="w-6 h-6 text-muted-foreground" />}
