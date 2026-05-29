@@ -158,19 +158,19 @@ const BLOCK_PALETTE: { kind: BlockDraft["kind"]; icon: any }[] = [
  * reuse them in galleries/slideshows without re-uploading. Deduplicated by
  * src, in document order.
  */
-const collectBookImages = (pages: PageDraft[]): { src: string; caption?: string }[] => {
+const collectBookImages = (pages: PageDraft[]): { src: string; caption?: string; pageIdx: number }[] => {
   const seen = new Set<string>();
-  const out: { src: string; caption?: string }[] = [];
-  const push = (src?: string, caption?: string) => {
+  const out: { src: string; caption?: string; pageIdx: number }[] = [];
+  const push = (pageIdx: number, src?: string, caption?: string) => {
     if (!src || seen.has(src)) return;
     seen.add(src);
-    out.push({ src, caption });
+    out.push({ src, caption, pageIdx });
   };
-  pages.forEach((p) => {
+  pages.forEach((p, pi) => {
     p.blocks.forEach((b: any) => {
-      if (b.kind === "image") push(b.src, b.caption);
-      else if (b.kind === "gallery") (b.images || []).forEach((s: string) => push(s, b.caption));
-      else if (b.kind === "slideshow") (b.images || []).forEach((it: any) => push(it?.src, it?.caption));
+      if (b.kind === "image") push(pi, b.src, b.caption);
+      else if (b.kind === "gallery") (b.images || []).forEach((s: string) => push(pi, s, b.caption));
+      else if (b.kind === "slideshow") (b.images || []).forEach((it: any) => push(pi, it?.src, it?.caption));
     });
   });
   return out;
@@ -1121,6 +1121,7 @@ export const LiveBookEditor = ({ initial, onCreated }: Props) => {
                     }
                     uploadFile={uploadToBucket}
                     bookImages={bookImages}
+                    currentPageIdx={activePageIdx}
                     lang={lang}
                   />
                 ) : (
@@ -1926,17 +1927,55 @@ const HotspotEditor = ({
 /* ------------------------------------------------------------------ */
 
 const BookImagePicker = ({
-  bookImages, excludeSrcs, onPick, lang,
+  bookImages, excludeSrcs, onPick, lang, currentPageIdx,
 }: {
-  bookImages: { src: string; caption?: string }[];
+  bookImages: { src: string; caption?: string; pageIdx?: number }[];
   excludeSrcs: Set<string>;
   onPick: (chosen: { src: string; caption?: string }[]) => void;
   lang: "fa" | "en";
+  /** Page where the interactive block lives. Images from this page (and
+   *  adjacent pages) are surfaced first so the user usually sees the
+   *  relevant images at the top of the picker. */
+  currentPageIdx?: number;
 }) => {
   const fa = lang === "fa";
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const available = bookImages.filter((i) => !excludeSrcs.has(i.src));
+  const [scope, setScope] = useState<"nearby" | "all">("nearby");
+
+  const availableAll = useMemo(
+    () => bookImages.filter((i) => !excludeSrcs.has(i.src)),
+    [bookImages, excludeSrcs],
+  );
+
+  // Sort by distance to currentPageIdx (closer = first). Stable order for
+  // equal distance preserves original document order.
+  const sorted = useMemo(() => {
+    if (currentPageIdx == null) return availableAll;
+    return [...availableAll]
+      .map((it, idx) => ({
+        it,
+        idx,
+        dist: typeof it.pageIdx === "number" ? Math.abs(it.pageIdx - currentPageIdx) : 9999,
+      }))
+      .sort((a, b) => a.dist - b.dist || a.idx - b.idx)
+      .map((x) => x.it);
+  }, [availableAll, currentPageIdx]);
+
+  const samePageCount = useMemo(
+    () => (currentPageIdx == null ? 0 : availableAll.filter((i) => i.pageIdx === currentPageIdx).length),
+    [availableAll, currentPageIdx],
+  );
+
+  const visible = useMemo(() => {
+    if (scope === "all" || currentPageIdx == null) return sorted;
+    // Nearby = same page + 2 pages on either side. If no nearby images,
+    // fall back to showing everything so the picker is never empty.
+    const filtered = sorted.filter(
+      (i) => typeof i.pageIdx === "number" && Math.abs((i.pageIdx as number) - currentPageIdx) <= 2,
+    );
+    return filtered.length ? filtered : sorted;
+  }, [sorted, scope, currentPageIdx]);
 
   const toggle = (src: string) => {
     setPicked((s) => {
@@ -1947,7 +1986,7 @@ const BookImagePicker = ({
   };
 
   const confirm = () => {
-    const chosen = available.filter((i) => picked.has(i.src));
+    const chosen = sorted.filter((i) => picked.has(i.src));
     if (chosen.length) onPick(chosen);
     setPicked(new Set());
     setOpen(false);
@@ -1965,7 +2004,7 @@ const BookImagePicker = ({
         onClick={() => setOpen(true)}
       >
         <Images className="w-3.5 h-3.5" />
-        {fa ? `انتخاب از تصاویر کتاب (${available.length})` : `Pick from book images (${available.length})`}
+        {fa ? `انتخاب از تصاویر کتاب (${availableAll.length})` : `Pick from book images (${availableAll.length})`}
       </Button>
 
       {open && (
@@ -1988,14 +2027,44 @@ const BookImagePicker = ({
                 <X className="w-4 h-4" />
               </button>
             </div>
+            {currentPageIdx != null && availableAll.length > 0 && (
+              <div className="px-3 pt-2 flex items-center gap-1.5 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setScope("nearby")}
+                  className={`px-2 py-1 rounded-md border transition ${
+                    scope === "nearby"
+                      ? "bg-accent text-accent-foreground border-accent"
+                      : "bg-background hover:bg-foreground/5 border-border"
+                  }`}
+                >
+                  {fa ? `همین بخش (${samePageCount})` : `This section (${samePageCount})`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScope("all")}
+                  className={`px-2 py-1 rounded-md border transition ${
+                    scope === "all"
+                      ? "bg-accent text-accent-foreground border-accent"
+                      : "bg-background hover:bg-foreground/5 border-border"
+                  }`}
+                >
+                  {fa ? `همهٔ کتاب (${availableAll.length})` : `Whole book (${availableAll.length})`}
+                </button>
+                <span className="text-muted-foreground ms-auto">
+                  {fa ? "تصاویر همین بخش اول می‌آیند" : "Same-section images shown first"}
+                </span>
+              </div>
+            )}
             <ScrollArea className="flex-1">
               <div className="p-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                {available.length === 0 ? (
+                {visible.length === 0 ? (
                   <p className="col-span-full text-xs text-muted-foreground text-center py-8">
                     {fa ? "تصویر بدون تکراری برای افزودن وجود ندارد." : "No more unique book images to add."}
                   </p>
-                ) : available.map((img) => {
+                ) : visible.map((img) => {
                   const isOn = picked.has(img.src);
+                  const samePage = currentPageIdx != null && img.pageIdx === currentPageIdx;
                   return (
                     <button
                       key={img.src}
@@ -2006,6 +2075,11 @@ const BookImagePicker = ({
                       }`}
                     >
                       <img src={img.src} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      {samePage && (
+                        <div className="absolute top-1 start-1 px-1 rounded-sm bg-primary/85 text-primary-foreground text-[9px] font-medium">
+                          {fa ? "همین بخش" : "Here"}
+                        </div>
+                      )}
                       {isOn && (
                         <div className="absolute top-1 end-1 w-5 h-5 rounded-full bg-accent text-accent-foreground text-[10px] font-bold flex items-center justify-center">
                           ✓
@@ -2042,15 +2116,16 @@ const BookImagePicker = ({
 
 
 const Inspector = ({
-  block, onUpdate, onReplace, onSplit, uploadFile, bookImages, lang,
+  block, onUpdate, onReplace, onSplit, uploadFile, bookImages, lang, currentPageIdx,
 }: {
   block: BlockDraft;
   onUpdate: (patch: Partial<BlockDraft>) => void;
   onReplace: (next: BlockDraft) => void;
   onSplit?: () => void;
   uploadFile: (f: File, prefix?: string) => Promise<string | null>;
-  bookImages: { src: string; caption?: string }[];
+  bookImages: { src: string; caption?: string; pageIdx?: number }[];
   lang: "fa" | "en";
+  currentPageIdx?: number;
 }) => {
   const fa = lang === "fa";
   const [uploading, setUploading] = useState(false);
@@ -2269,6 +2344,7 @@ const Inspector = ({
             excludeSrcs={new Set(block.images)}
             onPick={(chosen) => onUpdate({ images: [...block.images, ...chosen.map((c) => c.src)] } as any)}
             lang={lang}
+            currentPageIdx={currentPageIdx}
           />
           {block.images.length > 0 && (
             <div className="grid grid-cols-3 gap-1.5">
@@ -2339,6 +2415,7 @@ const Inspector = ({
               images: [...block.images, ...chosen.map((c) => ({ src: c.src, caption: c.caption || "" }))],
             } as any)}
             lang={lang}
+            currentPageIdx={currentPageIdx}
           />
 
 
