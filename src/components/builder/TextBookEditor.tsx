@@ -1195,6 +1195,24 @@ export const TextBookEditor = ({ initial }: Props) => {
                   size="icon"
                   variant="ghost"
                   className="h-7 w-7"
+                  onClick={collapseAllChapters}
+                  title={fa ? "بستن همه" : "Collapse all"}
+                >
+                  <ChevronsDownUp className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={expandAllChapters}
+                  title={fa ? "باز کردن همه" : "Expand all"}
+                >
+                  <ChevronsUpDown className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
                   onClick={() => setChaptersCollapsed(true)}
                   title={fa ? "جمع کردن" : "Collapse"}
                 >
