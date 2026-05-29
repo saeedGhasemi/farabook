@@ -439,9 +439,23 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
     const parts = token.split(breakRe);
     for (let i = 0; i < parts.length; i += 1) {
       const part = parts[i];
-      const text = textFromWordXml(part);
-      const notes = [...part.matchAll(/<w:(footnoteReference|endnoteReference)\b[^>]*(?:w:)?id=["']([^"']+)["'][^>]*\/>/gi)]
-        .map((nm) => ({ kind: nm[1] === "footnoteReference" ? "footnote" as const : "endnote" as const, id: nm[2] }));
+      // Inject inline footnote markers BEFORE extracting text. Replace each
+      // <w:footnoteReference w:id="X"/> with a synthetic <w:t>[fn=ENCODED]X[/fn]</w:t>
+      // run so textFromWordXml picks it up at the right inline position.
+      // The reader parses [fn=...] into a clickable red superscript with a
+      // popover containing the footnote body.
+      const partWithNotes = part.replace(
+        /<w:(footnoteReference|endnoteReference)\b[^>]*(?:w:)?id=["']([^"']+)["'][^>]*\/>/gi,
+        (_full, tag: string, id: string) => {
+          const kind = tag === "footnoteReference" ? "footnote" as const : "endnote" as const;
+          const body = noteText(kind, id);
+          const enc = encodeURIComponent(body || "");
+          // Escape XML special chars in the bracketed payload.
+          const safeId = String(id).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          return `<w:r><w:t xml:space="preserve">[fn=${enc}]${safeId}[/fn]</w:t></w:r>`;
+        },
+      );
+      const text = textFromWordXml(partWithNotes);
       if (text) {
         // Heading-based new-page promotion only when we don't have rendered
         // page breaks — otherwise real pagination already drives splits.
@@ -451,15 +465,6 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
         } else {
           ensureRoom();
           cur.blocks.push(level ? { type: "heading", level: Math.min(level, 3), text } : { type: "paragraph", text });
-          // Lift first real text into an auto-titled page so the chapter
-          // sidebar shows something meaningful instead of "صفحه N".
-          if (false && /^صفحه\s+\d+\s*$/.test(cur.title) && cur.blocks.length === 1) {
-            cur.title = text.slice(0, 120);
-          }
-        }
-        for (const n of notes) {
-          const nt = noteText(n.kind, n.id);
-          if (nt) cur.blocks.push({ type: "paragraph", text: `${n.id}. ${nt}` });
         }
       }
       // A page break sits between this part and the next. We always emit a
