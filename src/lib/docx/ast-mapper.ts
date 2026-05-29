@@ -1251,6 +1251,7 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle, opts: MapOptions = {}): MapRe
       footnotesDetected: seenNote.size,
       cleanedMarker: bundle.hasCleanedMarker,
       paragraphStyles,
+      tocFieldStyles: extractTocFieldStyles(bundle.rawDocXml),
     },
   };
 }
