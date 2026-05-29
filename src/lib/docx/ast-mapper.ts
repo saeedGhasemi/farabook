@@ -225,28 +225,22 @@ function detectDir(text: string, bidi: boolean | undefined): "rtl" | "ltr" {
   let r = 0;
   let l = 0;
   for (const ch of text) {
-    if (RTL_RE.test(ch)) r++;
-    else if (LTR_RE.test(ch)) l++;
-  }
-  return r >= l ? "rtl" : "ltr";
-}
-
-/* ------------------------------------------------------------------ */
-/* Run → TextNode[]                                                    */
-/* ------------------------------------------------------------------ */
-
-interface RunFormat {
-  bold?: boolean;
-  italic?: boolean;
-  underline?: boolean;
-  vertAlign?: "superscript" | "subscript";
-  color?: string;
-  fontSizeHalfPt?: number;
-}
-
-function parseRunProps(rPr: PNode | null): RunFormat {
+function parseRunProps(rPr: PNode | null, styles?: Map<string, StyleInfo>): RunFormat {
   const out: RunFormat = {};
   if (!rPr) return out;
+  // First, apply rStyle inheritance (so direct props can still override).
+  for (const p of kidsOf(rPr, "w:rPr")) {
+    if (tagOf(p) === "w:rStyle") {
+      const sid = attr(p, "w:val");
+      const s = sid ? styles?.get(sid) : undefined;
+      if (s) {
+        if (s.bold && out.bold === undefined) out.bold = true;
+        if (s.italic && out.italic === undefined) out.italic = true;
+        if (s.vertAlign && !out.vertAlign) out.vertAlign = s.vertAlign;
+        if (s.fontSizeHalfPt && out.fontSizeHalfPt === undefined) out.fontSizeHalfPt = s.fontSizeHalfPt;
+      }
+    }
+  }
   for (const p of kidsOf(rPr, "w:rPr")) {
     const t = tagOf(p);
     if (!t) continue;
@@ -254,6 +248,26 @@ function parseRunProps(rPr: PNode | null): RunFormat {
       const v = attr(p, "w:val");
       out.bold = v !== "0" && v !== "false";
     } else if (t === "w:i") {
+      const v = attr(p, "w:val");
+      out.italic = v !== "0" && v !== "false";
+    } else if (t === "w:u") {
+      const v = attr(p, "w:val");
+      out.underline = !!v && v !== "none";
+    } else if (t === "w:vertAlign") {
+      const v = attr(p, "w:val");
+      if (v === "superscript") out.vertAlign = "superscript";
+      else if (v === "subscript") out.vertAlign = "subscript";
+    } else if (t === "w:color") {
+      const v = attr(p, "w:val");
+      if (v && v !== "auto") out.color = "#" + v;
+    } else if (t === "w:sz") {
+      const v = Number(attr(p, "w:val"));
+      if (Number.isFinite(v)) out.fontSizeHalfPt = v;
+    }
+  }
+  return out;
+}
+
       const v = attr(p, "w:val");
       out.italic = v !== "0" && v !== "false";
     } else if (t === "w:u") {
