@@ -731,30 +731,11 @@ export const BlockRenderer = ({ block, fontSize, index, pageIndex = 0, savedHigh
     case "gallery":
       return (
         <motion.figure {...fade} className="my-6">
-          <div className="grid grid-cols-2 gap-3">
-            {block.images.map((img, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4, delay: delay + i * 0.1 }}
-                whileHover={{ scale: 1.02, y: -2 }}
-                className="overflow-hidden rounded-xl book-shadow"
-              >
-                <img
-                  src={resolveImg(img)}
-                  alt=""
-                  loading="lazy"
-                  width={640}
-                  height={384}
-                  className="w-full h-48 object-cover"
-                />
-              </motion.div>
-            ))}
-          </div>
+          <GallerySlideshow images={block.images} />
           {block.caption && <figcaption className="book-figcaption">{block.caption}</figcaption>}
         </motion.figure>
       );
+
 
     case "video": {
       const embed = toVideoEmbed(block.src);
