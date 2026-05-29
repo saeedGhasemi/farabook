@@ -339,6 +339,11 @@ const legacyBlockToNodes = (b: any): DocNode[] => {
           steps: Array.isArray(b.steps) ? b.steps : [],
         },
       }];
+    case "print_page":
+      return [{
+        type: "print_page",
+        attrs: { number: String(b.number ?? "") },
+      }];
     case "list": {
       const ordered = b.ordered === true || b.style === "ordered";
       const items: string[] = Array.isArray(b.items) ? b.items.map((x: any) => String(x ?? "")) : [];
