@@ -538,26 +538,51 @@ const Upload = () => {
         </div>
       )}
 
-      {stage === "uploading" && (
-        <Card>
-          <CardContent className="py-10 space-y-4">
-            <div className="text-center space-y-2">
-              <Loader2 className="h-7 w-7 animate-spin text-primary mx-auto" />
-              <p className="text-sm font-medium">{uploadPhase}</p>
-            </div>
-            <Progress value={uploadPct} />
-            <p className="text-center text-xs text-muted-foreground tabular-nums">{uploadPct}٪</p>
-          </CardContent>
-        </Card>
-      )}
+      {(stage === "uploading" || stage === "done") && (
+        <div className="space-y-4">
+          <Card>
+            <CardContent className="py-6 space-y-4">
+              <div className="text-center space-y-2">
+                {stage === "done" ? (
+                  <CheckCircle2 className="h-8 w-8 text-emerald-600 mx-auto" />
+                ) : (
+                  <Loader2 className="h-7 w-7 animate-spin text-primary mx-auto" />
+                )}
+                <p className="text-sm font-medium">
+                  {stage === "done" ? "آپلود کامل شد" : uploadPhase}
+                </p>
+              </div>
+              <Progress value={uploadPct} />
+              <p className="text-center text-xs text-muted-foreground tabular-nums">{uploadPct}٪</p>
+              {stage === "uploading" && (
+                <p className="text-center text-[11px] text-muted-foreground">
+                  می‌توانید هم‌زمان فرم اطلاعات کتابشناختی زیر را تکمیل کنید؛ پس از پایان آپلود، ذخیره می‌شود.
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
-      {stage === "done" && (
-        <Card>
-          <CardContent className="py-10 text-center space-y-2">
-            <CheckCircle2 className="h-10 w-10 text-emerald-600 mx-auto" />
-            <p className="font-medium">انجام شد — در حال انتقال به ادیتور…</p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">اطلاعات کتابشناختی</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BookMetadataForm value={meta} onChange={setMeta} fa={fa} />
+            </CardContent>
+          </Card>
+
+          {stage === "done" && (
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={saveMetadataAndContinue} disabled={savingMeta} className="flex-1 sm:flex-initial">
+                {savingMeta ? <Loader2 className="h-4 w-4 me-1 animate-spin" /> : <CheckCircle2 className="h-4 w-4 me-1" />}
+                ذخیرهٔ مشخصات و رفتن به ادیتور
+              </Button>
+              <Button variant="outline" onClick={skipMetadata} disabled={savingMeta}>
+                فعلاً رد شو (در ادیتور تکمیل می‌کنم)
+              </Button>
+            </div>
+          )}
+        </div>
       )}
 
       {error && stage !== "uploading" && (
