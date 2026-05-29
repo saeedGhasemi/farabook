@@ -69,6 +69,8 @@ const Upload = () => {
   const [uploadPct, setUploadPct] = useState(0);
   const [uploadPhase, setUploadPhase] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [createdBookId, setCreatedBookId] = useState<string | null>(null);
+  const [savingMeta, setSavingMeta] = useState(false);
   const blobUrlsRef = useRef<string[]>([]);
 
   /* -------- auth gate -------- */
