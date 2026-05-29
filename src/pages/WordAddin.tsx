@@ -51,10 +51,27 @@ function bufToBase64(buf: ArrayBuffer | Uint8Array): string {
 
 export default function WordAddin() {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
   const [office, setOffice] = useState<{ ready: boolean; host?: string }>({ ready: false });
   const [busy, setBusy] = useState(false);
   const [prep, setPrep] = useState<PreparedDoc | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadPhase, setUploadPhase] = useState<string>("");
+  const [profile, setProfile] = useState<{ display_name?: string | null; username?: string | null } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /* -------- Load minimal profile info for the "ارسال به" badge -------- */
+  useEffect(() => {
+    if (!user) { setProfile(null); return; }
+    let alive = true;
+    supabase
+      .from("profiles")
+      .select("display_name, username")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => { if (alive) setProfile(data ?? null); });
+    return () => { alive = false; };
+  }, [user]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* -------- Office.js bootstrap (lazy, no-op when standalone) -------- */
