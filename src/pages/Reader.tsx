@@ -358,7 +358,7 @@ const Reader = () => {
       audioRef.current = null;
     }
     if (ambient === "off") return;
-    const src = ambientSrc[ambient];
+    const src = ambientSrc[ambient] || userAmbient.find((t) => t.id === ambient)?.url;
     if (!src) return;
     const a = new Audio();
     // NOTE: do NOT set crossOrigin — the Pixabay CDN does not return
