@@ -25,7 +25,7 @@ import type {
   ImageNode,
 } from "@/lib/tiptap-doc";
 import type { OoxmlBundle, OoxmlMedia } from "./ooxml-reader";
-import { attr } from "./ooxml-reader";
+import { attr, extractTocFieldStyles } from "./ooxml-reader";
 import { FIG_RE } from "./figure-caption";
 
 /* ------------------------------------------------------------------ */
