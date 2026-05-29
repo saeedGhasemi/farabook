@@ -2344,6 +2344,7 @@ const Inspector = ({
             excludeSrcs={new Set(block.images)}
             onPick={(chosen) => onUpdate({ images: [...block.images, ...chosen.map((c) => c.src)] } as any)}
             lang={lang}
+            currentPageIdx={currentPageIdx}
           />
           {block.images.length > 0 && (
             <div className="grid grid-cols-3 gap-1.5">
