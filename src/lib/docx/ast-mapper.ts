@@ -960,8 +960,12 @@ export interface MapResult {
 }
 
 export interface MapOptions {
-  /** Style ids OR names (case-insensitive) to promote to Heading 1. */
-  customHeadings?: Set<string>;
+  /**
+   * Custom heading styles. Map keys are style ids OR names (case-insensitive),
+   * values are the target heading level (1..8). For backward compatibility,
+   * a plain Set is also accepted and treated as all-level-1.
+   */
+  customHeadings?: Map<string, number> | Set<string>;
 }
 
 
