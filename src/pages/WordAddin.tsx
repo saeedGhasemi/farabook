@@ -173,7 +173,7 @@ export default function WordAddin() {
     await processBuffer(await f.arrayBuffer(), f.name);
   };
 
-  /* -------- Upload to publisher account -------- */
+  /* -------- Upload to publisher account (with real progress) -------- */
   const uploadToPublisher = async () => {
     if (!prep) return;
     if (!user) {
@@ -182,24 +182,60 @@ export default function WordAddin() {
       return;
     }
     setBusy(true);
+    setUploadProgress(0);
+    setUploadPhase("در حال آماده‌سازی فایل…");
     try {
       const media = prep.media.map((m) => ({
         name: m.name,
         contentType: m.contentType,
         base64: bufToBase64(m.bytes),
       }));
-      const { data, error } = await supabase.functions.invoke("word-addin-ingest", {
-        body: {
-          ast: prep.doc,
-          media,
-          meta: {
-            sourceFileName: prep.fileName,
-            diagnostics: prep.diagnostics,
-          },
+      const payload = JSON.stringify({
+        ast: prep.doc,
+        media,
+        meta: {
+          sourceFileName: prep.fileName,
+          diagnostics: prep.diagnostics,
         },
       });
-      if (error) throw error;
-      const bookId = (data as any)?.bookId;
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error("توکن احراز هویت یافت نشد.");
+
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/word-addin-ingest`;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      setUploadPhase("در حال آپلود به حساب شما…");
+      const result = await new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", url);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+        xhr.setRequestHeader("apikey", anonKey);
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 95));
+          }
+        };
+        xhr.upload.onload = () => {
+          setUploadProgress(97);
+          setUploadPhase("در حال پردازش روی سرور…");
+        };
+        xhr.onerror = () => reject(new Error("خطای شبکه"));
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try { resolve(JSON.parse(xhr.responseText)); }
+            catch { reject(new Error("پاسخ نامعتبر سرور")); }
+          } else {
+            reject(new Error(`خطای سرور (${xhr.status}): ${xhr.responseText.slice(0, 200)}`));
+          }
+        };
+        xhr.send(payload);
+      });
+
+      setUploadProgress(100);
+      const bookId = result?.bookId;
       if (!bookId) throw new Error("پاسخ سرور شناسه کتاب را برنگرداند.");
       toast.success("کتاب در حساب شما ایجاد شد. به ادیتور منتقل می‌شوید…");
       navigate(`/edit/${bookId}`);
@@ -208,8 +244,10 @@ export default function WordAddin() {
       toast.error(`آپلود ناموفق بود: ${e?.message ?? e}`);
     } finally {
       setBusy(false);
+      setTimeout(() => { setUploadProgress(null); setUploadPhase(""); }, 800);
     }
   };
+
 
   /* -------- Download cleaned .docx (with marker) -------- */
   const downloadCleaned = async () => {
