@@ -1057,7 +1057,17 @@ const Reader = () => {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setChaptersOpen(false)} className="fixed inset-0 backdrop-blur-md z-40" />
             <motion.aside initial={{ x: 440, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 440, opacity: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className="fixed top-0 bottom-0 right-0 z-50 w-full sm:w-[440px] glass-strong shadow-book border-l border-glass-border flex flex-col">
-              <ChapterSidebar chapters={chapters} current={currentChapterIndex} variant="drawer" onSelect={(i) => { goTo(i); setChaptersOpen(false); }} onClose={() => setChaptersOpen(false)} />
+              <ChapterSidebar
+                chapters={chapters}
+                current={currentChapterIndex}
+                variant="drawer"
+                onSelect={(i) => { goTo(i); setChaptersOpen(false); }}
+                onClose={() => setChaptersOpen(false)}
+                bookTitle={book.title}
+                logoUrl={book.publisher_logo_url || publisherLogoUrl}
+                publicationYear={book.publication_year ?? null}
+                bookVersion={book.content_version ?? null}
+              />
             </motion.aside>
           </>
         )}
