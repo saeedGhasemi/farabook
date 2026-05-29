@@ -262,6 +262,7 @@ export const ImageReviewPanel = ({
               it.attention === "missing-image" ? "border-destructive/60 bg-destructive/5"
               : it.attention === "mismatch" ? "border-orange-500/60 bg-orange-500/10"
               : it.attention === "missing-caption" ? "border-amber-500/60 bg-amber-500/10"
+              : it.attention === "needs-confirm" ? "border-sky-500/60 bg-sky-500/10"
               : isReviewed ? "border-emerald-500/50 bg-emerald-500/5"
               : "border-border hover:border-primary/40";
 
