@@ -902,39 +902,61 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
     if (m) mediaByRid.set(rid, m);
   }
 
+  // EMU → px (Word DOCX: 914400 EMU/inch; 96dpi → 9525 EMU/px).
+  const emuToPx = (emu?: number): number | undefined =>
+    emu && emu > 0 ? Math.max(16, Math.round(emu / 9525)) : undefined;
+
+  const pushImage = (ref: ImageRef) => {
+    const m = mediaByRid.get(ref.rid);
+    if (!m) return;
+    usedMediaNames.add(m.name);
+    imagesEmbedded++;
+    const w = emuToPx(ref.widthEmu);
+    const h = emuToPx(ref.heightEmu);
+    const attrs: any = { src: `media://${m.name}` };
+    // Only carry the width when the image was small in Word (icon-sized).
+    // Larger images keep responsive full-container rendering.
+    if (w && w < 480) {
+      attrs.width = w;
+      if (h) attrs.height = h;
+    }
+    content.push({ type: "image", attrs } as ImageNode);
+  };
+
+  // Footnote refs collected in document order; rendered at end as appendix.
+  const noteOrder: Array<{ kind: "footnote" | "endnote"; id: string }> = [];
+  const seenNote = new Set<string>();
+
   for (const b of topBlocks) {
     if (b.kind === "table") {
-      const rows = collectTableText(b.node);
-      for (const row of rows) {
-        content.push({
-          type: "paragraph",
-          attrs: { dir: detectDir(row, undefined) },
-          content: row ? [{ type: "text", text: row }] : [],
-        } as ParagraphNode);
-      }
+      const tbl = parseTable(b.node);
+      if (tbl) content.push(tbl);
       continue;
     }
     const info = b.info;
 
     if (info.hasMath) formulasDetected++;
 
+    if (info.noteRefs?.length) {
+      for (const ref of info.noteRefs) {
+        const key = `${ref.kind}:${ref.id}`;
+        if (seenNote.has(key)) continue;
+        const note = ref.kind === "footnote" ? footnotes.get(ref.id) : endnotes.get(ref.id);
+        if (!note?.length) continue;
+        seenNote.add(key);
+        noteOrder.push(ref);
+      }
+    }
+
     // Image-only paragraph → emit ImageNode(s)
     if (info.imageRels && info.imageRels.length && !info.text.trim()) {
-      for (const rid of info.imageRels) {
-        const m = mediaByRid.get(rid);
-        if (!m) continue;
-        usedMediaNames.add(m.name);
-        imagesEmbedded++;
-        content.push({
-          type: "image",
-          attrs: { src: `media://${m.name}` },
-        } as ImageNode);
-      }
+      for (const ref of info.imageRels) pushImage(ref);
       continue;
     }
 
-    // List item → prefix with proper marker (numbered or bullet)
+    // List item
     if (info.numId !== undefined) {
+      if (!info.text.trim() && !(info.imageRels?.length)) continue;
       const ilvl = info.ilvl ?? 0;
       const fmt = numFmtFor(numInfo, info.numId, ilvl);
       const isNumbered = !!fmt && fmt.numFmt && fmt.numFmt !== "bullet" && fmt.numFmt !== "none";
@@ -951,70 +973,60 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
       nodes.unshift({ type: "text", text: prefix });
       content.push({
         type: "paragraph",
-        attrs: {
-          dir: detectDir(info.text, info.bidi),
-          textAlign: info.align ?? null,
-        },
+        attrs: { dir: detectDir(info.text, info.bidi), textAlign: info.align ?? null },
         content: nodes,
       } as ParagraphNode);
       continue;
     }
 
-
-    // Heading?
+    // Heading — skip empty ones (matches Word Navigation pane behaviour:
+    // explicit-heading styles applied to blank lines should not appear in TOC).
     if (info.outlineLevel !== undefined) {
+      if (!info.text.trim()) continue;
       const level = Math.min(3, Math.max(1, (info.outlineLevel ?? 0) + 1)) as 1 | 2 | 3;
       content.push({
         type: "heading",
-        attrs: {
-          level,
-          dir: detectDir(info.text, info.bidi),
-          textAlign: info.align ?? null,
-        },
+        attrs: { level, dir: detectDir(info.text, info.bidi), textAlign: info.align ?? null },
         content: info.textNodes,
       } as HeadingNode);
       continue;
     }
 
-    // Normal paragraph
+    // Inline images embedded with text → emit images first, then paragraph
+    if (info.imageRels && info.imageRels.length) {
+      for (const ref of info.imageRels) pushImage(ref);
+    }
+
+    // Normal paragraph — skip totally empty ones
+    if (!info.text.trim()) continue;
     content.push({
       type: "paragraph",
-      attrs: {
-        dir: detectDir(info.text, info.bidi),
-        textAlign: info.align ?? null,
-      },
+      attrs: { dir: detectDir(info.text, info.bidi), textAlign: info.align ?? null },
       content: info.textNodes,
     } as ParagraphNode);
+  }
 
-    if (info.noteRefs?.length) {
-      for (const ref of info.noteRefs) {
-        const key = `${ref.kind}:${ref.id}`;
-        if (emittedNotes.has(key)) continue;
-        const note = ref.kind === "footnote" ? footnotes.get(ref.id) : endnotes.get(ref.id);
-        if (!note?.length) continue;
-        emittedNotes.add(key);
-        content.push({
-          type: "paragraph",
-          attrs: { dir: detectDir(note.map((n) => n.text).join(""), info.bidi) },
-          content: [{ type: "text", text: `${ref.id}. ` }, ...note],
-        } as ParagraphNode);
-      }
-    }
-
-    // Inline images embedded WITH text: emit after paragraph
-    if (info.imageRels && info.imageRels.length) {
-      for (const rid of info.imageRels) {
-        const m = mediaByRid.get(rid);
-        if (!m) continue;
-        usedMediaNames.add(m.name);
-        imagesEmbedded++;
-        content.push({
-          type: "image",
-          attrs: { src: `media://${m.name}` },
-        } as ImageNode);
-      }
+  // Footnotes as appendix at end of document (web-friendly pattern)
+  if (noteOrder.length) {
+    content.push({
+      type: "heading",
+      attrs: { level: 2, dir: "rtl", textAlign: null },
+      content: [{ type: "text", text: "پاورقی‌ها" }],
+    } as HeadingNode);
+    for (const ref of noteOrder) {
+      const note = ref.kind === "footnote" ? footnotes.get(ref.id) : endnotes.get(ref.id);
+      if (!note?.length) continue;
+      content.push({
+        type: "paragraph",
+        attrs: { dir: detectDir(note.map((n) => n.text).join(""), undefined), textAlign: null },
+        content: [
+          { type: "text", text: `${ref.id}. `, marks: [{ type: "bold" }] },
+          ...note,
+        ],
+      } as ParagraphNode);
     }
   }
+
 
   const doc: TiptapDoc = { type: "doc", content };
   const media = bundle.media.filter((m) => usedMediaNames.has(m.name));
