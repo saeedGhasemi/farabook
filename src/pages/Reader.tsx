@@ -348,42 +348,61 @@ const Reader = () => {
     if (ambient === "off") return;
     const src = ambientSrc[ambient];
     if (!src) return;
-    const a = new Audio(src);
-    a.crossOrigin = "anonymous";
+    const a = new Audio();
+    // NOTE: do NOT set crossOrigin — the Pixabay CDN does not return
+    // CORS headers and the audio element silently refuses to load when
+    // crossOrigin is set. Plain playback (no Web Audio API) works fine.
     a.loop = true;
     a.volume = 0;
     a.preload = "auto";
+    a.src = src;
     audioRef.current = a;
 
-    const playPromise = a.play();
-    if (playPromise) {
-      playPromise.then(() => {
-        // fade-in over 1.2s
-        const target = 0.28;
-        const steps = 20;
-        let n = 0;
-        const fade = window.setInterval(() => {
-          n++;
-          if (audioRef.current === a) a.volume = Math.min(target, (target * n) / steps);
-          if (n >= steps) window.clearInterval(fade);
-        }, 60);
-      }).catch(() => {
-        // Autoplay blocked — wait for first user interaction
-        const resume = () => {
-          a.play().then(() => { a.volume = 0.28; }).catch(() => {});
-          window.removeEventListener("pointerdown", resume);
-          window.removeEventListener("keydown", resume);
-        };
-        window.addEventListener("pointerdown", resume, { once: true });
-        window.addEventListener("keydown", resume, { once: true });
-        toast.info(lang === "fa" ? "برای پخش صدای محیطی روی صفحه کلیک کنید" : "Tap the page to start ambient sound");
-      });
-    }
+    let cancelled = false;
+    let fadeTimer: number | null = null;
+    const fadeIn = () => {
+      const target = 0.28;
+      const steps = 20;
+      let n = 0;
+      fadeTimer = window.setInterval(() => {
+        n++;
+        if (audioRef.current === a) a.volume = Math.min(target, (target * n) / steps);
+        if (n >= steps && fadeTimer) { window.clearInterval(fadeTimer); fadeTimer = null; }
+      }, 60);
+    };
+
+    const armResume = () => {
+      const resume = () => {
+        a.play().then(fadeIn).catch((err) => {
+          console.warn("[ambient] resume play failed", err);
+        });
+      };
+      window.addEventListener("pointerdown", resume, { once: true });
+      window.addEventListener("keydown", resume, { once: true });
+      window.addEventListener("touchstart", resume, { once: true });
+    };
+
+    a.addEventListener("error", () => {
+      console.error("[ambient] audio error", a.error, "src=", src);
+      if (!cancelled) {
+        toast.error(lang === "fa" ? "پخش صدای محیطی ممکن نشد" : "Couldn't load ambient sound");
+      }
+    });
+
+    a.play().then(fadeIn).catch((err) => {
+      console.warn("[ambient] autoplay blocked, waiting for tap:", err);
+      armResume();
+      toast.info(lang === "fa" ? "برای پخش صدای محیطی روی صفحه بزنید" : "Tap the page to start ambient sound");
+    });
+
     return () => {
+      cancelled = true;
+      if (fadeTimer) window.clearInterval(fadeTimer);
       a.pause();
       a.src = "";
     };
-  }, [ambient, lang]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ambient]);
 
   useEffect(() => () => { stopSpeakSmart(); }, []);
   useEffect(() => {
