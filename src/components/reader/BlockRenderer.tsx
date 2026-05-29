@@ -131,15 +131,13 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
           <Popover key={key}>
             <PopoverTrigger asChild>
               <span
-                className="border-b border-dotted border-accent cursor-help"
+                className="cursor-help"
                 title={content}
                 role="button"
                 tabIndex={0}
               >
-                {word}
-                <span className="align-super text-[0.7em] mx-0.5 text-accent font-medium">
-                  [{label}]
-                </span>
+                <span className="border-b border-dotted border-accent">{word}</span>
+                <sup className="text-[0.75em] mx-0.5 text-primary font-medium">{label}</sup>
               </span>
             </PopoverTrigger>
             <PopoverContent side="top" align="center" className="max-w-xs text-sm leading-relaxed whitespace-pre-wrap" dir="auto">
@@ -156,10 +154,10 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
             <button
               type="button"
               title={content}
-              className="align-super text-[0.7em] mx-0.5 text-accent font-medium border-b border-dotted border-accent focus:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded"
+              className="text-primary font-medium focus:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded"
               aria-label={`پاورقی ${label}`}
             >
-              [{label}]
+              <sup className="text-[0.75em] mx-0.5">{label}</sup>
             </button>
           </PopoverTrigger>
           <PopoverContent side="top" align="center" className="max-w-xs text-sm leading-relaxed whitespace-pre-wrap" dir="auto">
@@ -168,6 +166,7 @@ const renderInlineMarkdown = (text: string, baseKey = ""): React.ReactNode => {
         </Popover>
       );
     }
+
     const supM = /^\[sup\]([\s\S]*?)\[\/sup\]$/.exec(p);
     if (supM) return <sup key={key}>{renderInlineMarkdown(supM[1], `${key}-sup`)}</sup>;
     const subM = /^\[sub\]([\s\S]*?)\[\/sub\]$/.exec(p);
