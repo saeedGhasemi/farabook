@@ -6,7 +6,7 @@ import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Image as ImageIcon, Trash2, BookOpen, LayoutGrid } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
-import { useImageUpload } from "@/hooks/useImageUpload";
+import { useImageUpload } from "./tiptap-nodes";
 import { toast } from "sonner";
 import type { CoverCrop } from "@/components/reader/CoverImage";
 
