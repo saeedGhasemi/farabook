@@ -203,7 +203,13 @@ const Reader = () => {
         .eq("user_id", user.id).eq("book_id", id).maybeSingle();
       if (data) {
         setUserBookId(data.id);
-        setPageIdx(data.current_page ?? 0);
+        const savedIdx = data.current_page ?? 0;
+        setPageIdx(savedIdx);
+        // If the reader is resuming past page 0, skip the front cover.
+        if (savedIdx > 0) {
+          coverDismissedRef.current = true;
+          setCoverView(null);
+        }
         return;
       }
       // No row yet — create one so progress is tracked. Best-effort: ignore
