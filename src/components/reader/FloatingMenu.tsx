@@ -5,6 +5,7 @@ import {
   Volume2, VolumeX, Settings2, Sun, Moon, Search,
   CloudRain, Trees, Coffee, Stars, VolumeOff, Menu, BookmarkCheck,
   ChevronUp, ChevronDown, Clock, MessageSquare,
+  Columns, ScrollText, Maximize2, Minimize2,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
