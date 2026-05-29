@@ -1064,7 +1064,7 @@ const Reader = () => {
         readingMode={readingMode}
         onToggleReadingMode={() => setReadingMode((m) => (m === "scroll" ? "paginated" : "scroll"))}
         fullscreen={fullscreen}
-        onToggleFullscreen={() => setFullscreen((v) => !v)}
+        onToggleFullscreen={toggleFullscreen}
       />
 
       {/* AI panel */}
