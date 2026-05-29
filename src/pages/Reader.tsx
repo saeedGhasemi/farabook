@@ -23,6 +23,8 @@ import { BookComments } from "@/components/BookComments";
 import { CopyProtection } from "@/components/reader/CopyProtection";
 import { ReadingLockOverlay } from "@/components/reader/ReadingLockOverlay";
 import { useReadingLock } from "@/hooks/useReadingLock";
+import { CoverPage } from "@/components/reader/CoverPage";
+import type { CoverCrop } from "@/components/reader/CoverImage";
 import {
   loadOfflineBook,
   listOfflineHighlights,
@@ -46,6 +48,12 @@ interface Book {
   pages: Page[];
   price?: number;
   publisher_id?: string | null;
+  cover_url?: string | null;
+  cover_focus?: { x?: number; y?: number } | null;
+  back_cover_url?: string | null;
+  back_cover_focus?: { x?: number; y?: number } | null;
+  cover_spread_url?: string | null;
+  cover_crop?: CoverCrop;
 }
 
 const ambientSrc: Record<string, string> = {
@@ -82,6 +90,9 @@ const Reader = () => {
 
   const [book, setBook] = useState<Book | null>(null);
   const [pageIdx, setPageIdx] = useState(0);
+  /** When non-null, show the cover page overlay instead of regular content. */
+  const [coverView, setCoverView] = useState<"front" | "back" | null>("front");
+  const coverDismissedRef = useRef(false);
   const [flipDir, setFlipDir] = useState<1 | -1>(1);
   const [fontSize, setFontSize] = useState(16);
   const [voiceSpeed, setVoiceSpeed] = useState(1);
@@ -138,7 +149,7 @@ const Reader = () => {
       // page content through the ownership-checked RPC.
       const { data, error } = await supabase
         .from("books")
-        .select("id, title, author, cover_url, cover_focus, description, price, publisher_id, status, review_status, typography_preset, ambient_theme, preview_pages, language, isbn, publication_year, edition, page_count, subtitle, book_type, original_title, original_language, series_name, series_index, categories, subjects, contributors, content_version, content_updated_at, comments_enabled, ai_summary")
+        .select("id, title, author, cover_url, cover_focus, back_cover_url, back_cover_focus, cover_spread_url, cover_crop, description, price, publisher_id, status, review_status, typography_preset, ambient_theme, preview_pages, language, isbn, publication_year, edition, page_count, subtitle, book_type, original_title, original_language, series_name, series_index, categories, subjects, contributors, content_version, content_updated_at, comments_enabled, ai_summary")
         .eq("id", id)
         .maybeSingle();
       if (cancelled) return;
@@ -174,7 +185,7 @@ const Reader = () => {
       // Only replace the offline-rendered copy if we actually have newer pages
       // (server returned non-empty pages).
       if (!renderedOffline || pages.length > 0) {
-        setBook({ ...data, pages: pages as unknown as Page[] });
+        setBook({ ...(data as any), pages: pages as unknown as Page[] });
         if (data.ambient_theme && data.ambient_theme !== "paper") setAmbient(data.ambient_theme);
       }
     })();
@@ -192,7 +203,13 @@ const Reader = () => {
         .eq("user_id", user.id).eq("book_id", id).maybeSingle();
       if (data) {
         setUserBookId(data.id);
-        setPageIdx(data.current_page ?? 0);
+        const savedIdx = data.current_page ?? 0;
+        setPageIdx(savedIdx);
+        // If the reader is resuming past page 0, skip the front cover.
+        if (savedIdx > 0) {
+          coverDismissedRef.current = true;
+          setCoverView(null);
+        }
         return;
       }
       // No row yet — create one so progress is tracked. Best-effort: ignore
@@ -338,9 +355,20 @@ const Reader = () => {
     return currentPage.content || "";
   }, [currentPage]);
 
-  const goNext = () => { if (pageIdx < total - 1) { setFlipDir(1); setPageIdx(pageIdx + 1); } };
-  const goPrev = () => { if (pageIdx > 0) { setFlipDir(-1); setPageIdx(pageIdx - 1); } };
+  const goNext = () => {
+    if (coverView === "front") { coverDismissedRef.current = true; setCoverView(null); setFlipDir(1); return; }
+    if (coverView === "back") return;
+    if (pageIdx < total - 1) { setFlipDir(1); setPageIdx(pageIdx + 1); }
+    else { setFlipDir(1); setCoverView("back"); }
+  };
+  const goPrev = () => {
+    if (coverView === "front") return;
+    if (coverView === "back") { setCoverView(null); setFlipDir(-1); return; }
+    if (pageIdx > 0) { setFlipDir(-1); setPageIdx(pageIdx - 1); }
+    else { setFlipDir(-1); setCoverView("front"); }
+  };
   const goTo = (i: number) => {
+    if (coverView !== null) setCoverView(null);
     if (i === pageIdx) return;
     setFlipDir(i > pageIdx ? 1 : -1);
     setPageIdx(i);
@@ -693,6 +721,28 @@ const Reader = () => {
           {/* Page */}
           <div className="relative">
             <AnimatePresence mode="wait">
+              {coverView ? (
+                <motion.div
+                  key={`cover-${coverView}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="min-h-[60vh] flex items-center justify-center py-6"
+                >
+                  <CoverPage
+                    side={coverView}
+                    title={book.title}
+                    author={book.author}
+                    coverUrl={book.cover_url}
+                    backCoverUrl={book.back_cover_url}
+                    spreadUrl={book.cover_spread_url}
+                    crop={book.cover_crop}
+                    focus={book.cover_focus}
+                    backFocus={book.back_cover_focus}
+                  />
+                </motion.div>
+              ) : (
               <motion.article
                 ref={articleRef}
                 key={pageIdx}
@@ -757,6 +807,7 @@ const Reader = () => {
                   </div>
                 </div>
               </motion.article>
+              )}
             </AnimatePresence>
 
             {/* Floating side arrows — always reachable without scrolling */}
