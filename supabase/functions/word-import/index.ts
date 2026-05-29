@@ -435,6 +435,8 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
     for (let i = 0; i < parts.length; i += 1) {
       const part = parts[i];
       const text = textFromWordXml(part);
+      const notes = [...part.matchAll(/<w:(footnoteReference|endnoteReference)\b[^>]*(?:w:)?id=["']([^"']+)["'][^>]*\/>/gi)]
+        .map((nm) => ({ kind: nm[1] === "footnoteReference" ? "footnote" as const : "endnote" as const, id: nm[2] }));
       if (text) {
         // Heading-based new-page promotion only when we don't have rendered
         // page breaks — otherwise real pagination already drives splits.
@@ -449,6 +451,10 @@ function docxToPagesTextOnly(input: Buffer): { pages: Page[]; removedImages: num
           if (false && /^صفحه\s+\d+\s*$/.test(cur.title) && cur.blocks.length === 1) {
             cur.title = text.slice(0, 120);
           }
+        }
+        for (const n of notes) {
+          const nt = noteText(n.kind, n.id);
+          if (nt) cur.blocks.push({ type: "paragraph", text: `${n.id}. ${nt}` });
         }
       }
       // Only honor a manual page break if the current page actually has
