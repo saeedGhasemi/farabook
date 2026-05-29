@@ -990,6 +990,19 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
     }
   };
 
+  // Running "Word page" number — incremented every time a paragraph contains
+  // an explicit or rendered page break. We emit a `print_page` node BEFORE
+  // the paragraph that opens each new page so the reader can show
+  // "صفحه چاپی N". Only active when the doc actually has page breaks.
+  const totalPageBreaks = topBlocks.reduce(
+    (s, b) => s + (b.kind === "para" ? (b.info.pageBreaks ?? 0) : 0),
+    0,
+  );
+  let wordPageNum = 1;
+  if (totalPageBreaks > 0) {
+    content.push({ type: "print_page", attrs: { number: String(wordPageNum) } } as any);
+  }
+
   for (const b of topBlocks) {
     if (b.kind === "table") {
       const tbl = parseTable(b.node);
@@ -997,6 +1010,12 @@ export function mapOoxmlToDoc(bundle: OoxmlBundle): MapResult {
       continue;
     }
     const info = b.info;
+    if (info.pageBreaks && totalPageBreaks > 0) {
+      for (let i = 0; i < info.pageBreaks; i += 1) {
+        wordPageNum += 1;
+        content.push({ type: "print_page", attrs: { number: String(wordPageNum) } } as any);
+      }
+    }
 
     if (info.hasMath) formulasDetected++;
 
