@@ -1,18 +1,25 @@
 // Tree preview of the TOC the wizard would produce, plus a control to
-// promote a custom Word style to H1, and inline edit/delete of each
-// detected heading (up to 8 levels). Edits mutate the AST via callbacks.
+// promote one OR MORE custom Word styles to specific heading levels
+// (H1..H8), and inline edit/delete of each detected heading. Edits mutate
+// the AST via callbacks.
 
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, AlertTriangle, Pencil, Trash2, Check, X } from "lucide-react";
+import { ChevronDown, ChevronRight, AlertTriangle, Pencil, Trash2, Check, X, Plus } from "lucide-react";
 import { flattenToc, type TocNode } from "@/lib/docx/toc-builder";
+
+export interface CustomHeadingEntry {
+  name: string;
+  level: number; // 1..8
+}
 
 interface Props {
   toc: TocNode[];
-  customStyleName: string;
-  onCustomStyleNameChange: (v: string) => void;
+  /** Multiple custom styles each mapped to a heading level. */
+  customHeadings: CustomHeadingEntry[];
+  onCustomHeadingsChange: (next: CustomHeadingEntry[]) => void;
   availableStyleNames: string[];
   /** Update the heading at AST index with new title/level. */
   onEditHeading?: (index: number, level: 1|2|3|4|5|6|7|8, title: string) => void;
@@ -32,7 +39,7 @@ const LEVEL_BG: Record<number, string> = {
 };
 
 export const TocPreview = ({
-  toc, customStyleName, onCustomStyleNameChange, availableStyleNames,
+  toc, customHeadings, onCustomHeadingsChange, availableStyleNames,
   onEditHeading, onDeleteHeading,
 }: Props) => {
   const flat = useMemo(() => flattenToc(toc), [toc]);
@@ -53,24 +60,88 @@ export const TocPreview = ({
     cancelEdit();
   };
 
+  const updateRow = (i: number, patch: Partial<CustomHeadingEntry>) => {
+    const next = customHeadings.slice();
+    next[i] = { ...next[i], ...patch };
+    onCustomHeadingsChange(next);
+  };
+  const removeRow = (i: number) => {
+    onCustomHeadingsChange(customHeadings.filter((_, j) => j !== i));
+  };
+  const addRow = () => {
+    // Choose a sensible default level: continue the deepest already-mapped level,
+    // or start at H1 if list is empty.
+    const nextLevel = customHeadings.length
+      ? Math.min(8, Math.max(...customHeadings.map((c) => c.level)) + 1)
+      : 1;
+    onCustomHeadingsChange([...customHeadings, { name: "", level: nextLevel }]);
+  };
+  const moveRow = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= customHeadings.length) return;
+    const next = customHeadings.slice();
+    [next[i], next[j]] = [next[j], next[i]];
+    onCustomHeadingsChange(next);
+  };
+
   return (
     <div className="space-y-3" dir="rtl">
       <div className="rounded-md border bg-secondary/30 p-3 space-y-2">
-        <Label className="text-xs">نام Style سفارشی برای فصل‌ها (اختیاری)</Label>
-        <Input
-          value={customStyleName}
-          onChange={(e) => onCustomStyleNameChange(e.target.value)}
-          placeholder="مثلاً: ChapterTitle"
-          className="h-9"
-          list="available-styles"
-        />
-        <datalist id="available-styles">
-          {availableStyleNames.map((n) => <option key={n} value={n} />)}
-        </datalist>
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
-          اگر در Word به‌جای «Heading 1» از یک Style سفارشی برای عنوان فصل‌ها استفاده کرده‌اید،
-          نام دقیق آن را اینجا وارد کنید. در غیر این صورت Heading 1 تا 8 پیش‌فرض استفاده می‌شود.
-        </p>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs">Styleهای سفارشی فصل‌ها (اختیاری)</Label>
+          <Button size="sm" variant="ghost" className="h-7" onClick={addRow}>
+            <Plus className="h-3.5 w-3.5 me-1" />
+            افزودن استایل
+          </Button>
+        </div>
+
+        {customHeadings.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            اگر در Word به‌جای «Heading 1..8» از Styleهای سفارشی برای عنوان‌ها استفاده کرده‌اید،
+            می‌توانید چندین Style را اضافه کنید و برای هرکدام سطح هدینگ (H1 تا H8) را انتخاب کنید.
+            ترکیب با Headingهای پیش‌فرض هم پشتیبانی می‌شود.
+          </p>
+        ) : (
+          <div className="space-y-1.5">
+            {customHeadings.map((row, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <select
+                  value={row.level}
+                  onChange={(e) => updateRow(i, { level: Number(e.target.value) })}
+                  className="h-8 rounded border bg-background px-1 text-[11px]"
+                  title="سطح هدینگ"
+                >
+                  {[1,2,3,4,5,6,7,8].map((lv) => <option key={lv} value={lv}>H{lv}</option>)}
+                </select>
+                <Input
+                  value={row.name}
+                  onChange={(e) => updateRow(i, { name: e.target.value })}
+                  placeholder="نام Style در Word (مثلاً: ChapterTitle)"
+                  className="h-8 flex-1 text-xs"
+                  list={`available-styles-${i}`}
+                />
+                <datalist id={`available-styles-${i}`}>
+                  {availableStyleNames.map((n) => <option key={n} value={n} />)}
+                </datalist>
+                <Button size="icon" variant="ghost" className="h-7 w-7"
+                  onClick={() => moveRow(i, -1)} disabled={i === 0} title="انتقال به بالا">
+                  <ChevronDown className="h-3.5 w-3.5 rotate-180" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-7 w-7"
+                  onClick={() => moveRow(i, 1)} disabled={i === customHeadings.length - 1} title="انتقال به پایین">
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-7 w-7 hover:text-destructive"
+                  onClick={() => removeRow(i)} title="حذف">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+            <p className="text-[11px] text-muted-foreground leading-relaxed pt-1">
+              ترتیب ردیف‌ها فقط جنبهٔ نمایشی دارد؛ آنچه ساختار فهرست را می‌سازد سطح H1..H8 انتخابی برای هر Style است.
+            </p>
+          </div>
+        )}
       </div>
 
       {toc.length === 0 ? (
@@ -79,8 +150,7 @@ export const TocPreview = ({
           <div>
             <div className="font-medium">هیچ فصلی شناسایی نشد.</div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              در Word روی هر تیتر فصل کلیک کنید و از پنل Styles، <b>Heading 1</b> را اعمال کنید،
-              یا نام Style سفارشی خود را در کادر بالا وارد کنید.
+              در Word از Styleهای Heading 1..8 استفاده کنید یا نام Styleهای سفارشی خود را در بالا اضافه کنید.
             </div>
           </div>
         </div>
