@@ -3,6 +3,8 @@
 // Old PWA workers (sw.js, service-worker.js) are unregistered on sight to
 // prevent stale builds from being served.
 
+import { APP_VERSION } from "@/lib/version";
+
 const isInIframe = (() => {
   try { return window.self !== window.top; } catch { return true; }
 })();
@@ -17,7 +19,8 @@ const isPreviewHost =
 
 export const PWA_ENABLED = !isInIframe && !isPreviewHost;
 
-const APP_SW_URL = "/app-sw.js";
+const APP_SW_PATH = "/app-sw.js";
+const APP_SW_URL = `${APP_SW_PATH}?v=${encodeURIComponent(APP_VERSION)}`;
 
 async function unregisterLegacyWorkers(): Promise<void> {
   if (!("serviceWorker" in navigator)) return;
@@ -25,7 +28,8 @@ async function unregisterLegacyWorkers(): Promise<void> {
   await Promise.all(
     regs.map(async (r) => {
       const scriptURL = r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || "";
-      if (!scriptURL.endsWith(APP_SW_URL)) {
+      const pathname = scriptURL ? new URL(scriptURL).pathname : "";
+      if (pathname !== APP_SW_PATH) {
         try { await r.unregister(); } catch (_) {}
       }
     }),
