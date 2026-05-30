@@ -52,7 +52,9 @@ self.addEventListener("fetch", (event) => {
   // Never cache the service worker scripts themselves.
   if (url.pathname === "/app-sw.js" || url.pathname === "/sw.js" || url.pathname === "/service-worker.js") return;
 
-  // HTML navigations → network-first, fallback to cached shell
+  // HTML navigations → network-first, fallback to cached shell. The root
+  // shell is cached only after a real navigation succeeds so installs never
+  // pin the app to the HTML from the install-time version.
   if (req.mode === "navigate" || (req.headers.get("accept") || "").includes("text/html")) {
     event.respondWith((async () => {
       try {
