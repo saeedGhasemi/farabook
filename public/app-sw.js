@@ -9,10 +9,12 @@
 // On activate, old caches are purged and clients are reloaded only when
 // upgrading from a different SW version.
 
-const SHELL_CACHE = "farabook-shell-v1";
-const ASSET_CACHE = "farabook-assets-v1";
-const RUNTIME_CACHE = "farabook-runtime-v1";
-const SHELL_URLS = ["/", "/manifest.webmanifest"];
+const VERSION = new URL(self.location.href).searchParams.get("v") || "dev";
+const SHELL_CACHE = `farabook-shell-${VERSION}`;
+const ASSET_CACHE = `farabook-assets-${VERSION}`;
+const RUNTIME_CACHE = `farabook-runtime-${VERSION}`;
+const CACHE_ALLOWLIST = [SHELL_CACHE, ASSET_CACHE, RUNTIME_CACHE];
+const SHELL_URLS = ["/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
@@ -27,7 +29,7 @@ self.addEventListener("activate", (event) => {
     const names = await caches.keys();
     await Promise.all(
       names
-        .filter((n) => ![SHELL_CACHE, ASSET_CACHE, RUNTIME_CACHE].includes(n))
+        .filter((n) => n.startsWith("farabook-") && !CACHE_ALLOWLIST.includes(n))
         .map((n) => caches.delete(n)),
     );
     await self.clients.claim();
@@ -50,7 +52,9 @@ self.addEventListener("fetch", (event) => {
   // Never cache the service worker scripts themselves.
   if (url.pathname === "/app-sw.js" || url.pathname === "/sw.js" || url.pathname === "/service-worker.js") return;
 
-  // HTML navigations → network-first, fallback to cached shell
+  // HTML navigations → network-first, fallback to cached shell. The root
+  // shell is cached only after a real navigation succeeds so installs never
+  // pin the app to the HTML from the install-time version.
   if (req.mode === "navigate" || (req.headers.get("accept") || "").includes("text/html")) {
     event.respondWith((async () => {
       try {
